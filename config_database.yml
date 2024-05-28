@@ -1,0 +1,9 @@
+# Configurações de conexão com o SQLServer
+bancos:
+    server: 'localhost'
+    database: 'GEO_SIGR_PERDAS'
+    username: 'usr_GeoPerdas'
+    password: '123456'
+    schema: 'SDE'
+
+dbf_directory: 'D:\\Doutorado\\PD\dados\\BDGD\\Energisa\\Shapefile'

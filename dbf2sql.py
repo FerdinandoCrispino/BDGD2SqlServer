@@ -3,8 +3,15 @@ import glob
 import pyodbc
 from dbfread import DBF
 from datetime import datetime
-import pandas as pd
+#import pandas as pd
 import logging
+import yaml
+
+# application_path = expandvars(r'$ADMS')
+application_path = os.path.dirname(os.path.abspath(__file__))
+with open(os.path.join(application_path, r'config_database.yml'), 'r') as file:
+    config_bdgd = yaml.load(file, Loader=yaml.BaseLoader)
+
 
 # Configuração do logger
 logging.basicConfig(filename='processamento_dbf.log',level=logging.INFO,
@@ -12,13 +19,13 @@ logging.basicConfig(filename='processamento_dbf.log',level=logging.INFO,
 
 
 # Função para criar uma conexão com o banco de dados SQL Server
-def create_connection(server, database, username, password):
+def create_connection(config_bdgd):
     conn_str = (
             'DRIVER={ODBC Driver 17 for SQL Server};'
-            'SERVER=' + server + ';'
-                                 'DATABASE=' + database + ';'
-                                                          'UID=' + username + ';'
-                                                                              'PWD=' + password
+            'SERVER=' + config_bdgd['bancos']['server'] + ';'
+                                 'DATABASE=' + config_bdgd['bancos']['database'] + ';'
+                                                          'UID=' + config_bdgd['bancos']['username'] + ';'
+                                                                              'PWD=' + config_bdgd['bancos']['password']
     )
     return pyodbc.connect(conn_str)
 
@@ -76,14 +83,6 @@ def insert_data(cursor, table_name, data, data_base, data_carga):
     print(f"Dados inseridos com exito na tabela {table_name}.  ")
     cursor.execute('SET ANSI_WARNINGS on;')
 
-
-# Configurações de conexão com o SQL Server
-server = 'localhost'
-database = 'GEO_SIGR_PERDAS'
-username = 'usr_GeoPerdas'
-password = '123456'
-schema = 'SDE'
-
 # Diretório contendo os arquivos DBF
 dbf_directory = 'D:\\Doutorado\\PD\dados\\BDGD\\Energisa\\Shapefile'
 
@@ -93,7 +92,7 @@ data_carga = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 if __name__ == "__main__":
     # Conectando ao banco de dados sqlserver
-    conn = create_connection(server, database, username, password)
+    conn = create_connection(config_bdgd)
     cursor = conn.cursor()
 
     # Buscando todos os arquivos DBF no diretório
@@ -102,8 +101,8 @@ if __name__ == "__main__":
     for dbf_file in dbf_files:
         # Extraindo o nome do arquivo (sem extensão) para usar como nome da tabela
         table_name = os.path.splitext(os.path.basename(dbf_file))[0]
-        if schema != '':
-            table_name = f'{schema}.{table_name}'
+        if config_bdgd['bancos']['schema'] != '':
+            table_name = f'{config_bdgd["bancos"]["schema"]}.{table_name}'
 
         try:
             # Lendo o arquivo DBF
@@ -141,9 +140,9 @@ if __name__ == "__main__":
 
             coldiff = [i.strip() for i in listColDbf if i.strip() not in listColSql]
 
-        # Removendo colunas do dbf que não exitem no sqlserver
-        if len(coldiff) > 0:
-            data = remove_columns(data, coldiff)
+            # Removendo colunas do dbf que não exitem no sqlserver
+            if len(coldiff) > 0:
+                data = remove_columns(data, coldiff)
 
         # Inserindo os dados no banco de dados
         insert_data(cursor, table_name, data, data_base, data_carga)
