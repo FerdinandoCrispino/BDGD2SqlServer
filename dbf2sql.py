@@ -18,8 +18,8 @@ logging.basicConfig(filename='processamento_dbf.log',level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-# Função para criar uma conexão com o banco de dados SQL Server
 def create_connection(config_bdgd):
+    """Função para criar uma conexão com o banco de dados SQL Server"""
     conn_str = (
             'DRIVER={ODBC Driver 17 for SQL Server};'
             'SERVER=' + config_bdgd['bancos']['server'] + ';'
@@ -30,8 +30,8 @@ def create_connection(config_bdgd):
     return pyodbc.connect(conn_str)
 
 
-# Remove colunas do dbf. Para o caso do SqlServer não ter a coluna no seu modelo de dados
 def remove_columns(data_dbf, columns_to_remove: list):
+    """Remove colunas do dbf. Para o caso do SqlServer não ter a coluna no seu modelo de dados"""
     for record in data_dbf:
         for column in columns_to_remove:
             if column in record.keys():
@@ -39,8 +39,8 @@ def remove_columns(data_dbf, columns_to_remove: list):
     return data_dbf
 
 
-# Renomeia colunas do dbf. Para os casos onde o modelo de dados do sqlserver tem colunas com nome diferentes do dbf
 def rename_columns(data_dbf, columns_rename: dict):
+    """Renomeia colunas do dbf. Para os casos onde o modelo de dados do sqlserver tem colunas com nome diferentes do dbf"""
     for record in data_dbf:
         for old_name, new_name in columns_rename.items():
             if old_name in record:
@@ -48,8 +48,8 @@ def rename_columns(data_dbf, columns_rename: dict):
     return data_dbf
 
 
-# Função para inserir dados no banco de dados com tratamento de erro
 def insert_data(cursor, table_name, data, data_base, data_carga):
+    """Função para inserir dados no banco de dados com tratamento de erro"""
     if not data:
         return
 
@@ -67,27 +67,34 @@ def insert_data(cursor, table_name, data, data_base, data_carga):
             print(sql)
             print(tuple(row.values()))
             cursor.execute(sql, tuple(row.values()))
-            # cuidado o arquivo de log pode ficar muito grande
+
+            #* cuidado o arquivo de log pode ficar muito grande
             logging.info(f'SQL: {sql} valores {tuple(row.values())}')
+
         except pyodbc.DatabaseError as e:
             logging.info(f'SQL Erro: tabela {table_name}: {e}')
             print(f"Erro ao inserir dados na tabela {table_name}: {e}")
+
             if e.args[0] == '42000':  # campos truncados
                 cursor.execute('SET ANSI_WARNINGS off;')
                 cursor.execute(sql, tuple(row.values()))
+
             if e.args[0] == '42S02':  # tabela não existe
                 break  # exit for loop
+
         except Exception as e:
             logging.info(f'Erro inesperado ao inserir dados na tabela {table_name}: {e}')
             print(f"Erro inesperado ao inserir dados na tabela {table_name}: {e}")
+
     print(f"Dados inseridos com exito na tabela {table_name}.  ")
     cursor.execute('SET ANSI_WARNINGS on;')
 
-# Diretório contendo os arquivos DBF
-dbf_directory = 'D:\\Doutorado\\PD\dados\\BDGD\\Energisa\\Shapefile'
+#+ Diretório contendo os arquivos DBF
+# dbf_directory = 'D:/Doutorado/PD/dados/BDGD/Energisa/Shapefile'
+dbf_directory = 'E:/Ananda/Documents/Enerq/02_dbf_sql/shape_enel_2019'
 
-# Valores dos campos adicionais
-data_base = "2022-12-31"
+#+ Valores dos campos adicionais
+data_base = "2019-12-31"
 data_carga = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 if __name__ == "__main__":
