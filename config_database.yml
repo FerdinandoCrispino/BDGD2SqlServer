@@ -1,9 +1,19 @@
 # Configurações de conexão com o SQLServer
 bancos:
     server: 'localhost'
-    database: 'GEO_SIGR_PERDAS'
+    database: 'GEO_SIGR_PERDAS_EDP_SP'
     username: 'usr_GeoPerdas'
     password: '123456'
     schema: 'SDE'
 
+tipo_arquivo: "gdb"    # gbd ou dbf
 dbf_directory: 'D:\\Doutorado\\PD\dados\\BDGD\\Energisa\\Shapefile'
+
+#gdb_directory: 'D:\\Doutorado\\PD\dados\\BDGD\\Energisa'
+#gdb_file: 'Energisa_MS_404_2022-12-31_V11_20231219-1342.gdb'
+
+gdb_directory: 'D:\Doutorado\PD\dados\BDGD\EDP_SP_391_2022-12-31_V11_20231030-1400.gdb'
+gdb_file: 'EDP_SP_391_2022-12-31_V11_20231030-1400.gdb'
+data_base: "2022-12-31"
+dist: '391'
+cod_BDGD: '1400'
