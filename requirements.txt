@@ -1,0 +1,7 @@
+pyodbc==4.0.32
+pandas==1.5.3
+PyYAML==6.0
+simpledbf==0.2.6
+geopandas==0.12.2
+Fiona==1.9.2
+SQLAlchemy==1.4.29
