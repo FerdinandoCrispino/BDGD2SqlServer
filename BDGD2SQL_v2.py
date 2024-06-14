@@ -63,6 +63,9 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
                 if '42S02' in e.args[0]:  # tabela não existe
                     logging.info(f"{table_name}: \tNão existe no SQL Server.")
                     print(f"{table_name}: \tNão existe no SQL Server.")
+
+                else:
+                    print(e)
                     continue
 
             """
