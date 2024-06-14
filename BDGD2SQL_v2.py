@@ -92,7 +92,7 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
 
                 # Localizando colunas que não exitem nas tabelas do sqlserver
                 list_col = conn.execute(f"SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE "
-                                        f"TABLE_NAME='{table_name}'")
+                                        f"TABLE_NAME='{table_name_sql}'")
                 rows = list_col.all()
                 if len(rows) != 0:
                     listColSql = [row[0] for row in rows]
