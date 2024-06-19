@@ -1,5 +1,6 @@
 import os
 import time
+
 import pandas as pd
 import geopandas as gpd
 import fiona
@@ -50,7 +51,7 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
             proc_table_time_ini = time.time()
 
             # verifica se o arquivo já foi processado
-            table_name_sql = table_name.replace('_tab', '')
+            table_name_sql = table_name.replace('_tab', '')      # Deve ser removido o '_tab' do nome das tabelas
             if config_bdgd['bancos']['schema'] != '':
                 full_table_name = f'{config_bdgd["bancos"]["schema"]}.{table_name_sql}'
             try:
@@ -80,18 +81,19 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
                 proc_table_parse_time_ini = time.time()
                 df = gpd.read_file(gdb_file, driver="pyogrio", layer=table_name, rows=slice(row_ini, row_end, 1),
                                    ignore_geometry=True, use_arrow=True)
-                row_ini += row_step
-                row_end = row_ini + row_step
                 print(f"Leitura de {len(df.index)} reg. em {round(time.time() - proc_table_parse_time_ini, 3)} de "
                       f"{round(time.time() - proc_table_time_ini, 3)} segundos.")
                 if df.empty:
                     break
 
                 df = df.rename(column_renames, axis='columns')
-                df['OBJECTID'] = range(1, 1 + len(df))
+                df['OBJECTID'] = range(row_ini + 1, 1 + len(df) + row_ini)
                 df['DATA_BASE'] = data_base
                 df['DATA_CARGA'] = data_carga
                 # df = df[['OBJECTID'] + [col for col in df.columns if col != 'OBJECTID']]
+
+                row_ini += row_step
+                row_end = row_ini + row_step
 
                 # Localizando colunas que não exitem nas tabelas do sqlserver
                 list_col = conn.execute(f"SELECT column_name FROM INFORMATION_SCHEMA.COLUMNS WHERE "
