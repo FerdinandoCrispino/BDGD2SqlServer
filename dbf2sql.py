@@ -67,6 +67,10 @@ if __name__ == "__main__":
             print(f"Erro, arquivo sem dados {dbf_file}.")
             continue
 
+        # Altera a coluna CodBnc da tabela EQRE
+        if table_name == "SDE.EQRE":
+            df = ajust_regulators(df)
+
         # Convertendo os dados para uma lista de dicionários
         # data = [record for record in table]
         data = df.to_dict(orient='records')
