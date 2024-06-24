@@ -73,3 +73,23 @@ def insert_data(cursor, table_name, data, data_base, data_carga):
 
     print(f"Dados inseridos com exito na tabela {table_name}.  ")
     cursor.execute('SET ANSI_WARNINGS on;')
+
+#Ajusta o CodBnc dos reguladores
+def ajust_regulators(dataFrame):
+
+    #Inicializa todos como bancos trifásicos
+    dataFrame['CodBnc'] = 0
+
+    #Localiza os que tem UN_RE duplicadas, ou seja, sao monofasicos
+    one_phase_reg = dataFrame['UN_RE'][dataFrame['UN_RE'].duplicated(keep=False)].unique()
+
+    #para os monofasicos, altera o CodBnc de acordo com a fase que estao ligados
+    for index, value in enumerate(dataFrame["UN_RE"]):
+        if value in one_phase_reg:
+            if dataFrame.loc[index,"LIG_FAS_P"] == "AB":
+                dataFrame.loc[index,"CodBnc"] = 1
+            elif dataFrame.loc[index,"LIG_FAS_P"] == "BC":
+                dataFrame.loc[index,"CodBnc"] = 2
+            elif dataFrame.loc[index,"LIG_FAS_P"] == "CA":
+                dataFrame.loc[index,"CodBnc"] = 3
+    return dataFrame
