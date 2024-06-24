@@ -1,24 +1,19 @@
-import pandas as pd
+# -*- encoding: utf-8 -*-
+
 import os
+
+import pandas as pd
 import connected_segments as cs
 import sqlalchemy
 import yaml
+
+# from Tools.tools import *
+from Tools.tools import create_connection
 
 # Leitura do arquivo de configuração
 application_path = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(application_path, r'config_database.yml'), 'r') as file:
     config_bdgd = yaml.load(file, Loader=yaml.BaseLoader)
-
-
-# Função para criar uma conexão com o banco de dados SQL Server
-def create_connection():
-    return sqlalchemy.create_engine(f"mssql+pyodbc://"
-                                    f"{config_bdgd['bancos']['username']}:"
-                                    f"{config_bdgd['bancos']['password']}@"
-                                    f"{config_bdgd['bancos']['server']}/"
-                                    f"{config_bdgd['bancos']['database']}?"
-                                    f"driver=ODBC+Driver+17+for+SQL+Server",
-                                    fast_executemany=True, pool_pre_ping=True)
 
 
 def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
