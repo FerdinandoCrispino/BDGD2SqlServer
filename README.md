@@ -16,5 +16,9 @@ da BDGD no formato *.gdb deve-se excutar o programa BDGD2SQLSERVER.py.
 Para a execução correta do extrator, deve-se verificar se as etapas de preparação da base de dados SQLServer disponivel no roteiro.txt foram realizadas.
 
 ## Uso
+Dbf2sql.py -- para extrair dados de arquivos dbf oriundo de arquivos da BDGD para a base de dados SQLServer com modelo de dados do programa progGeoPerdas.
 
+Bdgd2SQL_V2.py -- para a extração direta dos arquivos da BDGD no formado GBD para a base de dados SQLServer com modelo de dados do programa progGeoPerdas.
+
+Network_analysis.py -- para a verificação da conectividade elétrica dos dados da base de dados SQLServer com modelo de dados do programa progGeoPerdas.
 ## Contribuições

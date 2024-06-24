@@ -108,6 +108,27 @@ def insert_data(cursor, table_name, data, data_base, data_carga):
     cursor.execute('SET ANSI_WARNINGS on;')
 
 
+#Ajusta o CodBnc dos reguladores
+def ajust_regulators(dataFrame):
+
+    #Inicializa todos como bancos trifásicos
+    dataFrame['CodBnc'] = 0
+
+    #Localiza os que tem UN_RE duplicadas, ou seja, sao monofasicos
+    one_phase_reg = dataFrame['UN_RE'][dataFrame['UN_RE'].duplicated(keep=False)].unique()
+
+    #para os monofasicos, altera o CodBnc de acordo com a fase que estao ligados
+    for index, value in enumerate(dataFrame["UN_RE"]):
+        if value in one_phase_reg:
+            if dataFrame.loc[index,"LIG_FAS_P"] == "AB":
+                dataFrame.loc[index,"CodBnc"] = 1
+            elif dataFrame.loc[index,"LIG_FAS_P"] == "BC":
+                dataFrame.loc[index,"CodBnc"] = 2
+            elif dataFrame.loc[index,"LIG_FAS_P"] == "CA":
+                dataFrame.loc[index,"CodBnc"] = 3
+    return dataFrame
+
+
 def insert_BDGD_consolidada(conn, data_base, data_carga, dist, cod_bdgd):
     conn.execute(f"insert into [sde].[NVAL_BDGD_CONSOLIDADA] "
                  f"(OBJECTID,STATUS_CARGA,ENTIDADE,DATA_BASE,DIST,COD_BDGD,DATAHORA_CARGA,N_REGISTROS, DATA_BASE_DT) "
@@ -246,7 +267,7 @@ def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
                     start = 'PAC_1'
                     end = 'PAC_2'
 
-            sql = f"SELECT PAC_1, PAC_2, PN_CON_1, PN_CON_2, objectid ctmt FROM SDE.SSDMT Where ctmt='{ctmt}' "
+            sql = f"SELECT PAC_1, PAC_2, PN_CON_1, PN_CON_2, cod_id, ctmt FROM SDE.SSDMT Where ctmt='{ctmt}' "
             ssdmt_pacs = pd.read_sql_query(sql, conn)
             print(f"Total segmentos: {len(ssdmt_pacs)}")
             # Construir o grafo
