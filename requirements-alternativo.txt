@@ -1,4 +1,6 @@
-pyodbc
+matplotlib==3.9.0
+networkx==3.3
+pyodbc==5.1.0
 pandas==1.5.3
 PyYAML==6.0
 simpledbf==0.2.6
