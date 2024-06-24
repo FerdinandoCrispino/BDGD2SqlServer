@@ -1,6 +1,7 @@
 # -*- encoding: utf-8 -*-
 
 import os
+
 import glob
 import pyodbc
 import pandas as pd
@@ -12,7 +13,7 @@ from datetime import datetime
 import logging
 import yaml
 
-from tools import *
+from Tools.tools import *
 
 # application_path = expandvars(r'$ADMS')
 application_path = os.path.dirname(os.path.abspath(__file__))
@@ -34,7 +35,7 @@ data_carga = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 if __name__ == "__main__":
     # Conectando ao banco de dados sqlserver
-    conn = create_connection(config_bdgd)
+    conn = create_connection_pyodbc()
     cursor = conn.cursor()
 
     # Buscando todos os arquivos DBF no diretório
@@ -43,6 +44,7 @@ if __name__ == "__main__":
     for dbf_file in dbf_files:
         # Extraindo o nome do arquivo (sem extensão) para usar como nome da tabela
         table_name = os.path.splitext(os.path.basename(dbf_file))[0]
+
         if config_bdgd['bancos']['schema'] != '':
             table_name = f'{config_bdgd["bancos"]["schema"]}.{table_name}'
 
@@ -100,6 +102,8 @@ if __name__ == "__main__":
                 data = remove_columns(data, coldiff)
 
         # Inserindo os dados no banco de dados
+
+        print(f'Inserindo dados na tabela {table_name}', end='\n')
         insert_data(cursor, table_name, data, data_base, data_carga)
 
     # Commitando a transação e fechando a conexão
