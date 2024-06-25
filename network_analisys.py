@@ -1,22 +1,24 @@
 # -*- encoding: utf-8 -*-
 
-import os
-
 import pandas as pd
 import connected_segments as cs
-import sqlalchemy
-import yaml
-
-# from Tools.tools import *
 from Tools.tools import create_connection
 
-# Leitura do arquivo de configuração
-application_path = os.path.dirname(os.path.abspath(__file__))
-with open(os.path.join(application_path, r'config_database.yml'), 'r') as file:
-    config_bdgd = yaml.load(file, Loader=yaml.BaseLoader)
+"""
+# @Date    : 20/062024
+# @Author  : Ferdinano Crispino
+Análise da conectividade elétrica dos segmentos de média tensão
+"""
 
 
 def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
+    """
+
+    :param engine: Coneção com o banco de dados.
+    :param sub: Codigo da subestação analisada.
+    :param type_connected: Campo da tabela SSDMT que será utilizado para a verificação da conectividade (DE/PARA).
+    :return:
+    """
     with engine.connect() as conn:
         ctmt_pac_ini = pd.read_sql_query(f"SELECT PAC, SUB, cod_id FROM SDE.CTMT Where SUB='{sub}'", conn)
         for i in range(len(ctmt_pac_ini)):

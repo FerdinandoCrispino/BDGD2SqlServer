@@ -5,28 +5,28 @@ import time
 
 import pandas as pd
 import geopandas as gpd
-import connected_segments as cs
 import logging
 import pyodbc
 import fiona
 import yaml
 from sqlalchemy import create_engine
 
-
 application_path = os.path.dirname(os.path.abspath(__file__))
-with open(os.path.join(application_path, r'config_database.yml'), 'r') as file:
+with open(os.path.join(application_path, r'../config_database.yml'), 'r') as file:
     config_bdgd = yaml.load(file, Loader=yaml.BaseLoader)
 
 schema = config_bdgd['bancos']['schema']
+
 
 def create_connection_pyodbc():
     """Função para criar uma conexão com o banco de dados SQL Server"""
     conn_str = (
             'DRIVER={ODBC Driver 17 for SQL Server};'
             'SERVER=' + config_bdgd['bancos']['server'] + ';'
-                                 'DATABASE=' + config_bdgd['bancos']['database'] + ';'
-                                                          'UID=' + config_bdgd['bancos']['username'] + ';'
-                                                                              'PWD=' + config_bdgd['bancos']['password']
+                                                          'DATABASE=' + config_bdgd['bancos']['database'] + ';'
+                                                                                                            'UID=' +
+            config_bdgd['bancos']['username'] + ';'
+                                                'PWD=' + config_bdgd['bancos']['password']
     )
     return pyodbc.connect(conn_str)
 
@@ -34,13 +34,13 @@ def create_connection_pyodbc():
 def create_connection():
     """Função para criar uma conexão com o banco de dados SQL Server"""
 
-    engine =  create_engine(f"mssql+pyodbc://"
-                                    f"{config_bdgd['bancos']['username']}:"
-                                    f"{config_bdgd['bancos']['password']}@"
-                                    f"{config_bdgd['bancos']['server']}/"
-                                    f"{config_bdgd['bancos']['database']}?"
-                                    f"driver=ODBC+Driver+17+for+SQL+Server",
-                                    fast_executemany=True, pool_pre_ping=True)
+    engine = create_engine(f"mssql+pyodbc://"
+                           f"{config_bdgd['bancos']['username']}:"
+                           f"{config_bdgd['bancos']['password']}@"
+                           f"{config_bdgd['bancos']['server']}/"
+                           f"{config_bdgd['bancos']['database']}?"
+                           f"driver=ODBC+Driver+17+for+SQL+Server",
+                           fast_executemany=True, pool_pre_ping=True)
 
     return engine
 
@@ -86,7 +86,7 @@ def insert_data(cursor, table_name, data, data_base, data_carga):
             print(tuple(row.values()))
             cursor.execute(sql, tuple(row.values()))
 
-            #* cuidado o arquivo de log pode ficar muito grande
+            # * cuidado o arquivo de log pode ficar muito grande
             logging.info(f'SQL: {sql} valores {tuple(row.values())}')
 
         except pyodbc.DatabaseError as e:
@@ -108,24 +108,23 @@ def insert_data(cursor, table_name, data, data_base, data_carga):
     cursor.execute('SET ANSI_WARNINGS on;')
 
 
-#Ajusta o CodBnc dos reguladores
+# Ajusta o CodBnc dos reguladores
 def ajust_regulators(dataFrame):
-
-    #Inicializa todos como bancos trifásicos
+    # Inicializa todos como bancos trifásicos
     dataFrame['CodBnc'] = 0
 
-    #Localiza os que tem UN_RE duplicadas, ou seja, sao monofasicos
+    # Localiza os que tem UN_RE duplicadas, ou seja, sao monofasicos
     one_phase_reg = dataFrame['UN_RE'][dataFrame['UN_RE'].duplicated(keep=False)].unique()
 
-    #para os monofasicos, altera o CodBnc de acordo com a fase que estao ligados
+    # para os monofasicos, altera o CodBnc de acordo com a fase que estao ligados
     for index, value in enumerate(dataFrame["UN_RE"]):
         if value in one_phase_reg:
-            if dataFrame.loc[index,"LIG_FAS_P"] == "AB":
-                dataFrame.loc[index,"CodBnc"] = 1
-            elif dataFrame.loc[index,"LIG_FAS_P"] == "BC":
-                dataFrame.loc[index,"CodBnc"] = 2
-            elif dataFrame.loc[index,"LIG_FAS_P"] == "CA":
-                dataFrame.loc[index,"CodBnc"] = 3
+            if dataFrame.loc[index, "LIG_FAS_P"] == "AB":
+                dataFrame.loc[index, "CodBnc"] = 1
+            elif dataFrame.loc[index, "LIG_FAS_P"] == "BC":
+                dataFrame.loc[index, "CodBnc"] = 2
+            elif dataFrame.loc[index, "LIG_FAS_P"] == "CA":
+                dataFrame.loc[index, "CodBnc"] = 3
     return dataFrame
 
 
@@ -146,7 +145,7 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
             proc_table_time_ini = time.time()
 
             # verifica se o arquivo já foi processado
-            table_name_sql = table_name.replace('_tab', '')      # Deve ser removido o '_tab' do nome das tabelas
+            table_name_sql = table_name.replace('_tab', '')  # Deve ser removido o '_tab' do nome das tabelas
 
             if schema != '':
                 full_table_name = f'{schema}.{table_name_sql}'
@@ -245,45 +244,3 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
                 logging.info(f"{table_name}: da BDGD sem dados.")
                 print(f"{table_name}: da BDGD sem dados..")
                 continue
-
-
-def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
-    with engine.connect() as conn:
-        ctmt_pac_ini = pd.read_sql_query(f"SELECT PAC, SUB, cod_id FROM SDE.CTMT Where SUB='{sub}'", conn)
-        for i in range(len(ctmt_pac_ini)):
-            pac_ini = ctmt_pac_ini.iloc[i, 0]
-            ctmt = ctmt_pac_ini.iloc[i, 2]
-            print(pac_ini, ctmt_pac_ini.iloc[i, 1])
-            sql = f"SELECT PAC_1, PAC_2, PN_CON_1, PN_CON_2, ctmt FROM SDE.SSDMT Where sub='{sub}' and PAC_1='{pac_ini}'"
-            ssdmt_ini = pd.read_sql_query(sql, conn)
-
-            if len(ssdmt_ini) == 1:
-                if type_connected.upper() == 'PN_CON':
-                    pn_ini = ssdmt_ini.iloc[0, 2]
-                    start = 'PN_CON_1'
-                    end = 'PN_CON_2'
-                else:
-                    pn_ini = ssdmt_ini.iloc[0, 0]
-                    start = 'PAC_1'
-                    end = 'PAC_2'
-
-            sql = f"SELECT PAC_1, PAC_2, PN_CON_1, PN_CON_2, cod_id, ctmt FROM SDE.SSDMT Where ctmt='{ctmt}' "
-            ssdmt_pacs = pd.read_sql_query(sql, conn)
-            print(f"Total segmentos: {len(ssdmt_pacs)}")
-            # Construir o grafo
-            graph = cs.build_graph(ssdmt_pacs, start, end)
-            # Encontrar e ordenar segmentos conectados usando DFS
-            connected_segments = cs.dfs(graph, pn_ini)
-            print(connected_segments)
-            print(f"Segmentos conectados: {len(connected_segments)}")
-            print("Não conectados:")
-
-            all_segments = list(zip(ssdmt_pacs[start], ssdmt_pacs[end]))
-            unconnected_segments = cs.find_unconnected_segments(all_segments, connected_segments)
-            print(len(unconnected_segments))
-            print(unconnected_segments)
-
-            print(ctmt + '\n')
-
-    print('Fim')
-
