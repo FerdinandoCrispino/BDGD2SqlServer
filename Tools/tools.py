@@ -11,6 +11,8 @@ import fiona
 import yaml
 from sqlalchemy import create_engine
 
+list_names_tables = ['EQTRAT', 'EQTRMT', 'UNTRAT', 'UNTRMT']
+
 application_path = os.path.dirname(os.path.abspath(__file__))
 with open(os.path.join(application_path, r'../config_database.yml'), 'r') as file:
     config_bdgd = yaml.load(file, Loader=yaml.BaseLoader)
@@ -79,6 +81,12 @@ def insert_data(cursor, table_name, data, data_base, data_carga):
     #: tira _tab do nome da tabela para corresponder ao sql
     table_name_sql = table_name.replace('_tab', '')
 
+    if table_name_sql in list_names_tables:
+        # table_name_sql = table_name.replace('_tab', '')
+        table_name_sql = table_name.replace('MT', 'D')
+
+        table_name_sql = table_name.replace('AT', 'S')
+
     sql = f"INSERT INTO {table_name_sql} ({columns}) VALUES ({placeholders})"
     for row in data:
         try:
@@ -146,6 +154,12 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
 
             # verifica se o arquivo já foi processado
             table_name_sql = table_name.replace('_tab', '')  # Deve ser removido o '_tab' do nome das tabelas
+
+            if table_name_sql in list_names_tables:
+                # table_name_sql = table_name.replace('_tab', '')
+                table_name_sql = table_name.replace('MT', 'D')
+
+                table_name_sql = table_name.replace('AT', 'S')
 
             if schema != '':
                 full_table_name = f'{schema}.{table_name_sql}'
