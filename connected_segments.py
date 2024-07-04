@@ -51,7 +51,7 @@ def plot_tree(segments):
     G.add_edges_from(segments)
     pos = nx.spring_layout(G)  # Spring layout for better tree representation
 
-    plt.figure(figsize=(20, 12))
+    plt.figure(figsize=(18, 12))
     nx.draw(G, pos, with_labels=True, node_size=500, node_color="skyblue", font_size=5, font_weight="bold",
             edge_color="gray")
     plt.title("Árvore de Segmentos de Reta Conectados")
@@ -63,8 +63,7 @@ if __name__ == "__main__":
     # teste de funcionamento
     data = {
         'start': [1, 2, 2, 3, 4, 2, 20],
-        'end': [2, 3, 4, 4, 5, 8, 40],
-        'id': [1,2,3,4,5,6,7]
+        'end': [2, 3, 4, 4, 5, 8, 40]
     }
 
     df = pd.DataFrame(data)
@@ -81,7 +80,7 @@ if __name__ == "__main__":
 
     # Não conectados
     df_left = df.merge(df_connected_segments.drop_duplicates(), on=['start', 'end'], how='left', indicator=True)
-    df_left = df_left[df_left.merge != 'both']
+    df_left = df_left[df_left._merge != 'both']
     print(len(df_left))
     print(df_left)
 
