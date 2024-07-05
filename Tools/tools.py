@@ -1,5 +1,5 @@
 # -*- encoding: utf-8 -*-
-
+import math
 import os
 import time
 
@@ -18,6 +18,8 @@ with open(os.path.join(application_path, r'../config_database.yml'), 'r') as fil
     config_bdgd = yaml.load(file, Loader=yaml.BaseLoader)
 
 schema = config_bdgd['bancos']['schema']
+
+print(os.path.expanduser(config_bdgd['dss_files_folder']))
 
 
 def create_connection_pyodbc():
@@ -84,8 +86,8 @@ def insert_data(cursor, table_name, data, data_base, data_carga):
     if table_name_sql in list_names_tables:
         # table_name_sql = table_name.replace('_tab', '')
         table_name_sql = table_name.replace('MT', 'D')
-
         table_name_sql = table_name.replace('AT', 'S')
+
 
     sql = f"INSERT INTO {table_name_sql} ({columns}) VALUES ({placeholders})"
     for row in data:
@@ -264,3 +266,408 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
                 logging.info(f"{table_name}: da BDGD sem dados.")
                 print(f"{table_name}: da BDGD sem dados..")
                 continue
+
+
+def return_query_as_dataframe(query: str) -> pd.DataFrame:
+    engine = create_connection()
+    df = pd.DataFrame([])
+    retry_flag = True
+    retry_count = 0
+    while retry_flag and retry_count < 10:
+        try:
+            df = pd.read_sql_query(sql=query, con=engine)
+            retry_flag = False
+        except Exception as e:
+            retry_count = retry_count + 1
+            print(e)
+            time.sleep(20)
+    return df
+
+
+def exec_query(query: str):
+    engine = create_connection()
+    with engine.begin() as conn:  # TRANSACTION
+        conn.execute(query)
+
+
+def write_to_dss(sub, circuito, linhas_arquivos_list: list, nome_arquivo: str) -> bool:
+    """
+    Função que escreve arquivos DSS (OpenDSS) representativos dos objetos de rede carregada em memória.
+    :param nome_arquivo:
+    :param circuito:
+    :param sub:
+    :param linhas_arquivos_list: lista de dicionários, sendo um referente a cada circuito.
+    :return: bool
+    """
+    # Escreve os arquivos DSS, sendo agrupados em um diretório para cada circuito
+    nome_arquivo += '_' + circuito
+    try:
+        path_dss_files = os.path.expanduser(config_bdgd['dss_files_folder'])
+        # Verifica se existe diretório 'dss'
+        if not os.path.isdir(path_dss_files):
+            os.mkdir(path_dss_files)
+
+        sub_path = os.path.join(path_dss_files, sub)
+        if not os.path.isdir(sub_path):
+            os.mkdir(sub_path)
+
+        final_path = os.path.join(sub_path, circuito)
+        if os.path.isdir(final_path):
+            for file_name in os.listdir(final_path):
+                if file_name == nome_arquivo + '.dss':
+                    os.remove(os.path.join(final_path, file_name))
+                else:
+                    pass
+        else:
+            os.mkdir(final_path)
+
+        # Insere as linhas do arquivo
+        with open(fr"{final_path}\{nome_arquivo}.dss", "w") as file:
+            file.write(f"! {nome_arquivo}\n")
+            for linha in linhas_arquivos_list:
+                file.write(f"{linha}\n")
+    except Exception as e:
+        print(e)
+        return True
+
+    return False
+
+
+def numero_fases_segmento(strFases) -> str:
+    if strFases == "A" or strFases == "B" or strFases == "C" or strFases == "AN" or strFases == "BN" or strFases == "CN":
+        return "1"
+    elif strFases == "AB" or strFases == "BC" or strFases == "CA" or strFases == "ABN" or strFases == "BCN" or strFases == "CAN":
+        return "2"
+    elif strFases == "ABC" or strFases == "ABCN":
+        return "3"
+    else:
+        return ""
+
+
+def numero_fases_segmento_neutro(strFases) -> str:
+    if strFases == "A" or strFases == "B" or strFases == "C":
+        return "1"
+    elif strFases == "AB" or strFases == "BC" or strFases == "CA" or strFases == "AN" or strFases == "BN" or strFases == "CN":
+        return "2"
+    elif strFases == "ABC" or strFases == "ABN" or strFases == "BCN" or strFases == "CAN":
+        return "3"
+    elif strFases == "ABCN":
+        return "4"
+    else:
+        return ""
+
+
+def numero_fases(strFases) -> int:
+    if strFases == "A" or strFases == "B" or strFases == "C" or strFases == "AN" or strFases == "BN" or strFases == "CN":
+        return 1
+    elif strFases == "AB" or strFases == "BC" or strFases == "CA" or strFases == "ABN" or strFases == "BCN" or strFases == "CAN":
+        return 2
+    elif strFases == "ABC" or strFases == "ABCN":
+        return 3
+    else:
+        return 0
+
+
+def numero_fases_carga(strFases):
+    if strFases == "A" or strFases == "B" or strFases == "C" or strFases == "AN" or strFases == "BN" or strFases == "CN":
+        return "1"
+    elif strFases == "AB" or strFases == "BC" or strFases == "CA" or strFases == "ABN" or strFases == "BCN" or strFases == "CAN":
+        return "2"
+    elif strFases == "ABC" or strFases == "ABCN":
+        return "3"
+    else:
+        return ""
+
+
+def ligacao_carga(strCodFas):
+    if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
+            strCodFas == "CN":
+        return "Wye"
+    elif strCodFas == "AB" or strCodFas == "BC" or strCodFas == "CA" or strCodFas == "ABN" or strCodFas == "BCN" or \
+            strCodFas == "CAN" or strCodFas == "ABC" or strCodFas == "ABCN":
+        return "Delta"
+    else:
+        return ""
+
+def nos_com_neutro(strFases) -> str:
+    if strFases == "A":
+        return ".1"
+    elif strFases == "B":
+        return ".2"
+    elif strFases == "C":
+        return ".3"
+    elif strFases == "AN":
+        return ".1.4"
+    elif strFases == "BN":
+        return ".2.4"
+    elif strFases == "CN":
+        return ".3.4"
+    elif strFases == "AB":
+        return ".1.2"
+    elif strFases == "BC":
+        return ".2.3"
+    elif strFases == "CA":
+        return ".3.1"
+    elif strFases == "ABN":
+        return ".1.2.4"
+    elif strFases == "BCN":
+        return ".2.3.4"
+    elif strFases == "CAN":
+        return ".3.1.4"
+    elif strFases == "ABC":
+        return ".1.2.3"
+    elif strFases == "ABCN":
+        return ".1.2.3.4"
+    else:
+        return ""
+
+
+def nos_terciario(strFases) -> str:
+    if strFases == "AN":
+        return ".0.1"
+    elif strFases == "BN":
+        return ".0.2"
+    elif strFases == "CN":
+        return ".0.3"
+    else:
+        return ""
+
+
+def nos_terciario_neutro(strFases) -> str:
+    if strFases == "AN":
+        return ".4.1"
+    elif strFases == "BN":
+        return ".4.2"
+    elif strFases == "CN":
+        return ".4.3"
+    else:
+        return ""
+
+
+def nos_com_neutro_trafo(strCodFas1, strCodFas2, strCodFas3, dblTensaoSecuTrafo_kV, strBus1, strBus2) -> str:
+    if dblTensaoSecuTrafo_kV > 1:
+        if strCodFas3 == "BN" or strCodFas3 == "CN" or strCodFas3 == "AN" or strCodFas2 == "ABN":
+            return '"' + strBus1 + nos(strCodFas1) + '"' + ' "' + strBus2 + nos(
+                strCodFas2) + '"' + ' "' + strBus2 + nos_terciario(strCodFas3) + '"'
+        elif strCodFas3 == "0" or strCodFas2 == "AN" or strCodFas2 == "BN" or strCodFas2 == "CN" or strCodFas2 == "AB" or strCodFas2 == "BC" or strCodFas2 == "CA" or strCodFas2 == "AC" or strCodFas2 == "ABCN" or strCodFas2 == "ABC":
+            return '"' + strBus1 + nos(strCodFas1) + '"' + ' "' + strBus2 + nos(strCodFas2) + '"'
+        else:
+            return ""
+    else:
+        if strCodFas3 == "BN" or strCodFas3 == "CN" or strCodFas3 == "AN" or strCodFas2 == "ABN":
+            return '"' + strBus1 + nos(strCodFas1) + '"' + ' "' + strBus2 + nos_com_neutro(
+                strCodFas2) + '"' + ' "' + strBus2 + nos_terciario_neutro(strCodFas3) + '"'
+        elif strCodFas3 == "0" or strCodFas2 == "AN" or strCodFas2 == "BN" or strCodFas2 == "CN" or strCodFas2 == "AB" or strCodFas2 == "BC" or strCodFas2 == "CA" or strCodFas2 == "AC" or strCodFas2 == "ABCN" or strCodFas2 == "ABC":
+            return '"' + strBus1 + nos(strCodFas1) + '"' + ' "' + strBus2 + nos_com_neutro(
+                strCodFas2) + '"'
+        else:
+            return ""
+
+
+def tap_trafo(strCodFas3, tap_pu) -> str:
+    if strCodFas3 != "0":
+        return "1 " + tap_pu + " " + tap_pu
+    else:
+        return "1 " + tap_pu
+
+
+def nos(strFases) -> str:
+    if strFases == "A":
+        return ".1"
+    elif strFases == "B":
+        return ".2"
+    elif strFases == "C":
+        return ".3"
+    elif strFases == "AN":
+        return ".1.0"
+    elif strFases == "BN":
+        return ".2.0"
+    elif strFases == "CN":
+        return ".3.0"
+    elif strFases == "AB":
+        return ".1.2"
+    elif strFases == "BC":
+        return ".2.3"
+    elif strFases == "CA":
+        return ".3.1"
+    elif strFases == "ABN":
+        return ".1.2.0"
+    elif strFases == "BCN":
+        return ".2.3.0"
+    elif strFases == "CAN":
+        return ".3.1.0"
+    elif strFases == "ABC":
+        return ".1.2.3"
+    elif strFases == "ABCN":
+        return ".1.2.3.0"
+    else:
+        return ""
+
+
+def numero_fases_transformador(strFases) -> str:
+    if strFases == "A" or strFases == "B" or strFases == "C" or strFases == "AN" or strFases == "BN" or \
+            strFases == "CN" or strFases == "AB" or strFases == "BC" or strFases == "CA" or strFases == "ABN" or \
+            strFases == "BCN" or strFases == "CAN":
+        return "1"
+    elif strFases == "ABC" or strFases == "ABCN":
+        return "3"
+    else:
+        return ""
+
+
+def conexoes_trafo(strCodFas1, strCodFas2, strCodFas3) -> str:
+    if strCodFas3 == "BN" or strCodFas3 == "CN" or strCodFas3 == "AN" or strCodFas2 == "ABN":
+        return ligacao_trafo(strCodFas1) + " " + ligacao_trafo(strCodFas2) + " " + ligacao_trafo(strCodFas3)
+    elif strCodFas3 == "0" or strCodFas2 == "AN" or strCodFas2 == "BN" or strCodFas2 == "CN" or strCodFas2 == "AB" or strCodFas2 == "BC" or strCodFas2 == "CA" or strCodFas2 == "AC" or strCodFas2 == "ABCN" or strCodFas2 == "ABC":
+        return ligacao_trafo(strCodFas1) + " " + ligacao_trafo(strCodFas2)
+    else:
+        return ""
+
+
+def kvas_trafo(strCodFas2, strCodFas3, dblPotNom_kVA) -> str:
+    if strCodFas3 == "BN" or strCodFas3 == "CN" or strCodFas3 == "AN" or strCodFas2 == "ABN":
+        return str(dblPotNom_kVA) + " " + str(dblPotNom_kVA) + " " + str(dblPotNom_kVA)
+    elif strCodFas3 == "0" or strCodFas2 == "AN" or strCodFas2 == "BN" or strCodFas2 == "CN" or strCodFas2 == "AB" or strCodFas2 == "BC" or strCodFas2 == "CA" or strCodFas2 == "AC" or strCodFas2 == "ABCN" or strCodFas2 == "ABC":
+        return str(dblPotNom_kVA) + " " + str(dblPotNom_kVA)
+    else:
+        return ""
+
+
+def tensao_enrolamento(strCodFas, dblTensao_kV) -> float:
+    """
+    Uma vez que o manual da BDGD aponta que esta tensão já é a tensão do equipamento em si,
+     basta adotar estão tensão informada, sem precisar fazer qualquer divisão por raiz de 3.
+    :param strCodFas:
+    :param dblTensao_kV:
+    :return:
+    """
+    if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
+            strCodFas == "CN" or strCodFas == "ABN" or strCodFas == "BCN" or strCodFas == "CAN" or strCodFas == "ABCN":
+        # return dblTensao_kV / math.sqrt(3)
+        return dblTensao_kV
+    elif strCodFas == "AB" or strCodFas == "BC" or strCodFas == "CA" or strCodFas == "ABC":
+        return dblTensao_kV
+    else:
+        return 0.0
+
+
+def kvs_trafo(intTipTrafo, strCodFas1, strCodFas2, strCodFas3, dblTensaoPrimTrafo_kV, dblTensaoSecuTrafo_kV) -> str:
+    if intTipTrafo == 4:
+        return str(dblTensaoPrimTrafo_kV) + " " + str(dblTensaoSecuTrafo_kV)
+    elif strCodFas3 == "BN" or strCodFas3 == "CN" or strCodFas3 == "AN" or strCodFas2 == "ABN":
+        return str(tensao_enrolamento(strCodFas1, dblTensaoPrimTrafo_kV)) + " " + str(
+            dblTensaoSecuTrafo_kV / 2) + " " + str(dblTensaoSecuTrafo_kV / 2)
+    elif strCodFas3 == "0" and (
+            strCodFas2 == "AN" or strCodFas2 == "BN" or strCodFas2 == "CN" or strCodFas2 == "AB" or strCodFas2 == "BC" or strCodFas2 == "CA" or strCodFas2 == "ABN" or strCodFas2 == "BCN" or strCodFas2 == "CAN"):
+        return str((tensao_enrolamento(strCodFas1, dblTensaoPrimTrafo_kV))) + " " + str(dblTensaoSecuTrafo_kV)
+    else:
+        return ""
+
+
+def nome_banco(intCodBnc) -> str:
+    if intCodBnc == 1:
+        return "A"
+    elif intCodBnc == 2:
+        return "B"
+    elif intCodBnc == 3:
+        return "C"
+    elif intCodBnc == 4:
+        return "D"
+    elif intCodBnc == 5:
+        return "E"
+    elif intCodBnc == 6:
+        return "F"
+    else:
+        return ""
+
+
+def ligacao_trafo(strCodFas) -> str:
+    if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
+            strCodFas == "CN" or strCodFas == "ABN" or strCodFas == "BCN" or strCodFas == "CAN" or strCodFas == "ABCN":
+        return "Wye"
+    elif strCodFas == "AB" or strCodFas == "BC" or strCodFas == "CA" or strCodFas == "ABC":
+        return "Delta"
+    else:
+        return ""
+
+
+def tens_regulador(rel_tp_id):
+    if int(rel_tp_id) == 3:
+        ten_pri_eq = 34.5 / math.sqrt(3)
+    elif int(rel_tp_id) == 4:
+        ten_pri_eq = 25 / math.sqrt(3)
+    elif int(rel_tp_id) == 6:
+        ten_pri_eq = 23 / math.sqrt(3)
+    elif int(rel_tp_id) == 10:
+        ten_pri_eq = 14.4 / math.sqrt(3)
+    elif int(rel_tp_id) == 15:
+        ten_pri_eq = 13.8 / math.sqrt(3)
+    elif int(rel_tp_id) == 17:
+        ten_pri_eq = 7.6 / math.sqrt(3)
+    elif int(rel_tp_id) == 19:
+        ten_pri_eq = 34.5
+    elif int(rel_tp_id) == 20:
+        ten_pri_eq = 25
+    elif int(rel_tp_id) == 21:
+        ten_pri_eq = 23
+    elif int(rel_tp_id) == 22:
+        ten_pri_eq = 14.4
+    elif int(rel_tp_id) == 23:
+        ten_pri_eq = 13.8
+    elif int(rel_tp_id) == 24:
+        ten_pri_eq = 7.6
+    else:
+        ten_pri_eq = 0.0
+
+    return ten_pri_eq
+
+
+def quantidade_enrolamentos(strCodFas1, strCodFas2) -> str:
+    if strCodFas1 == "BN" or strCodFas1 == "CN" or strCodFas1 == "AN" or strCodFas2 == "ABN":
+        return "3"
+    else:
+        return "2"
+
+def tipo_dia(intTipoDia):
+    if intTipoDia == 1:
+        return "DU"
+    elif intTipoDia == 2:
+        return "SA"
+    elif intTipoDia == 3:
+        return "DO"
+    else:
+        return ""
+
+def ajust_eqre_codbanc(dist):
+    """
+    Obtém os valores de CodBNC a partir da sequencia de dados da UNREMT
+    :return: Dicionário com os codi_id da tabela EQRE com os respectivos valores de CodBNC
+    """
+    query = f'''
+         SELECT c.COD_ID, c.PAC_1, c.PAC_2, c.Sub, c.TIP_REGU, c.BANC, c.FAS_CON, c.CTMT,
+                e.cod_id as COD_ID_RE, e.[POT_NOM], e.[TEN_REG], e.[LIG_FAS_P], e.[LIG_FAS_S], e.[COR_NOM], 
+                e.[REL_TP], e.[REL_TC], e.[PER_FER], e.[PER_TOT], e.[R], e.[XHL], e.[CodBnc], e.[GRU_TEN]
+         FROM SDE.UNREMT as c, SDE.EQRE as e 
+         WHERE c.dist = '{dist}' and c.SIT_ATIV = 'AT' and 
+         (c.pac_1 = e.pac_1 or c.pac_2 = e.pac_2 or c.pac_1 = e.pac_2 or c.pac_2 = e.pac_1) order by c.[COD_ID]
+         ;
+    '''
+    eqre_data = return_query_as_dataframe(query)
+    # codbanc_re = []
+    i = 0
+    unremt_id = ''
+    # strcodbanc_re = ''
+    for index in range(eqre_data.shape[0]):
+        if unremt_id != eqre_data.loc[index]['COD_ID']:
+            i = 1
+        else:
+            i += 1
+        unremt_id = eqre_data.loc[index]['COD_ID']
+        eqre_id = eqre_data.loc[index]['COD_ID_RE']
+        # strcodbanc_re = {'cod_id': eqre_id, 'codBNC': i}
+        # codbanc_re.append(strcodbanc_re)
+
+        sql = f'update SDE.EQRE SET codBNC={i} where COD_ID={eqre_id}'
+        exec_query(sql)
+
+    # return codbanc_re
