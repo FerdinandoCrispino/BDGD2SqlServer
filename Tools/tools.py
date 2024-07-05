@@ -116,8 +116,9 @@ def insert_data(cursor, table_name, data, data_base, data_carga):
     cursor.execute('SET ANSI_WARNINGS on;')
 
 
-# Ajusta o CodBnc dos reguladores
 def ajust_regulators(dataFrame):
+    '''Ajusta o CodBnc dos reguladores'''
+    print("ajustando CodBnc EQRE")
     # Inicializa todos como bancos trifásicos
     dataFrame['CodBnc'] = 0
 
@@ -150,6 +151,7 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
 
         for table_name in layerlist:
             print(f"{table_name}")
+
             proc_table_time_ini = time.time()
 
             # verifica se o arquivo já foi processado
@@ -200,6 +202,10 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
 
                 if df.empty:
                     break
+
+                # Altera a coluna CodBnc da tabela EQRE
+                if table_name == "EQRE":
+                    df = ajust_regulators(df)
 
                 df = df.rename(column_renames, axis='columns')
                 df['OBJECTID'] = range(row_ini + 1, 1 + len(df) + row_ini)

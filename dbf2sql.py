@@ -27,10 +27,9 @@ logging.basicConfig(filename='processamento_dbf.log',level=logging.INFO,
 
 
 #+ Diretório contendo os arquivos DBF
+data_base = "2022-12-31"
 dbf_directory = config_bdgd['dbf_directory']
 
-#+ Valores dos campos adicionais
-data_base = "2019-12-31"
 data_carga = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
 if __name__ == "__main__":
