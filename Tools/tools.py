@@ -645,10 +645,10 @@ def ajust_eqre_codbanc(dist):
     """
     query = f'''
          SELECT c.COD_ID, c.PAC_1, c.PAC_2, c.Sub, c.TIP_REGU, c.BANC, c.FAS_CON, c.CTMT,
-                e.cod_id as COD_ID_RE, e.[POT_NOM], e.[TEN_REG], e.[LIG_FAS_P], e.[LIG_FAS_S], e.[COR_NOM], 
+                e.cod_id as COD_ID_RE, e.[POT_NOM], e.[TEN_REG], e.[LIG_FAS_P], e.[LIG_FAS_S], e.[COR_NOM],
                 e.[REL_TP], e.[REL_TC], e.[PER_FER], e.[PER_TOT], e.[R], e.[XHL], e.[CodBnc], e.[GRU_TEN]
-         FROM SDE.UNREMT as c, SDE.EQRE as e 
-         WHERE c.dist = '{dist}' and c.SIT_ATIV = 'AT' and 
+         FROM SDE.UNREMT as c, SDE.EQRE as e
+         WHERE c.dist = '{dist}' and c.SIT_ATIV = 'AT' and
          (c.pac_1 = e.pac_1 or c.pac_2 = e.pac_2 or c.pac_1 = e.pac_2 or c.pac_2 = e.pac_1) order by c.[COD_ID]
          ;
     '''

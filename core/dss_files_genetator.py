@@ -373,9 +373,9 @@ class DssFilesGenerator:
                 tensoes_str += str(tensao) + ' '
 
             linhas_master.append(f"set voltagebases=({tensoes_str[0:len(tensoes_str) - 1]})")
-        
+
             linhas_master.append('calcv')
-        
+
         # Inclui outros comandos
         linhas_master.append(f"buscoords coords.dss")
         """

@@ -8,7 +8,7 @@ import time
 # @Author  : Ferdinano Crispino
 Implemeta funcionalidades de leitua dos dados da BDGD para escrita dos arquivos do openDSS
 
-# @Edited by: 
+# @Edited by:
 # @Date     :
 
 """
@@ -41,8 +41,8 @@ class ElectricDataPort:
         :return:
         """
         query = f'''
-            SELECT c.[COD_ID], c.PAC_INI, c.TEN_OPE, t.TEN 
-            FROM SDE.CTMT as c, [GEO_SIGR_DDAD_M10].SDE.TTEN as T 
+            SELECT c.[COD_ID], c.PAC_INI, c.TEN_OPE, t.TEN
+            FROM SDE.CTMT as c, [GEO_SIGR_DDAD_M10].SDE.TTEN as T
             WHERE sub='{self.sub}' and c.TEN_NOM = t.COD_ID
             ;
         '''
@@ -57,20 +57,20 @@ class ElectricDataPort:
         if ctmt is None:
             query = f'''
                  SELECT c.COD_ID, c.PAC_1, c.PAC_2, c.Sub, c.TIP_REGU, c.BANC, c.FAS_CON, c.CTMT,
-                        e.[POT_NOM], e.[TEN_REG], e.[LIG_FAS_P], e.[LIG_FAS_S], e.[COR_NOM], 
+                        e.[POT_NOM], e.[TEN_REG], e.[LIG_FAS_P], e.[LIG_FAS_S], e.[COR_NOM],
                         e.[REL_TP], e.[REL_TC], e.[PER_FER], e.[PER_TOT], e.[R], e.[XHL], e.[CODBNC], e.[GRU_TEN]
-                 FROM SDE.UNREMT as c, SDE.EQRE as e 
-                 WHERE c.dist = '{self.dist}' and c.sub='{self.sub}' and c.SIT_ATIV = 'AT' and 
+                 FROM SDE.UNREMT as c, SDE.EQRE as e
+                 WHERE c.dist = '{self.dist}' and c.sub='{self.sub}' and c.SIT_ATIV = 'AT' and
                  (c.pac_1 = e.pac_1 or c.pac_2 = e.pac_2 or c.pac_1 = e.pac_2 or c.pac_2 = e.pac_1)
                  ;
             '''
         else:
             query = f'''
                  SELECT c.COD_ID, c.PAC_1, c.PAC_2, c.Sub, c.TIP_REGU, c.BANC, c.FAS_CON, c.CTMT,
-                        e.[POT_NOM], e.[TEN_REG], e.[LIG_FAS_P], e.[LIG_FAS_S], e.[COR_NOM], 
+                        e.[POT_NOM], e.[TEN_REG], e.[LIG_FAS_P], e.[LIG_FAS_S], e.[COR_NOM],
                         e.[REL_TP], e.[PER_FER], e.[PER_TOT], e.[R], e.[XHL], e.[CODBNC], e.[GRU_TEN]
-                 FROM SDE.UNREMT as c, SDE.EQRE as e 
-                 WHERE c.dist = '{self.dist}' and c.ctmt='{ctmt}' and c.SIT_ATIV = 'AT' and 
+                 FROM SDE.UNREMT as c, SDE.EQRE as e
+                 WHERE c.dist = '{self.dist}' and c.ctmt='{ctmt}' and c.SIT_ATIV = 'AT' and
                  (c.pac_1 = e.pac_1 or c.pac_2 = e.pac_2 or c.pac_1 = e.pac_2 or c.pac_2 = e.pac_1)
                  ;
             '''
@@ -85,8 +85,8 @@ class ElectricDataPort:
 
         query = f'''
             SELECT *
-            FROM SDE.CRVCRG 
-            WHERE dist='{self.dist}' 
+            FROM SDE.CRVCRG
+            WHERE dist='{self.dist}'
             ;
         '''
         self.curvas_cargas = return_query_as_dataframe(query)
@@ -100,8 +100,8 @@ class ElectricDataPort:
 
         query = f'''
             SELECT COD_ID, R1, X1, CNOM
-            FROM sde.SEGCON 
-            WHERE dist='{self.dist}' 
+            FROM sde.SEGCON
+            WHERE dist='{self.dist}'
             ;
         '''
         self.condutores = return_query_as_dataframe(query)
@@ -114,13 +114,13 @@ class ElectricDataPort:
         """
         if ctmt is None:
             query = f'''
-                SELECT u.COD_ID, u.CTMT, u.PAC_1, u.PAC_2, u.PAC_3, u.FAS_CON_P, u.FAS_CON_S, u.FAS_CON_T, 
+                SELECT u.COD_ID, u.CTMT, u.PAC_1, u.PAC_2, u.PAC_3, u.FAS_CON_P, u.FAS_CON_S, u.FAS_CON_T,
                 u.TIP_TRAFO, u.PER_TOT, u.PER_FER, u.POT_NOM, u.POS, u.TEN_LIN_SE, u.MRT,
                 e.TEN_PRI, e.TEN_SEC, e.TEN_TER,
                 t1.TEN as TEN_PRI, t2.TEN as TEN_SEC, t3.TEN as TEN_TER
                 FROM sde.EQTRMT e
                 INNER JOIN  sde.UNTRMT U
-                    on u.dist='{self.dist}' and u.sub='{self.sub}' and u.cod_id = e.UNI_TR_MT 
+                    on u.dist='{self.dist}' and u.sub='{self.sub}' and u.cod_id = e.UNI_TR_MT
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
                     on  t1.cod_id = e.TEN_PRI
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t2
@@ -131,13 +131,13 @@ class ElectricDataPort:
             '''
         else:
             query = f'''
-                SELECT u.COD_ID, u.CTMT, u.PAC_1, u.PAC_2, u.PAC_3, u.FAS_CON_P, u.FAS_CON_S, u.FAS_CON_T, 
+                SELECT u.COD_ID, u.CTMT, u.PAC_1, u.PAC_2, u.PAC_3, u.FAS_CON_P, u.FAS_CON_S, u.FAS_CON_T,
                 u.TIP_TRAFO, u.PER_TOT, u.PER_FER, u.POT_NOM, u.POS, u.TEN_LIN_SE, u.MRT, u.TAP,
                 e.TEN_PRI, e.TEN_SEC, e.TEN_TER,
                 t1.TEN as TEN_PRI, t2.TEN as TEN_SEC, t3.TEN as TEN_TER
                 FROM sde.EQTRMT e
                 INNER JOIN  sde.UNTRMT U
-                    on u.dist='{self.dist}' and u.ctmt='{ctmt}' and u.cod_id = e.UNI_TR_MT 
+                    on u.dist='{self.dist}' and u.ctmt='{ctmt}' and u.cod_id = e.UNI_TR_MT
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
                     on  t1.cod_id = e.TEN_PRI
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t2
@@ -158,14 +158,14 @@ class ElectricDataPort:
         if ctmt is None:
             query = f'''
                 SELECT COD_ID, CTMT, PAC_1, PAC_2, FAS_CON
-                FROM sde.UNSEMT 
+                FROM sde.UNSEMT
                 WHERE dist='{self.dist}' and sub='{self.sub}' and P_N_OPE='F' and SIT_ATIV='AT'
                 ;
             '''
         else:
             query = f'''
                 SELECT COD_ID, CTMT, PAC_1, PAC_2, FAS_CON
-                FROM sde.UNSEMT 
+                FROM sde.UNSEMT
                 WHERE dist='{self.dist}' and sub='{self.sub}' and CTMT='{ctmt}' and P_N_OPE='F' and SIT_ATIV='AT'
                 ;
             '''
@@ -176,15 +176,15 @@ class ElectricDataPort:
         if ctmt is None:
             query = f'''
                 SELECT COD_ID, CTMT, PAC_1, PAC_2, POS, FAS_CON, TIP_CND, COMP
-                FROM sde.SSDMT 
-                WHERE dist='{self.dist}' and sub='{self.sub}' 
+                FROM sde.SSDMT
+                WHERE dist='{self.dist}' and sub='{self.sub}'
                 ;
             '''
         else:
             query = f'''
                 SELECT COD_ID, CTMT, PAC_1, PAC_2, POS, FAS_CON, TIP_CND, COMP
-                FROM sde.SSDMT 
-                WHERE dist='{self.dist}' and sub='{self.sub}' and CTMT='{ctmt}' 
+                FROM sde.SSDMT
+                WHERE dist='{self.dist}' and sub='{self.sub}' and CTMT='{ctmt}'
                 ;
             '''
         self.trechos_mt = return_query_as_dataframe(query)
@@ -198,12 +198,12 @@ class ElectricDataPort:
         if ctmt is None:
             query = f'''
                 SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
-                    u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
+                    u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06,
                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
                     [DEM_01],[DEM_02],[DEM_03],[DEM_04],[DEM_05],[DEM_06],
-                    [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],                
+                    [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],
                     t1.TEN/1000 as KV_NOM
-                FROM sde.UCMT u                
+                FROM sde.UCMT u
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
                     on  u.dist='{self.dist}' and u.sub='{self.sub}' and t1.cod_id = u.TEN_FORN
                 ;
@@ -211,14 +211,14 @@ class ElectricDataPort:
         else:
             query = f'''
                 SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
-                    u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
-                    u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,                    
+                    u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06,
+                    u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
                     [DEM_01],[DEM_02],[DEM_03],[DEM_04],[DEM_05],[DEM_06],
-                    [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],                
+                    [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],
                     t1.TEN/1000 as KV_NOM
-                FROM sde.UCMT u                
+                FROM sde.UCMT u
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
-                    on  u.dist='{self.dist}' and u.sub='{self.sub}' and t1.cod_id = u.TEN_FORN 
+                    on  u.dist='{self.dist}' and u.sub='{self.sub}' and t1.cod_id = u.TEN_FORN
                 ;
             '''
         self.cargas_mt = return_query_as_dataframe(query)
@@ -231,15 +231,15 @@ class ElectricDataPort:
         """
         query = f'''
             SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG,
-                u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
+                u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06,
                 u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
                 [DEM_01],[DEM_02],[DEM_03],[DEM_04],[DEM_05],[DEM_06],
-                [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],                
+                [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],
                 t1.TEN/1000 as KV_NOM
-            FROM sde.UGMT u                
+            FROM sde.UGMT u
             INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
                 on  u.dist = '{self.dist}' and u.sub='{self.sub}' and t1.cod_id = u.TEN_FORN
-            ;  
+            ;
             '''
         self.gerador_mt = return_query_as_dataframe(query)
         return True
@@ -267,16 +267,16 @@ class ElectricDataPort:
             [POT_86] ,[POT_87] ,[POT_88], [POT_89],[POT_90] ,[POT_91], [POT_92] ,[POT_93] ,[POT_94],[POT_95] ,[POT_96]
             ) as DEN_MAX
             ,([POT_01] +[POT_02] +[POT_03] +[POT_04] +[POT_05] +[POT_06] +[POT_07] +[POT_08] +[POT_09] +[POT_10]
-             +[POT_11] +[POT_12] +[POT_13] +[POT_14] +[POT_15] +[POT_16] +[POT_17] +[POT_18] +[POT_19] +[POT_20] 
-             +[POT_21] +[POT_22] +[POT_23] +[POT_24] +[POT_25] +[POT_26] +[POT_27] +[POT_28] +[POT_29] +[POT_30] 
-             +[POT_31] +[POT_32] +[POT_33] +[POT_34] +[POT_35] +[POT_36] +[POT_37] +[POT_38] +[POT_39] +[POT_40] 
+             +[POT_11] +[POT_12] +[POT_13] +[POT_14] +[POT_15] +[POT_16] +[POT_17] +[POT_18] +[POT_19] +[POT_20]
+             +[POT_21] +[POT_22] +[POT_23] +[POT_24] +[POT_25] +[POT_26] +[POT_27] +[POT_28] +[POT_29] +[POT_30]
+             +[POT_31] +[POT_32] +[POT_33] +[POT_34] +[POT_35] +[POT_36] +[POT_37] +[POT_38] +[POT_39] +[POT_40]
              +[POT_41] +[POT_42] +[POT_43] +[POT_44] +[POT_45] +[POT_46] +[POT_47] +[POT_48] +[POT_49] +[POT_50]
-             +[POT_51] +[POT_52] +[POT_53] +[POT_54] +[POT_55] +[POT_56] +[POT_57] +[POT_58] +[POT_59] +[POT_60] 
-             +[POT_61] +[POT_62] +[POT_63] +[POT_64] +[POT_65] +[POT_66] +[POT_67] +[POT_68] +[POT_69] +[POT_70] 
-             +[POT_71] +[POT_72] +[POT_73] +[POT_74] +[POT_75] +[POT_76] +[POT_77] +[POT_78]+ [POT_79] +[POT_80] 
-             +[POT_81] +[POT_82]+[POT_83]  +[POT_84] +[POT_85] +[POT_86]+[POT_87] +[POT_88]+[POT_89] +[POT_90] 
+             +[POT_51] +[POT_52] +[POT_53] +[POT_54] +[POT_55] +[POT_56] +[POT_57] +[POT_58] +[POT_59] +[POT_60]
+             +[POT_61] +[POT_62] +[POT_63] +[POT_64] +[POT_65] +[POT_66] +[POT_67] +[POT_68] +[POT_69] +[POT_70]
+             +[POT_71] +[POT_72] +[POT_73] +[POT_74] +[POT_75] +[POT_76] +[POT_77] +[POT_78]+ [POT_79] +[POT_80]
+             +[POT_81] +[POT_82]+[POT_83]  +[POT_84] +[POT_85] +[POT_86]+[POT_87] +[POT_88]+[POT_89] +[POT_90]
              +[POT_91] +[POT_92] +[POT_93] +[POT_94]+[POT_95] +[POT_96])/(4*30) as DEM_MED
-              FROM [sde].[CRVCRG] 
+              FROM [sde].[CRVCRG]
               ) as s
             ;
         '''
@@ -307,8 +307,8 @@ class ElectricDataPort:
 
         self.monitors = return_query_as_dataframe(query)
         return True
-    
-    
+
+
 if __name__ == "__main__":
     sub = '58'
     dist = '404'
