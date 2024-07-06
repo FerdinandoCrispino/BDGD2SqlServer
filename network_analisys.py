@@ -38,20 +38,31 @@ def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
                     start = 'PAC_1'
                     end = 'PAC_2'
 
-            sql = f"SELECT PAC_1, PAC_2, PN_CON_1, PN_CON_2, objectid ctmt FROM SDE.SSDMT Where ctmt='{ctmt}' "
+            # Trechos MT
+            sql = f"SELECT PAC_1, PAC_2, PN_CON_1, PN_CON_2, COD_ID, ctmt FROM SDE.SSDMT Where ctmt='{ctmt}' "
             ssdmt_pacs = pd.read_sql_query(sql, conn)
-            print(f"Total segmentos: {len(ssdmt_pacs)}")
+
+            # Chaves MT
+            sql = f"SELECT PAC_1, PAC_2, COD_ID, ctmt FROM SDE.UNSEMT Where ctmt='{ctmt}' and P_N_OPE='F' "
+            unsemt_pacs = pd.read_sql_query(sql, conn)
+
+            # Transformadores MT
+            sql = f"SELECT PAC_1, PAC_2, COD_ID, ctmt FROM SDE.UNTRMT Where ctmt='{ctmt}' and SIT_ATIV='AT' "
+            untrmt_pacs = pd.read_sql_query(sql, conn)
+
+            print(f"Total Trechos: {len(ssdmt_pacs)}, Chaves: {len(unsemt_pacs)}, Trafos: {len(untrmt_pacs)}")
+
+            total_seg = pd.concat([ssdmt_pacs, unsemt_pacs, untrmt_pacs], sort=False)
             # Construir o grafo
-            graph = cs.build_graph(ssdmt_pacs, start, end)
+            graph = cs.build_graph(total_seg, start, end)
             # Encontrar e ordenar segmentos conectados usando DFS
             connected_segments = cs.dfs(graph, pn_ini)
-            print(connected_segments)
+            #print(connected_segments)
             print(f"Segmentos conectados: {len(connected_segments)}")
-            print("Não conectados:")
 
-            all_segments = list(zip(ssdmt_pacs[start], ssdmt_pacs[end]))
+            all_segments = list(zip(total_seg[start], total_seg[end]))
             unconnected_segments = cs.find_unconnected_segments(all_segments, connected_segments)
-            print(len(unconnected_segments))
+            print(f"Não conectados: {len(unconnected_segments)}")
             print(unconnected_segments)
 
             print(ctmt + '\n')
@@ -67,4 +78,4 @@ if __name__ == "__main__":
         print(f"Erro ao conectar ao banco de dados: {e}")
         exit(1)
 
-    check_connect_ssdmt(engine, '58', 'PN_CON')  # PAC or PN_CON
+    check_connect_ssdmt(engine, '58', 'PAC')  # PAC or PN_CON
