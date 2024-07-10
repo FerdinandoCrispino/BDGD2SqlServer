@@ -203,10 +203,13 @@ class ElectricDataPort:
                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
                     [DEM_01],[DEM_02],[DEM_03],[DEM_04],[DEM_05],[DEM_06],
                     [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],                
-                    t1.TEN/1000 as KV_NOM
-                FROM sde.UCMT u                
+                    t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, t.POT_NOM
+                FROM sde.UCMT u 
+                INNER JOIN sde.unTRmt t
+                on u.pac = t.pac_1 or u.pac=t.PAC_2 
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
-                    on u.dist='{self.dist}' and u.sub='{self.sub}' and t1.cod_id = u.TEN_FORN and u.pn_con != '0'
+                    on u.dist='{self.dist}' and u.sub='{self.sub}' and t1.cod_id = u.TEN_FORN and u.sit_ativ = 'AT'
+                        and u.pn_con != '0'
                 ;
             '''
         else:
@@ -216,10 +219,13 @@ class ElectricDataPort:
                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,                    
                     [DEM_01],[DEM_02],[DEM_03],[DEM_04],[DEM_05],[DEM_06],
                     [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],                
-                    t1.TEN/1000 as KV_NOM
-                FROM sde.UCMT u                
+                    t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, t.POT_NOM
+                FROM sde.UCMT u 
+                INNER JOIN sde.unTRmt t
+                on u.pac = t.pac_1 or u.pac=t.PAC_2 
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
-                    on  u.dist='{self.dist}' and u.CTMT='{ctmt}' and t1.cod_id = u.TEN_FORN and u.pn_con != '0'
+                    on  u.dist='{self.dist}' and u.CTMT='{ctmt}' and t1.cod_id = u.TEN_FORN and u.sit_ativ = 'AT'
+                        and u.pn_con != '0'
                 ;
             '''
         self.cargas_mt = return_query_as_dataframe(query)
@@ -235,7 +241,7 @@ class ElectricDataPort:
                 SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
                     u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12, 
-                    t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2
+                    t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
                 FROM sde.UCBT u    
                 INNER JOIN sde.UNTRMT T
                     on u.dist='{self.dist}' and u.sub = {self.sub} and t.COD_ID = u.UNI_TR_MT and u.sit_ativ = 'AT' and 
@@ -247,7 +253,7 @@ class ElectricDataPort:
                 SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
                     u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12, 
-                    t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2
+                    t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
                 FROM sde.UCBT u    
                 INNER JOIN sde.UNTRMT T
                     on u.dist='{self.dist}' and u.ctmt = {ctmt} and t.COD_ID = u.UNI_TR_MT and u.sit_ativ = 'AT' and 
@@ -257,23 +263,38 @@ class ElectricDataPort:
         self.cargas_bt = return_query_as_dataframe(query)
         return True
 
-    def query_gerador_mt(self) -> bool:
+    def query_generators_mt(self, ctmt=None) -> bool:
         """
         Busca dados de Geradores MT
         :return:
         """
-        query = f'''
-            SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG,
-                u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
-                u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
-                [DEM_01],[DEM_02],[DEM_03],[DEM_04],[DEM_05],[DEM_06],
-                [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],                
-                t1.TEN/1000 as KV_NOM
-            FROM sde.UGMT u                
-            INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
-                on  u.dist = '{self.dist}' and u.sub='{self.sub}' and t1.cod_id = u.TEN_FORN
-            ;  
-            '''
+        if ctmt is None:
+            query = f'''
+                SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
+                    u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
+                    u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
+                    [DEM_01],[DEM_02],[DEM_03],[DEM_04],[DEM_05],[DEM_06],
+                    [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],                
+                    t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE
+                FROM sde.UGMT u                
+                INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
+                    on  u.dist = '{self.dist}' and u.sub='{self.sub}' and SIT_ATIV='AT' and t1.cod_id = u.TEN_FORN
+                ;  
+                '''
+        else:
+            query = f'''
+                SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
+                    u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
+                    u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
+                    [DEM_01],[DEM_02],[DEM_03],[DEM_04],[DEM_05],[DEM_06],
+                    [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],                
+                    t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE
+                FROM sde.UGMT u                
+                INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
+                    on  u.dist = '{self.dist}' and u.ctmt='{ctmt}' and SIT_ATIV='AT' and t1.cod_id = u.TEN_FORN
+                ;  
+                '''
+
         self.gerador_mt = return_query_as_dataframe(query)
         return True
 
@@ -342,9 +363,17 @@ class ElectricDataPort:
 
     def query_capacitor(self, ctmt):
         query = f'''                       
-                SELECT A.COD_ID, POT_NOM, PAC_1, FAS_CON, B.POT FROM SDE.UNCRMT A 
-                    INNER JOIN [GEO_SIGR_DDAD_M10].sde.TPOTRTV  B
-                    ON A.POT_NOM = B.COD_ID WHERE A.CTMT='{ctmt}' and A.SIT_ATIV='AT'
+                SELECT A.COD_ID, A.POT_NOM, A.PAC_1, A.FAS_CON, B.POT, S.COD_ID as LiNE_COD, V.TEN
+                FROM SDE.UNCRMT A 
+                INNER JOIN sde.ctmt C
+                    on A.CTMT = C.COD_ID 
+                INNER JOIN sde.ssdmt S
+                    on A.PAC_1 = S.PAC_1
+                INNER JOIN [GEO_SIGR_DDAD_M10].sde.TPOTRTV B
+                    ON A.POT_NOM = B.COD_ID 
+                INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN V
+                    on V.COD_ID = C.TEN_NOM
+                WHERE A.CTMT='748515' and A.SIT_ATIV='AT'
                 ;
             '''
         self.capacitors = return_query_as_dataframe(query)
@@ -382,6 +411,7 @@ class ElectricDataPort:
 if __name__ == "__main__":
     sub = '58'
     dist = '404'
+
     nome_arquivo_crv = f'CurvaCarga_{dist}_{sub}'
     nome_arquivo_sup = f'Circuito_{dist}_{sub}'
     nome_arquivo_cnd = f'CodCondutores_{dist}_{sub}'
@@ -393,11 +423,12 @@ if __name__ == "__main__":
     nome_arquivo_monitors = f'Monitors_{dist}_{sub}'
     nome_arquivo_capacitors = f'Capacitors_{dist}_{sub}'
     nome_arquivo_crg_bt = f'CargasBT_{dist}_{sub}'
+    nome_arquivo_generators_mt_dss = f'GenadoresMT_{dist}_{sub}'
     nome_arquivo_master = f'Master_{dist}_{sub}'
 
     list_files_dss = [nome_arquivo_crv, nome_arquivo_sup, nome_arquivo_cnd, nome_arquivo_chv_mt, nome_arquivo_re_mt,
                       nome_arquivo_tr_mt, nome_arquivo_seg_mt, nome_arquivo_crg_mt, nome_arquivo_monitors,
-                      nome_arquivo_capacitors, nome_arquivo_crg_bt]
+                      nome_arquivo_capacitors, nome_arquivo_crg_bt, nome_arquivo_generators_mt_dss]
 
     linhas_suprimento_dss = []
     linhas_curvas_carga_dss = []
@@ -410,7 +441,18 @@ if __name__ == "__main__":
     linhas_monitors_dss = []
     linhas_capacitors_dss = []
     linhas_cargas_bt_dss = []
+    linhas_generators_mt_dss = []
     linhas_master = []
+
+    multi_ger = []
+    multi_ger.append(['GeradorMT-Tipo1',
+                      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.213170, 0.493614, 0.767539, 0.930065, 1.000000,
+                       0.908147,
+                       0.682011, 0.461154, 0.024685, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
+    multi_ger.append(['GeradorMT-Tipo2',
+                      [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.213170, 0.493614, 0.767539, 0.930065, 1.000000,
+                       0.908147,
+                       0.682011, 0.461154, 0.024685, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
 
     # inicializa classes de manipulação dos dados da bdgd
     dss_adapter = dss_g.DssFilesGenerator()
@@ -431,11 +473,7 @@ if __name__ == "__main__":
     # leitura de dados de curvas de carga da bdgd
     print(f'Process LoadShape....')
     bdgd_read.query_crvcrg()
-    dss_adapter.get_lines_curvas_carga(bdgd_read.curvas_cargas, linhas_curvas_carga_dss)
-
-    # leitura de dados de gerador mt
-    print(f'Process Generator....')
-    bdgd_read.query_gerador_mt()
+    dss_adapter.get_lines_curvas_carga(bdgd_read.curvas_cargas, multi_ger, linhas_curvas_carga_dss)
 
     # Fator de carga
     bdgd_read.query_fator_de_carga()
@@ -500,8 +538,13 @@ if __name__ == "__main__":
 
         # Grava arquivo DSS para cargas BT
         bdgd_read.query_cargas_bt(cod_circuito)
-        dss_adapter.get_lines_cargas_bt(bdgd_read.cargas_bt,  bdgd_read.carga_fc, linhas_cargas_bt_dss)
+        dss_adapter.get_lines_cargas_bt(bdgd_read.cargas_bt, bdgd_read.carga_fc, linhas_cargas_bt_dss)
         write_to_dss(sub, cod_circuito, linhas_cargas_bt_dss, nome_arquivo_crg_bt)
+
+        # leitura de dados de gerador mt
+        bdgd_read.query_generators_mt(cod_circuito)
+        dss_adapter.get_lines_generators_mt(bdgd_read.gerador_mt, multi_ger, linhas_generators_mt_dss)
+        write_to_dss(sub, cod_circuito, linhas_generators_mt_dss, nome_arquivo_generators_mt_dss)
 
         # Grava arquivo DSS para o master
         voltagebases = bdgd_read.voltage_bases(bdgd_read.trafos)

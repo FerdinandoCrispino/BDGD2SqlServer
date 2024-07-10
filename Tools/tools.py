@@ -687,6 +687,16 @@ def numero_fases_carga_dss(strFases):
     else:
         return ""
 
+def ligacao_gerador(strCodFas):
+    if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
+            strCodFas == "CN":
+        return "Wye"
+    elif strCodFas == "AB" or strCodFas == "BC" or strCodFas == "CA" or strCodFas == "ABN" or strCodFas == "BCN" or \
+            strCodFas == "CAN" or strCodFas == "ABC" or strCodFas == "ABCN":
+        return "Delta"
+    else:
+        return ""
+
 
 def ajust_eqre_codbanc(dist):
     """
