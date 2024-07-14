@@ -2,6 +2,7 @@ from Tools.tools import return_query_as_dataframe, write_to_dss, ajust_eqre_codb
 import pandas as pd
 import dss_files_genetator as dss_g
 import time
+import sys
 
 """
 # @Date    : 20/06/2024
@@ -72,7 +73,7 @@ class ElectricDataPort:
                         e.[POT_NOM], e.[TEN_REG], e.[LIG_FAS_P], e.[LIG_FAS_S], e.[COR_NOM], 
                         e.[REL_TP], e.[PER_FER], e.[PER_TOT], e.[R], e.[XHL], e.[CODBNC], e.[GRU_TEN]
                  FROM SDE.UNREMT as c, SDE.EQRE as e 
-                 WHERE c.dist = '{self.dist}' and c.ctmt='{ctmt}' and c.SIT_ATIV = 'AT' and 
+                 WHERE c.dist = '{self.dist}' and c.sub='{self.sub}' and c.ctmt='{ctmt}' and c.SIT_ATIV = 'AT' and 
                  (c.pac_1 = e.pac_1 or c.pac_2 = e.pac_2 or c.pac_1 = e.pac_2 or c.pac_2 = e.pac_1)
                  ;
             '''
@@ -138,7 +139,7 @@ class ElectricDataPort:
                 t1.TEN as TEN_PRI, t2.TEN as TEN_SEC, t3.TEN as TEN_TER
                 FROM sde.EQTRMT e
                 INNER JOIN  sde.UNTRMT U
-                    on u.dist='{self.dist}' and u.ctmt='{ctmt}' and u.cod_id = e.UNI_TR_MT 
+                    on u.dist='{self.dist}' and u.sub='{self.sub}' and u.ctmt='{ctmt}' and u.cod_id = e.UNI_TR_MT 
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
                     on  t1.cod_id = e.TEN_PRI
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t2
@@ -158,16 +159,16 @@ class ElectricDataPort:
         """
         if ctmt is None:
             query = f'''
-                SELECT COD_ID, CTMT, PAC_1, PAC_2, FAS_CON
+                SELECT COD_ID, CTMT, PAC_1, PAC_2, FAS_CON, P_N_OPE
                 FROM sde.UNSEMT 
-                WHERE dist='{self.dist}' and sub='{self.sub}' and P_N_OPE='F' and SIT_ATIV='AT'
+                WHERE dist='{self.dist}' and sub='{self.sub}' and SIT_ATIV='AT'
                 ;
             '''
         else:
             query = f'''
-                SELECT COD_ID, CTMT, PAC_1, PAC_2, FAS_CON
+                SELECT COD_ID, CTMT, PAC_1, PAC_2, FAS_CON, P_N_OPE
                 FROM sde.UNSEMT 
-                WHERE dist='{self.dist}' and sub='{self.sub}' and CTMT='{ctmt}' and P_N_OPE='F' and SIT_ATIV='AT'
+                WHERE dist='{self.dist}' and sub='{self.sub}' and CTMT='{ctmt}' and SIT_ATIV='AT'
                 ;
             '''
         self.chaves_mt = return_query_as_dataframe(query)
@@ -193,7 +194,8 @@ class ElectricDataPort:
 
     def query_cargas_mt(self, ctmt=None) -> bool:
         """
-        Busca dados de Cargas MT
+        Busca dados das Cargas de Média Tensão para a escrever dos arquivos DSS
+        :param ctmt:
         :return:
         """
         if ctmt is None:
@@ -224,8 +226,8 @@ class ElectricDataPort:
                 INNER JOIN sde.unTRmt t
                 on u.pac = t.pac_1 or u.pac=t.PAC_2 
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
-                    on  u.dist='{self.dist}' and u.CTMT='{ctmt}' and t1.cod_id = u.TEN_FORN and u.sit_ativ = 'AT'
-                        and u.pn_con != '0'
+                    on  u.dist='{self.dist}' and u.sub='{self.sub}' and u.CTMT='{ctmt}' and 
+                    t1.cod_id = u.TEN_FORN and u.sit_ativ = 'AT' and u.pn_con != '0'
                 ;
             '''
         self.cargas_mt = return_query_as_dataframe(query)
@@ -233,6 +235,8 @@ class ElectricDataPort:
 
     def query_cargas_bt(self, ctmt=None) -> bool:
         """
+        Busca dados das Cargas de Baixa Tensão para a escrever dos arquivos DSS
+        As cargas são conectadas no transformador de média Tensão
         Busca dados de Cargas BT
         :return:
         """
@@ -256,17 +260,36 @@ class ElectricDataPort:
                     t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
                 FROM sde.UCBT u    
                 INNER JOIN sde.UNTRMT T
-                    on u.dist='{self.dist}' and u.ctmt = {ctmt} and t.COD_ID = u.UNI_TR_MT and u.sit_ativ = 'AT' and 
-                    u.pn_con != '0'
+                    on u.dist='{self.dist}' and u.sub = {self.sub} and u.ctmt = {ctmt} and 
+                    t.COD_ID = u.UNI_TR_MT and u.sit_ativ = 'AT' and u.pn_con != '0'
                 ;
             '''
         self.cargas_bt = return_query_as_dataframe(query)
         return True
 
+    def query_check_cod_ten_gerador_mt(self):
+        """
+        Verifica se a tensão do gerador é igual a tensõa do transformador da linha onde ele está conectado.
+        Verificar se é possivel fazer um update na tabela UGMT substituindo o cod da tensão pelo cod da tensão do trafo.
+        :return:
+        """
+        query = f'''
+            SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD, q.TEN_PRI
+            FROM sde.UGMT u
+            INNER JOIN sde.UNTRMT T
+                on u.PAC = T.PAC_1
+            INNER JOIN sde.EQTRMT Q
+                on T.COD_ID = q.UNI_TR_MT
+            where q.TEN_PRI != u.TEN_FORN
+            ;
+        '''
+
     def query_generators_mt(self, ctmt=None) -> bool:
         """
-        Busca dados de Geradores MT
+        Busca dados dos GERADORES de Média Tensão para a escrever dos arquivos DSS
+        :param ctmt:
         :return:
+
         """
         if ctmt is None:
             query = f'''
@@ -275,12 +298,16 @@ class ElectricDataPort:
                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
                     [DEM_01],[DEM_02],[DEM_03],[DEM_04],[DEM_05],[DEM_06],
                     [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],                
-                    t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE
-                FROM sde.UGMT u                
-                INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
-                    on  u.dist = '{self.dist}' and u.sub='{self.sub}' and SIT_ATIV='AT' and t1.cod_id = u.TEN_FORN
+                    t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, q.TEN_PRI
+                FROM sde.UGMT u
+                INNER JOIN sde.UNTRMT T
+                    on u.PAC = T.PAC_1
+                INNER JOIN sde.EQTRMT Q
+                    on T.COD_ID = q.UNI_TR_MT
+                INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
+                    on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.SIT_ATIV='AT' and t1.cod_id = u.TEN_FORN
                 ;  
-                '''
+            '''
         else:
             query = f'''
                 SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
@@ -288,19 +315,25 @@ class ElectricDataPort:
                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
                     [DEM_01],[DEM_02],[DEM_03],[DEM_04],[DEM_05],[DEM_06],
                     [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],                
-                    t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE
-                FROM sde.UGMT u                
-                INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
-                    on  u.dist = '{self.dist}' and u.ctmt='{ctmt}' and SIT_ATIV='AT' and t1.cod_id = u.TEN_FORN
+                    t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, q.TEN_PRI
+                FROM sde.UGMT u
+                INNER JOIN sde.UNTRMT T
+                    on u.PAC = T.PAC_1
+                INNER JOIN sde.EQTRMT Q
+                    on T.COD_ID = q.UNI_TR_MT
+                INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
+                    on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.ctmt='{ctmt}' and u.SIT_ATIV='AT' and 
+                    t1.cod_id = u.TEN_FORN
                 ;  
-                '''
+            '''
 
         self.gerador_mt = return_query_as_dataframe(query)
         return True
 
     def query_fator_de_carga(self) -> bool:
         """
-
+        O fator de carga é utilizado para calcular a demanda máxima a partir da energia para nos casos
+        que não é fornecido a demanda mensal.
         :param cod_id: Codigo da curva de carga.
         :param tipo_dia: DO, DU ou SA
         :return:
@@ -373,7 +406,7 @@ class ElectricDataPort:
                     ON A.POT_NOM = B.COD_ID 
                 INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN V
                     on V.COD_ID = C.TEN_NOM
-                WHERE A.CTMT='748515' and A.SIT_ATIV='AT'
+                WHERE s.dist = '{self.dist}' and s.sub='{self.sub}' and A.CTMT='{ctmt}' and A.SIT_ATIV='AT'
                 ;
             '''
         self.capacitors = return_query_as_dataframe(query)
@@ -408,10 +441,11 @@ class ElectricDataPort:
         return voltagebases
 
 
-if __name__ == "__main__":
-    sub = '58'
+def main():
+    sub = '95'    #100  58
     dist = '404'
 
+    print(f"Tratamento para empresa: {dist} e subestação: {sub}")
     nome_arquivo_crv = f'CurvaCarga_{dist}_{sub}'
     nome_arquivo_sup = f'Circuito_{dist}_{sub}'
     nome_arquivo_cnd = f'CodCondutores_{dist}_{sub}'
@@ -550,3 +584,7 @@ if __name__ == "__main__":
         voltagebases = bdgd_read.voltage_bases(bdgd_read.trafos)
         dss_adapter.get_lines_master(cod_circuito, voltagebases, list_files_dss, linhas_trafos_mt_dss, linhas_master)
         write_to_dss(sub, cod_circuito, linhas_master, nome_arquivo_master)
+
+
+if __name__ == "__main__":
+    main()

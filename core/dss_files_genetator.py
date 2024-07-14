@@ -34,11 +34,17 @@ class DssFilesGenerator:
         """ Função para gerar as linhas (DSS) referentes às chaves de um determinado circuito """
         linhas_chaves_dss.clear()
         for index in range(chaves.shape[0]):
+            sw = chaves.loc[index]['P_N_OPE']
+            if sw == 'F':      # chave fechada
+                switch = 'T'
+            elif sw == 'A':     # chave aberta
+                switch = 'F'
+
             linha = 'New "Line.CMT_' + chaves.loc[index]['COD_ID'] + '"' + " phases=" + numero_fases_segmento(
                 chaves.loc[index]['FAS_CON']) + \
                     " bus1=" + '"' + chaves.loc[index]['PAC_1'] + nos_com_neutro(chaves.loc[index]['FAS_CON']) + '"' + \
                     " bus2=" + '"' + chaves.loc[index]['PAC_2'] + nos_com_neutro(chaves.loc[index]['FAS_CON']) + '"' + \
-                    " r1=0.001 r0=0.001 x1=0 x0=0 c1=0 c0=0 length=0.001 switch=T"
+                    " r1=0.001 r0=0.001 x1=0 x0=0 c1=0 c0=0 length=0.001 switch=" + switch
             linhas_chaves_dss.append(linha)
 
     def get_lines_reguladores(self, reatores, linhas_reguladores_dss):
@@ -62,21 +68,22 @@ class DssFilesGenerator:
 
             dblkvREG = round(tens_regulador(dblTensaoPrimTrafo_kV), 4)
 
-            linhas_reguladores_dss.append('New "Transformer.REG_' + strNome + nome_banco(intCodBnc) + '"' + " phases=" +
-                                          numero_fases_transformador(
-                                              strCodFasPrim) + " windings=2 buses=[" + '"' + strBus1 +
-                                          nos(strCodFasPrim) + '"' + ' "' + strBus2 + nos(
-                strCodFasSecu) + '"' + "] conns=[" +
-                                          ligacao_trafo(strCodFasPrim) + " " + ligacao_trafo(
-                strCodFasSecu) + "] kvs=[" +
-                                          str(dblkvREG) + " " + str(dblkvREG) + "] kvas=[" +
-                                          str(PotNom_kVA) + " " + str(PotNom_kVA) + "] xhl=" + str(
-                ReatHL_per) + " %loadloss=" +
-                                          str((dblPerdTtl_per - dblPerdVz_per)) + " %noloadloss=" + str(dblPerdVz_per))
+            PerdaFerroTrafo_per = dblPerdVz_per / (float(PotNom_kVA) * 1000)
+            PerdaCobreTrafo_per = (dblPerdTtl_per - dblPerdVz_per) / (float(PotNom_kVA) * 1000)
+
+            linhas_reguladores_dss.append('New "Transformer.REG_' + strNome + nome_banco(intCodBnc) + '"' +
+                                          " phases=" + numero_fases_transformador(strCodFasPrim) +
+                                          " windings=2 buses=[" + '"' + strBus1 + nos(strCodFasPrim) + '"' + ' "' +
+                                          strBus2 + nos(strCodFasSecu) + '"' + "] conns=[" +
+                                          ligacao_trafo(strCodFasPrim) + " " + ligacao_trafo(strCodFasSecu) +
+                                          "] kvs=[" + str(dblkvREG) + " " + str(dblkvREG) + "] kvas=[" +
+                                          str(PotNom_kVA) + " " + str(PotNom_kVA) + "] xhl=" + str(ReatHL_per) +
+                                          " %loadloss=" + f"{PerdaCobreTrafo_per:.6f}" +
+                                          " %noloadloss=" + f"{PerdaFerroTrafo_per:.6f}")
             linhas_reguladores_dss.append(
                 'New "Regcontrol.REG_' + strNome + nome_banco(intCodBnc) + '"' + ' transformer="REG_' +
                 strNome + nome_banco(intCodBnc) + '"' + " winding=2 vreg=" +
-                str(float(dblTenRgl_pu) * 100) + " band=2 ptratio=" + str(float(dblkvREG) * 10))
+                str(float(dblTenRgl_pu) * 100) + " band=2 ptratio=" + f"{(dblkvREG * 10):.4f}")
 
     def get_lines_trafos(self, trafos, linhas_trafos_dss) -> None:
 
@@ -106,23 +113,6 @@ class DssFilesGenerator:
             PerdaCobreTrafo_per = (PerdaTotalTrafo - PerdaFerroTrafo) / (kva_nom * 1000)
 
             tipo_trafo = get_tipo_trafo(codi_tipo_trafo)
-            """
-            # Avalia o tipo do trafo
-            if codi_tipo_trafo == 'M':
-                tipo_trafo = 1
-            elif codi_tipo_trafo == 'MT':
-                tipo_trafo = 2
-            elif codi_tipo_trafo == 'B':
-                tipo_trafo = 3
-            elif codi_tipo_trafo == 'T':
-                tipo_trafo = 4
-            elif codi_tipo_trafo == 'DF':
-                tipo_trafo = 5
-            elif codi_tipo_trafo == 'DA':
-                tipo_trafo = 6
-            else:
-                tipo_trafo = 0
-            """
 
             # Se for trifásico ou bifásico, mantém a tensão do TEN_LIN_PRI, do contrário, multiplica por raiz de 3
             if numero_fases(lig_fas_p) == 1:
@@ -304,6 +294,12 @@ class DssFilesGenerator:
         else:
             strmes = str(mes)
 
+        # remove duplicate values in COD_ID column
+        cargas.sort_values(by=['COD_ID', 'DEM_01'], ascending=[True, False], inplace=True)
+        # duplicate_values = cargas['COD_ID'].duplicated()
+        cargas.drop_duplicates(subset='COD_ID', keep='first', inplace=True)
+        cargas.reset_index(drop=True, inplace=True)
+
         for index in range(cargas.shape[0]):
             strName = cargas.loc[index]['COD_ID']
             strCodCrvCrg = cargas.loc[index]['TIP_CC'] + '_' + tipo_dia
@@ -342,7 +338,7 @@ class DssFilesGenerator:
                                        (cargas_fc['TIP_DIA'] == tipo_dia)]
                     dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc.iloc[0]['FC']
                     if dblDemMax_kW > trafo_kw:
-                        dblDemMax_kW = trafo_kw * 0.98     # valor arbitrario
+                        dblDemMax_kW = trafo_kw * 0.98  # valor arbitrario
 
                     linhas_cargas_dss.append('New "Load.MT_' + strName + '_M1" bus1="' + strBus + nos(
                         strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
@@ -438,7 +434,14 @@ class DssFilesGenerator:
             dblDemMax_kW = generators.loc[index]['DEM_' + str(strmes)]
             ano_base = generators.loc[index]['ANO_BASE']
 
+            cod_kv_pri_trafo = generators.loc[index]['TEN_PRI']
+            cod_kv_gererator = generators.loc[index]['TEN_FORN']
+            if cod_kv_pri_trafo != cod_kv_gererator:
+                print(f"Erro: cod tensão do gerador diferente do transformador. Atualizar banco de dados")
+                print(f"cod tensão do gerador: {cod_kv_gererator} cod tensão trafo: {cod_kv_pri_trafo}")
+
             dbdaily = 'GeradorMT-Tipo1'
+            srt_comment_dss = ''
 
             if dblDemMax_kW == 0:
                 for crv in crv_ger:
@@ -449,9 +452,13 @@ class DssFilesGenerator:
                 num_dias = calendar.monthrange(ano_base, mes)[1]
                 dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc
 
+            # elimina geradores sem demanda
+            if dblDemMax_kW == 0:
+                srt_comment_dss = '!'
+
             dbconn = ligacao_gerador(strCodFas)  # "wye" ou "Delta"
 
-            linha_generators_mt_dss.append('New Generator.MT_' + strName + '_M1 bus1=' + strBus + nos(strCodFas) +
+            linha_generators_mt_dss.append(srt_comment_dss + 'New Generator.MT_' + strName + '_M1 bus1=' + strBus + nos(strCodFas) +
                                            ' phases=' + numero_fases_carga(strCodFas) + ' conn=' + dbconn + ' kv=' +
                                            str(dblTensao_kV) + ' model=1 kw=' + str(dblDemMax_kW) + ' pf=0.92 daily="' +
                                            dbdaily + '" status=variable vmaxpu=1.5 vminpu=0.93')
