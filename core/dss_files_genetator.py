@@ -349,7 +349,7 @@ class DssFilesGenerator:
                         strCodFas) + " model=3" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.7f}" +
                                              " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
 
-    def get_lines_cargas_bt(self, cargas_bt, cargas_fc, linhas_cargas_bt_dss):
+    def get_lines_cargas_bt(self, cargas_bt, cargas_fc, cargas_pip, linhas_cargas_bt_dss):
 
         linhas_cargas_bt_dss.clear()
         # Deve-se implementar para 12 meses e os 3 tipos de dia DO DU SA
@@ -369,7 +369,7 @@ class DssFilesGenerator:
             energy_mes = cargas_bt.loc[index]['ENE_' + str(strmes)]
             dblTenSecu_kV = cargas_bt.loc[index]['TEN_LIN_SE']
             codi_tipo_trafo = cargas_bt.loc[index]['TIP_TRAFO']
-            dblDemMaxTrafo_kW = cargas_bt.loc[index]['POT_NOM'] * 0.92
+            dblDemMaxTrafo_kW = cargas_bt.loc[index]['POT_NOM'] * 0.92   #kVA
             ano_base = cargas_bt.loc[index]['ANO_BASE']
 
             intTipTrafo = get_tipo_trafo(codi_tipo_trafo)
@@ -413,6 +413,34 @@ class DssFilesGenerator:
                 + ligacao_carga(strCodFas) + " model=3" + " kv=" + kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo) + 
                 " kw=" + f"{(dblDemMaxCorrigida_kW / 2):.7f}" + " pf=0.92" + ' daily="' + strCodCrvCrg + '" 
                 status=variable vmaxpu=1.5 vminpu=0.92') """
+        for index in range(cargas_pip.shape[0]):
+            strName = cargas_pip.loc[index]['COD_ID']
+            strCodCrvCrg = cargas_pip.loc[index]['TIP_CC'] + '_' + tipo_dia
+            strCodFas = cargas_pip.loc[index]['FAS_CON']
+            strBus = cargas_pip.loc[index]['PAC']
+            strBus = cargas_pip.loc[index]['PAC_2']  # ligar as cargas PIP no secundario do transformador
+            energy_mes = cargas_pip.loc[index]['ENE_' + str(strmes)]
+            dblTenSecu_kV = cargas_pip.loc[index]['TEN_LIN_SE']
+            dblDemMaxTrafo_kW = cargas_pip.loc[index]['POT_NOM'] * 0.92  # kVA
+            ano_base = cargas_pip.loc[index]['ANO_BASE']
+
+            num_dias = calendar.monthrange(ano_base, mes)[1]
+            fc = cargas_fc.loc[(cargas_fc['COD_ID'] == cargas_pip.loc[index]['TIP_CC']) &
+                               (cargas_fc['TIP_DIA'] == tipo_dia)]
+            dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc.iloc[0]['FC']
+
+            if dblDemMax_kW > dblDemMaxTrafo_kW:
+                dblDemMaxCorrigida_kW = dblDemMaxTrafo_kW
+            else:
+                dblDemMaxCorrigida_kW = dblDemMax_kW
+
+            if dblDemMaxCorrigida_kW > 0:
+                linhas_cargas_bt_dss.append(
+                    'New "Load.PIP_' + strName + '_M1" bus1="' + strBus + nos_com_neutro(strCodFas) + '"' +
+                    " phases=" + numero_fases_carga_dss(strCodFas) + " conn=" + ligacao_carga(strCodFas) +
+                    " model=2" + " kw=" +
+                    f"{dblDemMaxCorrigida_kW:.7f}" + " pf=0.92" + ' daily="' + strCodCrvCrg +
+                    '" status=variable vmaxpu=1.5 vminpu=0.92')
 
     def get_lines_generators_mt(self, generators, crv_ger, linha_generators_mt_dss):
         linha_generators_mt_dss.clear()

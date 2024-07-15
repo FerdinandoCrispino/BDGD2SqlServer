@@ -36,6 +36,7 @@ class ElectricDataPort:
         self.gerador_mt = []
         self.capacitors = []
         self.cargas_bt = []
+        self.cargas_pip=[]
         self.monitors = []
 
     def query_circuitos(self) -> bool:
@@ -248,7 +249,7 @@ class ElectricDataPort:
                     t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
                 FROM sde.UCBT u    
                 INNER JOIN sde.UNTRMT T
-                    on u.dist='{self.dist}' and u.sub = {self.sub} and t.COD_ID = u.UNI_TR_MT and u.sit_ativ = 'AT' and 
+                    on u.dist='{self.dist}' and u.sub = '{self.sub}' and t.COD_ID = u.UNI_TR_MT and u.sit_ativ = 'AT' and 
                     u.pn_con != '0'
                 ;
             '''
@@ -260,11 +261,46 @@ class ElectricDataPort:
                     t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
                 FROM sde.UCBT u    
                 INNER JOIN sde.UNTRMT T
-                    on u.dist='{self.dist}' and u.sub = {self.sub} and u.ctmt = {ctmt} and 
+                    on u.dist='{self.dist}' and u.sub = '{self.sub}' and u.ctmt = '{ctmt}' and 
                     t.COD_ID = u.UNI_TR_MT and u.sit_ativ = 'AT' and u.pn_con != '0'
                 ;
             '''
         self.cargas_bt = return_query_as_dataframe(query)
+        return True
+
+    def query_cargas_pip(self, ctmt=None) -> bool:
+        """
+         Busca dados das Cargas de Iluminação Pública para a escrever nos arquivos DSS
+         As cargas são conectadas no transformador de média Tensão
+         :param ctmt:
+         :return:
+         """
+
+        if ctmt is None:
+            query = f'''
+                 SELECT p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN,
+                     p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
+                     p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12, 
+                     t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                 FROM sde.PIP P    
+                 INNER JOIN sde.UNTRMT T
+                     on p.dist='{self.dist}' and p.sub = '{self.sub}' and t.COD_ID = p.UNI_TR_MT and 
+                     p.sit_ativ = 'AT' and p.pn_con != '0'
+                 ;
+             '''
+        else:
+            query = f'''
+                 SELECT p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN,
+                     p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
+                     p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12, 
+                     t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                 FROM sde.PIP P    
+                 INNER JOIN sde.UNTRMT T
+                     on p.dist='{self.dist}' and p.sub = '{self.sub}' and p.ctmt = '{ctmt}' and 
+                     t.COD_ID = p.UNI_TR_MT and p.sit_ativ = 'AT' and p.pn_con != '0'
+                 ;
+             '''
+        self.cargas_pip = return_query_as_dataframe(query)
         return True
 
     def query_check_cod_ten_gerador_mt(self):
@@ -360,9 +396,9 @@ class ElectricDataPort:
              +[POT_41] +[POT_42] +[POT_43] +[POT_44] +[POT_45] +[POT_46] +[POT_47] +[POT_48] +[POT_49] +[POT_50]
              +[POT_51] +[POT_52] +[POT_53] +[POT_54] +[POT_55] +[POT_56] +[POT_57] +[POT_58] +[POT_59] +[POT_60] 
              +[POT_61] +[POT_62] +[POT_63] +[POT_64] +[POT_65] +[POT_66] +[POT_67] +[POT_68] +[POT_69] +[POT_70] 
-             +[POT_71] +[POT_72] +[POT_73] +[POT_74] +[POT_75] +[POT_76] +[POT_77] +[POT_78]+ [POT_79] +[POT_80] 
-             +[POT_81] +[POT_82]+[POT_83]  +[POT_84] +[POT_85] +[POT_86]+[POT_87] +[POT_88]+[POT_89] +[POT_90] 
-             +[POT_91] +[POT_92] +[POT_93] +[POT_94]+[POT_95] +[POT_96])/(4*30) as DEM_MED
+             +[POT_71] +[POT_72] +[POT_73] +[POT_74] +[POT_75] +[POT_76] +[POT_77] +[POT_78] +[POT_79] +[POT_80] 
+             +[POT_81] +[POT_82] +[POT_83] +[POT_84] +[POT_85] +[POT_86] +[POT_87] +[POT_88] +[POT_89] +[POT_90] 
+             +[POT_91] +[POT_92] +[POT_93] +[POT_94]+ [POT_95] +[POT_96])/(4*24) as DEM_MED
               FROM [sde].[CRVCRG] 
               ) as s
             ;
@@ -442,7 +478,7 @@ class ElectricDataPort:
 
 
 def main():
-    sub = '95'    #100  58
+    sub = '97'    #100  58, 95, 97
     dist = '404'
 
     print(f"Tratamento para empresa: {dist} e subestação: {sub}")
@@ -572,7 +608,8 @@ def main():
 
         # Grava arquivo DSS para cargas BT
         bdgd_read.query_cargas_bt(cod_circuito)
-        dss_adapter.get_lines_cargas_bt(bdgd_read.cargas_bt, bdgd_read.carga_fc, linhas_cargas_bt_dss)
+        bdgd_read.query_cargas_pip(cod_circuito)
+        dss_adapter.get_lines_cargas_bt(bdgd_read.cargas_bt, bdgd_read.carga_fc, bdgd_read.cargas_pip, linhas_cargas_bt_dss)
         write_to_dss(sub, cod_circuito, linhas_cargas_bt_dss, nome_arquivo_crg_bt)
 
         # leitura de dados de gerador mt
