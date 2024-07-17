@@ -119,8 +119,7 @@ class ElectricDataPort:
         if ctmt is None:
             query = f'''
                 SELECT u.COD_ID, u.CTMT, u.PAC_1, u.PAC_2, u.PAC_3, u.FAS_CON_P, u.FAS_CON_S, u.FAS_CON_T, 
-                u.TIP_TRAFO, u.PER_TOT, u.PER_FER, u.POT_NOM, u.POS, u.TEN_LIN_SE, u.MRT,
-                e.TEN_PRI, e.TEN_SEC, e.TEN_TER,
+                u.TIP_TRAFO, u.PER_TOT, u.PER_FER, u.POT_NOM, u.POS, u.TEN_LIN_SE, u.MRT, u.TAP,              
                 t1.TEN as TEN_PRI, t2.TEN as TEN_SEC, t3.TEN as TEN_TER
                 FROM sde.EQTRMT e
                 INNER JOIN  sde.UNTRMT U
@@ -208,7 +207,7 @@ class ElectricDataPort:
                     [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],                
                     t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, t.POT_NOM
                 FROM sde.UCMT u 
-                INNER JOIN sde.unTRmt t
+                LEFT JOIN sde.unTRmt t
                 on u.pac = t.pac_1 or u.pac=t.PAC_2 
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
                     on u.dist='{self.dist}' and u.sub='{self.sub}' and t1.cod_id = u.TEN_FORN and u.sit_ativ = 'AT'
@@ -224,7 +223,7 @@ class ElectricDataPort:
                     [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],                
                     t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, t.POT_NOM
                 FROM sde.UCMT u 
-                INNER JOIN sde.unTRmt t
+                LEFT JOIN sde.unTRmt t
                 on u.pac = t.pac_1 or u.pac=t.PAC_2 
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
                     on  u.dist='{self.dist}' and u.sub='{self.sub}' and u.CTMT='{ctmt}' and 
@@ -478,7 +477,7 @@ class ElectricDataPort:
 
 
 def main():
-    sub = '97'    #100  58, 95, 97
+    sub = '58'    # testes 100, 58, 95, 96, 97
     dist = '404'
 
     print(f"Tratamento para empresa: {dist} e subestação: {sub}")
@@ -559,21 +558,17 @@ def main():
         # Grava arquivo DSS LineCode
         write_to_dss(sub, cod_circuito, linhas_condutores_dss, nome_arquivo_cnd)
 
+        #  leitura de dados do circuito
         circuito_dict = bdgd_read.circuitos.loc[i].to_dict()
-        # print(circuito_dict)
-
         dss_adapter.get_lines_suprimento_circuito(sub, circuito_dict, linhas_suprimento_dss)
-        # print(linhas_suprimento_dss)
+        # Grava arquivo DSS para o circuito
+        write_to_dss(sub, cod_circuito, linhas_suprimento_dss, nome_arquivo_sup)
 
         # leitura de dados das chaves MT por circuito
         bdgd_read.query_chaves_mt(cod_circuito)
         dss_adapter.get_lines_chaves_mt(bdgd_read.chaves_mt, linhas_chaves_mt_dss)
         # Grava arquivo DSS Chaves_MT
         write_to_dss(sub, cod_circuito, linhas_chaves_mt_dss, nome_arquivo_chv_mt)
-
-        # Grava arquivo DSS para o circuito
-        write_to_dss(sub, cod_circuito, linhas_suprimento_dss, nome_arquivo_sup)
-        linhas_suprimento_dss = []
 
         # Grava arquivo DSS para o reatores
         bdgd_read.query_reatores_mt(cod_circuito)

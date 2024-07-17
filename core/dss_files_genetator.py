@@ -1,3 +1,5 @@
+import numpy as np
+
 from Tools.tools import *
 import calendar
 
@@ -385,17 +387,24 @@ class DssFilesGenerator:
                 dblDemMaxCorrigida_kW = dblDemMax_kW
 
             if dblDemMaxCorrigida_kW > 0:
+                """
+                determinação da tensão da carga
+                " kv=" + kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo) 
+                or 
+                " kv=" + f"{dblTenSecu_kV:.3f}" + 
+                """
+
                 linhas_cargas_bt_dss.append(
                     'New "Load.BT_' + strName + '_M1" bus1="' + strBus + nos_com_neutro(strCodFas) + '"' +
                     " phases=" + numero_fases_carga_dss(strCodFas) + " conn=" + ligacao_carga(strCodFas) +
                     " model=2" + " kw=" +
-                    f"{(dblDemMaxCorrigida_kW / 2):.7f}" + " pf=0.92" + ' daily="' + strCodCrvCrg +
+                    f"{(dblDemMaxCorrigida_kW / 2):.5f}" + " pf=0.92" + ' daily="' + strCodCrvCrg +
                     '" status=variable vmaxpu=1.5 vminpu=0.92')
                 linhas_cargas_bt_dss.append(
                     'New "Load.BT_' + strName + '_M2" bus1="' + strBus + nos_com_neutro(strCodFas) + '"' +
                     " phases=" + numero_fases_carga_dss(strCodFas) + " conn=" + ligacao_carga(strCodFas) +
                     " model=3" + " kw=" +
-                    f"{(dblDemMaxCorrigida_kW / 2):.7f}" + " pf=0.92" + ' daily="' + strCodCrvCrg +
+                    f"{(dblDemMaxCorrigida_kW / 2):.5f}" + " pf=0.92" + ' daily="' + strCodCrvCrg +
                     '" status=variable vmaxpu=1.5 vminpu=0.92')
 
                 """# O valor de KV deve ser o seguinte: # Nominal rated (1.0 per unit) voltage, kV, for load. For 2- 
@@ -421,9 +430,11 @@ class DssFilesGenerator:
             strBus = cargas_pip.loc[index]['PAC_2']  # ligar as cargas PIP no secundario do transformador
             energy_mes = cargas_pip.loc[index]['ENE_' + str(strmes)]
             dblTenSecu_kV = cargas_pip.loc[index]['TEN_LIN_SE']
+            codi_tipo_trafo = cargas_pip.loc[index]['TIP_TRAFO']
             dblDemMaxTrafo_kW = cargas_pip.loc[index]['POT_NOM'] * 0.92  # kVA
             ano_base = cargas_pip.loc[index]['ANO_BASE']
 
+            intTipTrafo = get_tipo_trafo(codi_tipo_trafo)
             num_dias = calendar.monthrange(ano_base, mes)[1]
             fc = cargas_fc.loc[(cargas_fc['COD_ID'] == cargas_pip.loc[index]['TIP_CC']) &
                                (cargas_fc['TIP_DIA'] == tipo_dia)]
@@ -475,7 +486,8 @@ class DssFilesGenerator:
                 for crv in crv_ger:
                     if crv[0] == dbdaily:
                         pt_crv = crv[1]
-                        fc = min([i for i in pt_crv if i != 0])
+                        # media dos valores diferentes de zero
+                        fc = np.apply_along_axis(lambda v: np.mean(v[np.nonzero(v)]), 0, pt_crv)
 
                 num_dias = calendar.monthrange(ano_base, mes)[1]
                 dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc
@@ -488,7 +500,7 @@ class DssFilesGenerator:
 
             linha_generators_mt_dss.append(srt_comment_dss + 'New Generator.MT_' + strName + '_M1 bus1=' + strBus + nos(strCodFas) +
                                            ' phases=' + numero_fases_carga(strCodFas) + ' conn=' + dbconn + ' kv=' +
-                                           str(dblTensao_kV) + ' model=1 kw=' + str(dblDemMax_kW) + ' pf=0.92 daily="' +
+                                           str(dblTensao_kV) + ' model=1 kw=' + f'{dblDemMax_kW:.4f}' + ' pf=0.92 daily="' +
                                            dbdaily + '" status=variable vmaxpu=1.5 vminpu=0.93')
 
     def get_line_capacitor(self, capacitores, linha_capacitores_dss):
