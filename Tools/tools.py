@@ -158,11 +158,10 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
 
             # verifica se o arquivo já foi processado
             table_name_sql = table_name.replace('_tab', '')  # Deve ser removido o '_tab' do nome das tabelas
-
+            table_name_ori = ""
             if table_name_sql in list_names_tables:
-                # table_name_sql = table_name.replace('_tab', '')
+                table_name_ori = table_name     # Para grava os dados nas duas tabela com final D e MT
                 table_name_sql = table_name.replace('MT', 'D')
-
                 table_name_sql = table_name.replace('AT', 'S')
 
             if schema != '':
@@ -241,6 +240,12 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
                               if_exists="append", chunksize=None, method=None)
                     print(f"Concluído em {round(time.time() - proc_table_time_ini, 3)} segundos.")
                     logging.info(f"{table_name}: \tProc concluído em {time.time() - proc_table_time_ini} sec.")
+
+                    if table_name_ori != "":
+                        df.to_sql(table_name_ori, engine, schema=schema, index=False,
+                                  if_exists="append", chunksize=None, method=None)
+                        print(f"Concluído em {round(time.time() - proc_table_time_ini, 3)} segundos.")
+                        logging.info(f"{table_name}: \tProc concluído em {time.time() - proc_table_time_ini} sec.")
                 except Exception as e:
                     logging.info(f'SQL Erro: tabela {table_name}: {e}')
                     print(f"Erro ao inserir dados na tabela {table_name}: {e}")
@@ -388,6 +393,7 @@ def ligacao_carga(strCodFas):
         return "Delta"
     else:
         return ""
+
 
 def nos_com_neutro(strFases) -> str:
     if strFases == "A":
@@ -628,6 +634,7 @@ def quantidade_enrolamentos(strCodFas1, strCodFas2) -> str:
     else:
         return "2"
 
+
 def tipo_dia(intTipoDia):
     if intTipoDia == 1:
         return "DU"
@@ -637,6 +644,65 @@ def tipo_dia(intTipoDia):
         return "DO"
     else:
         return ""
+
+
+def get_tipo_trafo(codi_tipo_trafo):
+    # Avalia o tipo do trafo
+    if codi_tipo_trafo == 'M':
+        tipo_trafo = 1
+    elif codi_tipo_trafo == 'MT':
+        tipo_trafo = 2
+    elif codi_tipo_trafo == 'B':
+        tipo_trafo = 3
+    elif codi_tipo_trafo == 'T':
+        tipo_trafo = 4
+    elif codi_tipo_trafo == 'DF':
+        tipo_trafo = 5
+    elif codi_tipo_trafo == 'DA':
+        tipo_trafo = 6
+    else:
+        tipo_trafo = 0
+    return tipo_trafo
+
+
+def kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo):
+    intFase = numero_fases(strCodFas)
+    kVCarga = 0.0
+    if intTipTrafo == 3 or intTipTrafo == 4 or intTipTrafo == 5 or intTipTrafo == 6:
+        if intFase == 1:
+            kVCarga = f"{(dblTenSecu_kV / math.sqrt(3)):.3f}"
+        else:
+            kVCarga = str(dblTenSecu_kV)
+    elif intTipTrafo == 1:
+        kVCarga = str(dblTenSecu_kV)
+    elif intTipTrafo == 2:
+        if intFase == 1:
+            kVCarga = str(dblTenSecu_kV / 2)
+        else:
+            kVCarga = str(dblTenSecu_kV)
+    return kVCarga
+
+
+def numero_fases_carga_dss(strFases):
+    if strFases == "A" or strFases == "B" or strFases == "C" or strFases == "AN" or strFases == "BN" or \
+            strFases == "CN" or strFases == "AB" or strFases == "BC" or strFases == "CA" or strFases == "ABN" or \
+            strFases == "BCN" or strFases == "CAN":
+        return "1"
+    elif strFases == "ABC" or strFases == "ABCN":
+        return "3"
+    else:
+        return ""
+
+def ligacao_gerador(strCodFas):
+    if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
+            strCodFas == "CN":
+        return "Wye"
+    elif strCodFas == "AB" or strCodFas == "BC" or strCodFas == "CA" or strCodFas == "ABN" or strCodFas == "BCN" or \
+            strCodFas == "CAN" or strCodFas == "ABC" or strCodFas == "ABCN":
+        return "Delta"
+    else:
+        return ""
+
 
 def ajust_eqre_codbanc(dist):
     """

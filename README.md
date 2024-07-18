@@ -21,4 +21,7 @@ Dbf2sql.py -- para extrair dados de arquivos dbf oriundo de arquivos da BDGD par
 Bdgd2SQL_V2.py -- para a extração direta dos arquivos da BDGD no formado GBD para a base de dados SQLServer com modelo de dados do programa progGeoPerdas.
 
 Network_analysis.py -- para a verificação da conectividade elétrica dos dados da base de dados SQLServer com modelo de dados do programa progGeoPerdas.
+
+Electric_data.py -- para a geração dos arquivos DSS para uma determinada subestação.
+Os arquivos são gerados na pasta do usuário do PC, sendo criado uma pasta chamada DSS e subpasta com o ID da subestação em análise. Nestas subpastas são escritos os arquivos gerados para o DSS.
 ## Contribuições
