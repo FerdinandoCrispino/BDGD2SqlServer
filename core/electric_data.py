@@ -1,6 +1,6 @@
 from Tools.tools import return_query_as_dataframe, write_to_dss, ajust_eqre_codbanc
 import pandas as pd
-import dss_files_genetator as dss_g
+import dss_files_generator as dss_g
 import time
 import sys
 
@@ -34,6 +34,7 @@ class ElectricDataPort:
         self.cargas_mt = []
         self.carga_fc = []
         self.gerador_mt = []
+        self.gerador_bt = []
         self.capacitors = []
         self.cargas_bt = []
         self.cargas_pip=[]
@@ -119,27 +120,31 @@ class ElectricDataPort:
         if ctmt is None:
             query = f'''
                 SELECT u.COD_ID, u.CTMT, u.PAC_1, u.PAC_2, u.PAC_3, u.FAS_CON_P, u.FAS_CON_S, u.FAS_CON_T, 
-                u.TIP_TRAFO, u.PER_TOT, u.PER_FER, u.POT_NOM, u.POS, u.TEN_LIN_SE, u.MRT, u.TAP,              
-                t1.TEN as TEN_PRI, t2.TEN as TEN_SEC, t3.TEN as TEN_TER
-                FROM sde.EQTRMT e
-                INNER JOIN  sde.UNTRMT U
-                    on u.dist='{self.dist}' and u.sub='{self.sub}' and u.cod_id = e.UNI_TR_MT 
+                u.TIP_TRAFO, u.PER_TOT, u.PER_FER, u.POT_NOM, u.POS, u.TEN_LIN_SE, u.MRT, u.TAP, u.BANC,            
+                t1.TEN as TEN_PRI, t2.TEN as TEN_SEC, t3.TEN as TEN_TER, 
+                e.LIG, e.FAS_CON, e.POT_NOM as POT_NOM_EQ
+                FROM (select distinct * from sde.EQTRMT) e
+                INNER JOIN (select distinct * from sde.UNTRMT) U
+                    on u.dist='{self.dist}' and u.sub='{self.sub}' and 
+                    u.cod_id = e.UNI_TR_MT and u.POT_NOM > 0 and u.SIT_ATIV='AT'
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
                     on  t1.cod_id = e.TEN_PRI
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t2
                     on  t2.cod_id = e.TEN_SEC
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t3
-                    on  t3.cod_id = e.TEN_TER
+                    on  t3.cod_id = e.TEN_TER                
                 ;
             '''
         else:
             query = f'''
                 SELECT u.COD_ID, u.CTMT, u.PAC_1, u.PAC_2, u.PAC_3, u.FAS_CON_P, u.FAS_CON_S, u.FAS_CON_T, 
-                u.TIP_TRAFO, u.PER_TOT, u.PER_FER, u.POT_NOM, u.POS, u.TEN_LIN_SE, u.MRT, u.TAP,                
-                t1.TEN as TEN_PRI, t2.TEN as TEN_SEC, t3.TEN as TEN_TER
+                u.TIP_TRAFO, u.PER_TOT, u.PER_FER, u.POT_NOM, u.POS, u.TEN_LIN_SE, u.MRT, u.TAP, u.BANC,             
+                t1.TEN as TEN_PRI, t2.TEN as TEN_SEC, t3.TEN as TEN_TER,
+                e.LIG, e.FAS_CON, e.POT_NOM as POT_NOM_EQ
                 FROM sde.EQTRMT e
                 INNER JOIN  sde.UNTRMT U
-                    on u.dist='{self.dist}' and u.sub='{self.sub}' and u.ctmt='{ctmt}' and u.cod_id = e.UNI_TR_MT 
+                    on u.dist='{self.dist}' and u.sub='{self.sub}' and u.ctmt='{ctmt}' and 
+                    u.cod_id = e.UNI_TR_MT and u.POT_NOM > 0 and u.SIT_ATIV='AT'
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
                     on  t1.cod_id = e.TEN_PRI
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t2
@@ -248,8 +253,8 @@ class ElectricDataPort:
                     t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
                 FROM sde.UCBT u    
                 INNER JOIN sde.UNTRMT T
-                    on u.dist='{self.dist}' and u.sub = '{self.sub}' and t.COD_ID = u.UNI_TR_MT and u.sit_ativ = 'AT' and 
-                    u.pn_con != '0'
+                    on u.dist='{self.dist}' and u.sub = '{self.sub}' and 
+                    t.COD_ID = u.UNI_TR_MT and u.sit_ativ = 'AT' and u.pn_con != '0'
                 ;
             '''
         else:
@@ -319,6 +324,55 @@ class ElectricDataPort:
             ;
         '''
 
+    def query_generators_bt(self, ctmt=None)-> bool:
+        """
+
+        :param ctmt:
+        :return:
+        """
+        if ctmt is None:
+            query = f'''
+                SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
+                     u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
+                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
+                     t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, 
+                     q.TEN_PRI, q.TEN_SEC, t2.TEN/1000 as kv_sec, u.TEN_CON, 
+                     t.PAC_2 as PAC_TRAFO, T.FAS_CON_P, T.FAS_CON_S, T.FAS_CON_T
+                FROM sde.UGBT u
+                INNER JOIN sde.UNTRMT T
+                     on u.UNI_TR_MT = T.COD_ID
+                INNER JOIN sde.EQTRMT Q
+                     on T.COD_ID = q.UNI_TR_MT
+                INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t2
+                     on  t2.cod_id = q.TEN_SEC
+                INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
+                     on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.SIT_ATIV='AT' and t1.cod_id = u.TEN_CON
+                ;  
+             '''
+        else:
+            query = f'''
+                SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
+                     u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
+                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
+                     t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, 
+                     q.TEN_PRI, q.TEN_SEC, t2.TEN/1000 as KV_TRAFO_SEC, u.TEN_CON, 
+                     t.PAC_2 as PAC_TRAFO, T.FAS_CON_P, T.FAS_CON_S, T.FAS_CON_T
+                FROM sde.UGBT u
+                INNER JOIN sde.UNTRMT T
+                     on u.UNI_TR_MT = T.COD_ID
+                INNER JOIN sde.EQTRMT Q
+                     on T.COD_ID = q.UNI_TR_MT
+                INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t2
+                     on  t2.cod_id = q.TEN_SEC
+                INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
+                     on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.ctmt='{ctmt}' and u.SIT_ATIV='AT' and 
+                     t1.cod_id = u.TEN_CON
+                 ;  
+             '''
+
+        self.gerador_bt = return_query_as_dataframe(query)
+        return True
+
     def query_generators_mt(self, ctmt=None) -> bool:
         """
         Busca dados dos GERADORES de Média Tensão para a escrever dos arquivos DSS
@@ -333,12 +387,15 @@ class ElectricDataPort:
                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
                     [DEM_01],[DEM_02],[DEM_03],[DEM_04],[DEM_05],[DEM_06],
                     [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],                
-                    t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, q.TEN_PRI
+                    t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, 
+                    q.TEN_PRI, q.TEN_PRI/100 as KV_TRAFO, u.TEN_CON
                 FROM sde.UGMT u
                 INNER JOIN sde.UNTRMT T
                     on u.PAC = T.PAC_1
                 INNER JOIN sde.EQTRMT Q
                     on T.COD_ID = q.UNI_TR_MT
+                INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t2
+                     on  t2.cod_id = q.TEN_PRI
                 INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
                     on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.SIT_ATIV='AT' and t1.cod_id = u.TEN_FORN
                 ;  
@@ -350,12 +407,15 @@ class ElectricDataPort:
                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
                     [DEM_01],[DEM_02],[DEM_03],[DEM_04],[DEM_05],[DEM_06],
                     [DEM_07],[DEM_08],[DEM_09],[DEM_10],[DEM_11],[DEM_12],                
-                    t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, q.TEN_PRI
+                    t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, 
+                    q.TEN_PRI, q.TEN_PRI/100 as KV_TRAFO, u.TEN_CON
                 FROM sde.UGMT u
                 INNER JOIN sde.UNTRMT T
                     on u.PAC = T.PAC_1
                 INNER JOIN sde.EQTRMT Q
                     on T.COD_ID = q.UNI_TR_MT
+                INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t2
+                     on  t2.cod_id = q.TEN_PRI
                 INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
                     on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.ctmt='{ctmt}' and u.SIT_ATIV='AT' and 
                     t1.cod_id = u.TEN_FORN
@@ -464,7 +524,7 @@ class ElectricDataPort:
                 if int(x) > 0:
                     x = x / 1000
                     voltagebases.append(x)
-                    voltagebases.append(x / 2)  # tensão do secundario de trafo MRT
+                    # voltagebases.append(x / 2)  # tensão do secundario de trafo MRT
 
         vbase_3 = vbase.iloc[0:, [2]].drop_duplicates().values.tolist()
         for xs in vbase_3:
@@ -477,7 +537,8 @@ class ElectricDataPort:
 
 
 def main():
-    sub = '58'    # testes 100, 58, 95, 96, 97
+    # Definir código da subestação (sub) e da distribuidora (dist)
+    sub = '40'    # testes 100, 58, 95, 96, 97
     dist = '404'
 
     print(f"Tratamento para empresa: {dist} e subestação: {sub}")
@@ -492,12 +553,14 @@ def main():
     nome_arquivo_monitors = f'Monitors_{dist}_{sub}'
     nome_arquivo_capacitors = f'Capacitors_{dist}_{sub}'
     nome_arquivo_crg_bt = f'CargasBT_{dist}_{sub}'
-    nome_arquivo_generators_mt_dss = f'GenadoresMT_{dist}_{sub}'
+    nome_arquivo_generators_mt_dss = f'GeradoresMT_{dist}_{sub}'
+    nome_arquivo_generators_bt_dss = f'GeradoresBT_{dist}_{sub}'
     nome_arquivo_master = f'Master_{dist}_{sub}'
 
     list_files_dss = [nome_arquivo_crv, nome_arquivo_sup, nome_arquivo_cnd, nome_arquivo_chv_mt, nome_arquivo_re_mt,
                       nome_arquivo_tr_mt, nome_arquivo_seg_mt, nome_arquivo_crg_mt, nome_arquivo_monitors,
-                      nome_arquivo_capacitors, nome_arquivo_crg_bt, nome_arquivo_generators_mt_dss]
+                      nome_arquivo_capacitors, nome_arquivo_crg_bt, nome_arquivo_generators_mt_dss,
+                      nome_arquivo_generators_bt_dss]
 
     linhas_suprimento_dss = []
     linhas_curvas_carga_dss = []
@@ -511,6 +574,7 @@ def main():
     linhas_capacitors_dss = []
     linhas_cargas_bt_dss = []
     linhas_generators_mt_dss = []
+    linhas_generators_bt_dss = []
     linhas_master = []
 
     multi_ger = []
@@ -518,7 +582,7 @@ def main():
                       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.213170, 0.493614, 0.767539, 0.930065, 1.000000,
                        0.908147,
                        0.682011, 0.461154, 0.024685, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
-    multi_ger.append(['GeradorMT-Tipo2',
+    multi_ger.append(['GeradorBT-Tipo1',
                       [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.213170, 0.493614, 0.767539, 0.930065, 1.000000,
                        0.908147,
                        0.682011, 0.461154, 0.024685, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
@@ -607,10 +671,15 @@ def main():
         dss_adapter.get_lines_cargas_bt(bdgd_read.cargas_bt, bdgd_read.carga_fc, bdgd_read.cargas_pip, linhas_cargas_bt_dss)
         write_to_dss(sub, cod_circuito, linhas_cargas_bt_dss, nome_arquivo_crg_bt)
 
-        # leitura de dados de gerador mt
+        # leitura de dados de Gerador mt
         bdgd_read.query_generators_mt(cod_circuito)
         dss_adapter.get_lines_generators_mt(bdgd_read.gerador_mt, multi_ger, linhas_generators_mt_dss)
         write_to_dss(sub, cod_circuito, linhas_generators_mt_dss, nome_arquivo_generators_mt_dss)
+
+        # Grava arquivo DSS para o Gerador BT
+        bdgd_read.query_generators_bt(cod_circuito)
+        dss_adapter.get_lines_generators_bt(bdgd_read.gerador_bt, multi_ger, linhas_generators_bt_dss)
+        write_to_dss(sub, cod_circuito, linhas_generators_bt_dss, nome_arquivo_generators_bt_dss)
 
         # Grava arquivo DSS para o master
         voltagebases = bdgd_read.voltage_bases(bdgd_read.trafos)

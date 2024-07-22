@@ -158,7 +158,7 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
             table_name_sql = table_name.replace('_tab', '')  # Deve ser removido o '_tab' do nome das tabelas
             table_name_ori = ""
             if table_name_sql in list_names_tables:
-                table_name_ori = table_name     # Para grava os dados nas duas tabela com final D e MT
+                table_name_ori = table_name     # Para gravar os dados nas duas tabela com final D e MT
                 table_name_sql = table_name.replace('MT', 'D')
                 table_name_sql = table_name.replace('AT', 'S')
 
@@ -207,7 +207,17 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
                 df['DATA_BASE'] = data_base
                 df['DATA_CARGA'] = data_carga
                 # df = df[['OBJECTID'] + [col for col in df.columns if col != 'OBJECTID']]
+                """
+                if df.iloc[0].geometry.type == 'Point':
+                    df['POINT_Y'] = df['geometry'].y
+                    df['POINT_X'] = df['geometry'].x
 
+                if df.iloc[0].geometry.type == 'MultiLineString':
+                    df['POINT_Y1'] = df['geometry'][0].bounds[0]
+                    df['POINT_X1'] = df['geometry'][0].bounds[1]
+                    df['POINT_Y2'] = df['geometry'][1].bounds[0]
+                    df['POINT_X2'] = df['geometry'][1].bounds[1]
+                """
                 row_ini += row_step
                 row_end = row_ini + row_step
 
@@ -381,10 +391,10 @@ def numero_fases_carga(strFases):
 def ligacao_carga(strCodFas):
     if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
             strCodFas == "CN":
-        return "Wye"
+        return "Wye"  # LN
     elif strCodFas == "AB" or strCodFas == "BC" or strCodFas == "CA" or strCodFas == "ABN" or strCodFas == "BCN" or \
             strCodFas == "CAN" or strCodFas == "ABC" or strCodFas == "ABCN":
-        return "Delta"
+        return "Delta"  # LL
     else:
         return ""
 
@@ -536,15 +546,15 @@ def kvas_trafo(strCodFas2, strCodFas3, dblPotNom_kVA) -> str:
 def tensao_enrolamento(strCodFas, dblTensao_kV) -> float:
     """
     Uma vez que o manual da BDGD aponta que esta tensão já é a tensão do equipamento em si,
-     basta adotar estão tensão informada, sem precisar fazer qualquer divisão por raiz de 3.
+     basta adotar estão tensão informada, sem precisar divir por raiz de 3.
     :param strCodFas:
     :param dblTensao_kV:
     :return:
     """
     if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
             strCodFas == "CN" or strCodFas == "ABN" or strCodFas == "BCN" or strCodFas == "CAN" or strCodFas == "ABCN":
-        # return dblTensao_kV / math.sqrt(3)
-        return dblTensao_kV
+        return dblTensao_kV / math.sqrt(3)
+        #return dblTensao_kV
     elif strCodFas == "AB" or strCodFas == "BC" or strCodFas == "CA" or strCodFas == "ABC":
         return dblTensao_kV
     else:
@@ -727,7 +737,22 @@ def ajust_eqre_codbanc(dist):
         # strcodbanc_re = {'cod_id': eqre_id, 'codBNC': i}
         # codbanc_re.append(strcodbanc_re)
 
-        sql = f'update SDE.EQRE SET codBNC={i} where COD_ID={eqre_id}'
+        sql = f"update SDE.EQRE SET codBNC={i} where COD_ID='{eqre_id}'"
         exec_query(sql)
 
     # return codbanc_re
+
+
+def add_id_banc_to_dataframe(df, df_column_ref):
+    i = 0
+    ref_count = ''
+    df.sort_values(by=['COD_ID'], ascending=True, inplace=True)
+    df.reset_index(drop=True, inplace=True)
+    for index in range(df.shape[0]):
+        if ref_count != df.loc[index][df_column_ref]:
+            i = 1
+        else:
+            i += 1
+        ref_count = df.loc[index][df_column_ref]
+        df.at[index, 'ID_BANC'] = i
+
