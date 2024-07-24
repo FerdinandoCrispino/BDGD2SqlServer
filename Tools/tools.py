@@ -299,7 +299,7 @@ def exec_query(query: str):
         conn.execute(query)
 
 
-def write_to_dss(sub, circuito, linhas_arquivos_list: list, nome_arquivo: str) -> bool:
+def write_to_dss(dist, sub, circuito, linhas_arquivos_list: list, nome_arquivo: str) -> bool:
     """
     Função que escreve arquivos DSS (OpenDSS) representativos dos objetos de rede carregada em memória.
     :param nome_arquivo:
@@ -316,7 +316,12 @@ def write_to_dss(sub, circuito, linhas_arquivos_list: list, nome_arquivo: str) -
         if not os.path.isdir(path_dss_files):
             os.mkdir(path_dss_files)
 
-        sub_path = os.path.join(path_dss_files, sub)
+        # Verifica se existe diretório dist
+        dist_path = os.path.join(path_dss_files, dist)
+        if not os.path.isdir(dist_path):
+            os.mkdir(dist_path)
+
+        sub_path = os.path.join(dist_path, sub)
         if not os.path.isdir(sub_path):
             os.mkdir(sub_path)
 
@@ -330,7 +335,7 @@ def write_to_dss(sub, circuito, linhas_arquivos_list: list, nome_arquivo: str) -
         else:
             os.mkdir(final_path)
 
-        # Insere as linhas do arquivo
+        # Insere as linhas do arquivo DSS
         with open(fr"{final_path}\{nome_arquivo}.dss", "w") as file:
             file.write(f"! {nome_arquivo}\n")
             for linha in linhas_arquivos_list:
@@ -696,6 +701,7 @@ def numero_fases_carga_dss(strFases):
         return "3"
     else:
         return ""
+
 
 def ligacao_gerador(strCodFas):
     if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
