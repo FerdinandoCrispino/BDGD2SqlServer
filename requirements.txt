@@ -5,3 +5,9 @@ simpledbf==0.2.6
 geopandas==0.12.2
 Fiona==1.9.2
 SQLAlchemy==1.4.29
+numpy~=1.26.4
+tqdm~=4.66.4
+shapely~=2.0.4
+holidays~=0.52
+matplotlib~=3.9.0
+networkx~=3.2.1

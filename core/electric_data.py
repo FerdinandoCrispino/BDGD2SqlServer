@@ -34,6 +34,7 @@ class ElectricDataPort:
         self.trafos = []
         self.trechos_mt = []
         self.cargas_mt = []
+        self.cargas_mt_ssdmt = []
         self.carga_fc = []
         self.gerador_mt = []
         self.gerador_mt_ssdmt = []
@@ -42,6 +43,7 @@ class ElectricDataPort:
         self.cargas_bt = []
         self.cargas_pip = []
         self.monitors = []
+
 
     def query_circuitos(self) -> bool:
         """
@@ -438,7 +440,7 @@ class ElectricDataPort:
         """
         if ctmt is None:
             query = f'''
-                SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
+                SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
                     u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,   
                     t1.TEN/1000 as KV_FORM, t2.TEN/1000 as KV_CON, year(u.DATA_BASE) as ANO_BASE, 
@@ -446,7 +448,7 @@ class ElectricDataPort:
                 FROM sde.UGMT u
                 INNER JOIN sde.SSDMT T
                     on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.SIT_ATIV='AT' and  
-                    u.PAC = T.PAC_1
+                   (u.PAC = T.PAC_1 or u.PAC = T.PAC_2)
                 left JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
                     on t1.cod_id = u.TEN_FORN
                 left JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t2
@@ -455,7 +457,7 @@ class ElectricDataPort:
              '''
         else:
             query = f'''
-                SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
+                SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
                     u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,   
                     t1.TEN/1000 as KV_FORM, t2.TEN/1000 as KV_CON,  year(u.DATA_BASE) as ANO_BASE, 
@@ -463,7 +465,7 @@ class ElectricDataPort:
                 FROM sde.UGMT u
                 INNER JOIN sde.SSDMT T
                     on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.ctmt='{ctmt}' and u.SIT_ATIV='AT' and  
-                    u.PAC = T.PAC_1
+                    (u.PAC = T.PAC_1 or u.PAC = T.PAC_2)
                 left JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
                     on t1.cod_id = u.TEN_FORN
                 left JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t2
@@ -553,6 +555,30 @@ class ElectricDataPort:
                 ;
             '''
         self.capacitors = return_query_as_dataframe(query)
+        return True
+
+    def query_cargas_mt_ssdmt(self, ctmt=None) -> bool:
+        """
+        Busca dados das Cargas de Média Tensão para a escrever dos arquivos DSS
+        Seleciona as Cargas conectadas no Segmento
+        :param ctmt:
+        :return:
+        """
+
+        query = f'''
+            SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
+                u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
+                u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,                    
+                t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, t.FAS_CON as FAS_CON_SSDMT
+            FROM sde.UCMT u 
+            INNER JOIN sde.SSDMT t
+            on u.pac = t.pac_1 or u.pac=t.PAC_2 
+            INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
+                on  u.dist='{self.dist}' and u.sub='{self.sub}' and u.CTMT='{ctmt}' and 
+                t1.cod_id = u.TEN_FORN and u.sit_ativ = 'AT' and u.pn_con != '0'
+            ;
+        '''
+        self.cargas_mt_ssdmt = return_query_as_dataframe(query)
         return True
 
     def voltage_bases(self, df_voltage) -> list:
@@ -701,8 +727,12 @@ def write_files_dss(cod_sub, cod_dist, mes, tipo_dia):
         write_to_dss(dist, sub, cod_circuito, linhas_trechos_mt_dss, nome_arquivo_seg_mt)
 
         # Grava arquivo DSS para o cargas MT
-        bdgd_read.query_cargas_mt(cod_circuito)
-        dss_adapter.get_lines_cargas_mt(bdgd_read.cargas_mt, bdgd_read.carga_fc, linhas_cargas_mt_dss)
+        #bdgd_read.query_cargas_mt(cod_circuito)
+        #dss_adapter.get_lines_cargas_mt(bdgd_read.cargas_mt, bdgd_read.carga_fc, linhas_cargas_mt_dss)
+        #write_to_dss(dist, sub, cod_circuito, linhas_cargas_mt_dss, nome_arquivo_crg_mt)
+        # ...conectados nos segmentos
+        bdgd_read.query_cargas_mt_ssdmt(cod_circuito)
+        dss_adapter.get_lines_cargas_mt_ssdmt(bdgd_read.cargas_mt_ssdmt, bdgd_read.carga_fc, linhas_cargas_mt_dss)
         write_to_dss(dist, sub, cod_circuito, linhas_cargas_mt_dss, nome_arquivo_crg_mt)
 
         # Grava arquivo DSS para monitores
@@ -722,8 +752,8 @@ def write_files_dss(cod_sub, cod_dist, mes, tipo_dia):
         write_to_dss(dist, sub, cod_circuito, linhas_cargas_bt_dss, nome_arquivo_crg_bt)
 
         # leitura de dados dos Geradores mt conectados nos trafos
-        bdgd_read.query_generators_mt(cod_circuito)  # conetados no trafo
-        dss_adapter.get_lines_generators_mt(bdgd_read.gerador_mt, multi_ger, linhas_generators_mt_dss)
+        #bdgd_read.query_generators_mt(cod_circuito)  # conetados no trafo
+        #dss_adapter.get_lines_generators_mt(bdgd_read.gerador_mt, multi_ger, linhas_generators_mt_dss)
         # ...conectados nos segmentos
         bdgd_read.query_generators_mt_ssdmt(cod_circuito)
         dss_adapter.get_lines_generators_mt_ssdmt(bdgd_read.gerador_mt_ssdmt, multi_ger, linhas_generators_mt_dss)
@@ -743,12 +773,12 @@ def write_files_dss(cod_sub, cod_dist, mes, tipo_dia):
 if __name__ == "__main__":
     # Definir código da subestação (sub) e da distribuidora (dist)
 
-    # dist = '404'  # Energisa MS
-    # list_sub = ['40', '100', '58', '95', '96', '97']
-    # list_sub = ['40']
+    dist = '404'  # Energisa MS
+    list_sub = ['40', '100', '58', '95', '96', '97']
+    #list_sub = ['58']
 
-    dist = '391'  # EDP_SP
-    list_sub = ['ITQ']
+    #dist = '391'  # EDP_SP
+    #list_sub = ['ITQ']
     mes = 1             # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_dia = 'DU'     # ['DU, 'DO', 'SA'] tipo de dia para referência para as curvas típicas de carga e geração
     for sub in list_sub:
