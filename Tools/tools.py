@@ -159,8 +159,10 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
             table_name_ori = ""
             if table_name_sql in list_names_tables:
                 table_name_ori = table_name     # Para gravar os dados nas duas tabela com final D e MT
-                table_name_sql = table_name.replace('MT', 'D')
-                table_name_sql = table_name.replace('AT', 'S')
+                if 'MT' in table_name:
+                    table_name_sql = table_name.replace('MT', 'D')
+                if 'AT' in table_name:
+                    table_name_sql = table_name.replace('AT', 'S')
 
             if schema != '':
                 full_table_name = f'{schema}.{table_name_sql}'
@@ -240,12 +242,14 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
 
                 try:
                     # df.to_sql(table_name, engine, index=False, if_exists="append", chunksize=20, method='multi')
+                    print(table_name_sql)
                     df.to_sql(table_name_sql, engine, schema=schema, index=False,
                               if_exists="append", chunksize=None, method=None)
                     print(f"Concluído em {round(time.time() - proc_table_time_ini, 3)} segundos.")
                     logging.info(f"{table_name}: \tProc concluído em {time.time() - proc_table_time_ini} sec.")
 
                     if table_name_ori != "":
+                        print(table_name_ori)
                         df.to_sql(table_name_ori, engine, schema=schema, index=False,
                                   if_exists="append", chunksize=None, method=None)
                         print(f"Concluído em {round(time.time() - proc_table_time_ini, 3)} segundos.")
@@ -374,7 +378,9 @@ def numero_fases_segmento_neutro(strFases) -> str:
 def numero_fases(strFases) -> int:
     if strFases == "A" or strFases == "B" or strFases == "C" or strFases == "AN" or strFases == "BN" or strFases == "CN":
         return 1
-    elif strFases == "AB" or strFases == "BC" or strFases == "CA" or strFases == "ABN" or strFases == "BCN" or strFases == "CAN":
+    elif strFases == "AB" or strFases == "BA" or strFases == "BC" or strFases == "CB" or  \
+            strFases == "CA" or strFases == "AC" or strFases == "ABN" or strFases == "BAN" or \
+            strFases == "BCN" or strFases == "CBN" or strFases == "CAN" or strFases == "ACN":
         return 2
     elif strFases == "ABC" or strFases == "ABCN":
         return 3
@@ -385,7 +391,9 @@ def numero_fases(strFases) -> int:
 def numero_fases_carga(strFases):
     if strFases == "A" or strFases == "B" or strFases == "C" or strFases == "AN" or strFases == "BN" or strFases == "CN":
         return "1"
-    elif strFases == "AB" or strFases == "BC" or strFases == "CA" or strFases == "ABN" or strFases == "BCN" or strFases == "CAN":
+    elif strFases == "AB" or strFases == "BA" or strFases == "BC" or strFases == "CB" or \
+            strFases == "CA" or strFases == "AC" or strFases == "ABN" or strFases == "BAN" or \
+            strFases == "BCN" or strFases == "CBN" or strFases == "CAN" or strFases == "ACN":
         return "2"
     elif strFases == "ABC" or strFases == "ABCN":
         return "3"
@@ -501,28 +509,41 @@ def nos(strFases) -> str:
         return ".3.0"
     elif strFases == "AB":
         return ".1.2"
+    elif strFases == "BA":
+        return ".2.1"
     elif strFases == "BC":
         return ".2.3"
+    elif strFases == "CB":
+        return ".3.2"
     elif strFases == "CA":
         return ".3.1"
+    elif strFases == "AC":
+        return ".1.3"
     elif strFases == "ABN":
         return ".1.2.0"
+    elif strFases == "BAN":
+        return ".2.1.0"
     elif strFases == "BCN":
         return ".2.3.0"
+    elif strFases == "CBN":
+        return ".3.2.0"
     elif strFases == "CAN":
         return ".3.1.0"
+    elif strFases == "ACN":
+        return ".1.3.0"
     elif strFases == "ABC":
         return ".1.2.3"
     elif strFases == "ABCN":
         return ".1.2.3.0"
     else:
-        return ""
+        return ".erro"
 
 
 def numero_fases_transformador(strFases) -> str:
     if strFases == "A" or strFases == "B" or strFases == "C" or strFases == "AN" or strFases == "BN" or \
-            strFases == "CN" or strFases == "AB" or strFases == "BC" or strFases == "CA" or strFases == "ABN" or \
-            strFases == "BCN" or strFases == "CAN":
+            strFases == "CN" or strFases == "AB" or strFases == "BA" or strFases == "BC" or strFases == "CB" or \
+            strFases == "CA" or strFases == "AC" or strFases == "ABN" or strFases == "BAN" or \
+            strFases == "BCN" or strFases == "CBN" or strFases == "CAN" or strFases == "ACN":
         return "1"
     elif strFases == "ABC" or strFases == "ABCN":
         return "3"
@@ -558,8 +579,8 @@ def tensao_enrolamento(strCodFas, dblTensao_kV) -> float:
     """
     if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
             strCodFas == "CN" or strCodFas == "ABN" or strCodFas == "BCN" or strCodFas == "CAN" or strCodFas == "ABCN":
-        return dblTensao_kV / math.sqrt(3)
-        #return dblTensao_kV
+        #return dblTensao_kV / math.sqrt(3)
+        return dblTensao_kV
     elif strCodFas == "AB" or strCodFas == "BC" or strCodFas == "CA" or strCodFas == "ABC":
         return dblTensao_kV
     else:
@@ -705,13 +726,13 @@ def numero_fases_carga_dss(strFases):
 
 def ligacao_gerador(strCodFas):
     if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
-            strCodFas == "CN":
+            strCodFas == "CN" or strCodFas == "ABCN":
         return "Wye"
-    elif strCodFas == "AB" or strCodFas == "BC" or strCodFas == "CA" or strCodFas == "ABN" or strCodFas == "BCN" or \
-            strCodFas == "CAN" or strCodFas == "ABC" or strCodFas == "ABCN":
-        return "Delta"
+    #elif strCodFas == "AB" or strCodFas == "BC" or strCodFas == "CA" or strCodFas == "ABN" or strCodFas == "BCN" or \
+    #        strCodFas == "CAN" or strCodFas == "ABC":
+        #return "Delta"
     else:
-        return ""
+        return "Delta"
 
 
 def ajust_eqre_codbanc(dist):

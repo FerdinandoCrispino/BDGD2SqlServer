@@ -387,6 +387,10 @@ class DssFilesGenerator:
 
         linhas_cargas_dss.clear()
 
+        # Remoção de cargas duplicados.
+        cargas.drop_duplicates(subset='COD_ID', keep='first', inplace=True)
+        cargas.reset_index(drop=True, inplace=True)
+
         cargas_fc['COD_ID'] = cargas_fc['COD_ID'].str.upper()
         cargas['TIP_CC'] = cargas['TIP_CC'].str.upper()
 

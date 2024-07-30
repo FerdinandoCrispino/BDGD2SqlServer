@@ -252,26 +252,30 @@ class ElectricDataPort:
         """
         if ctmt is None:
             query = f'''
-                SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
+                SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
                     u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12, 
                     t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
                 FROM sde.UCBT u    
                 INNER JOIN sde.UNTRMT T
-                    on u.dist='{self.dist}' and u.sub = '{self.sub}' and 
-                    t.COD_ID = u.UNI_TR_MT and u.sit_ativ = 'AT' and u.pn_con != '0'
+                    on  t.COD_ID = u.UNI_TR_MT 
+                where u.dist='{self.dist}' and u.sub = '{self.sub}' and u.sit_ativ = 'AT' and 
+                    u.pn_con != '0'
+                order by cod_id
                 ;
             '''
         else:
             query = f'''
-                SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
+                SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
                     u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12, 
                     t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
                 FROM sde.UCBT u    
                 INNER JOIN sde.UNTRMT T
-                    on u.dist='{self.dist}' and u.sub = '{self.sub}' and u.ctmt = '{ctmt}' and 
-                    t.COD_ID = u.UNI_TR_MT and u.sit_ativ = 'AT' and u.pn_con != '0'
+                    on  t.COD_ID = u.UNI_TR_MT 
+                where u.dist='{self.dist}' and u.sub = '{self.sub}' and u.ctmt = '{ctmt}' and u.sit_ativ = 'AT' and 
+                    u.pn_con != '0'
+                order by cod_id
                 ;
             '''
         self.cargas_bt = return_query_as_dataframe(query)
@@ -287,27 +291,29 @@ class ElectricDataPort:
 
         if ctmt is None:
             query = f'''
-                 SELECT p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN,
+                SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN,
                      p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
                      p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12, 
                      t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
-                 FROM sde.PIP P    
-                 INNER JOIN sde.UNTRMT T
-                     on p.dist='{self.dist}' and p.sub = '{self.sub}' and t.COD_ID = p.UNI_TR_MT and 
-                     p.sit_ativ = 'AT' and p.pn_con != '0'
+                FROM sde.PIP P    
+                INNER JOIN sde.UNTRMT T
+                     on t.COD_ID = p.UNI_TR_MT 
+                WHERE p.dist='{self.dist}' and p.sub = '{self.sub}' and p.sit_ativ = 'AT' and 
+                    p.pn_con != '0'
                  ;
              '''
         else:
             query = f'''
-                 SELECT p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN,
+                SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN,
                      p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
                      p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12, 
                      t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
-                 FROM sde.PIP P    
-                 INNER JOIN sde.UNTRMT T
-                     on p.dist='{self.dist}' and p.sub = '{self.sub}' and p.ctmt = '{ctmt}' and 
-                     t.COD_ID = p.UNI_TR_MT and p.sit_ativ = 'AT' and p.pn_con != '0'
-                 ;
+                FROM sde.PIP P    
+                INNER JOIN sde.UNTRMT T
+                     on t.COD_ID = p.UNI_TR_MT 
+                WHERE p.dist='{self.dist}' and p.sub = '{self.sub}' and p.ctmt = '{ctmt}' and p.sit_ativ = 'AT' and 
+                    p.pn_con != '0'
+                ;
              '''
         self.cargas_pip = return_query_as_dataframe(query)
         return True
@@ -775,7 +781,7 @@ if __name__ == "__main__":
 
     dist = '404'  # Energisa MS
     list_sub = ['40', '100', '58', '95', '96', '97']
-    #list_sub = ['58']
+    #list_sub = ['40']
 
     #dist = '391'  # EDP_SP
     #list_sub = ['ITQ']
