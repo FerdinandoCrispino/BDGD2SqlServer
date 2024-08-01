@@ -11,9 +11,11 @@ Implemeta funcionalidades de preparação dos dados para escrita dos arquivos do
 
 
 class DssFilesGenerator:
-    def __init__(self, dist=None, substation=None):
+    def __init__(self, dist=None, substation=None, mes=1, tipo_dia='DU'):
         self.dist = dist
         self.sub = substation
+        self.mes = mes
+        self.tipo_dia = tipo_dia
 
     def get_lines_suprimento_circuito(self, se, circuito, linhas_suprimento_dss) -> None:
         """Função para determinar o suprimento de um determinado circuito"""
@@ -96,6 +98,8 @@ class DssFilesGenerator:
         #ctrafos.drop_duplicates(subset='COD_ID', keep='first', inplace=True)
         #ctrafos.reset_index(drop=True, inplace=True)
 
+        if trafos.empty:
+            return
         # Add index trafo for Banc
         add_id_banc_to_dataframe(trafos, 'COD_ID')
         trafos.sort_values(by=['COD_ID', 'ID_BANC'], ascending=True, inplace=True)
@@ -184,11 +188,12 @@ class DssFilesGenerator:
                         ' kvas=[' + kvas_trafo(lig_fas_s, lig_fas_t, float(kva_nom)) + ']' \
                         ' %loadloss=' + f"{PerdaCobreTrafo_per:.6f}" + \
                         ' %noloadloss=' + f"{PerdaFerroTrafo_per:.6f}"
+                linhas_trafos_dss.append(linha)
 
-                linhas_trafos_dss.append(linha)
-                linha = 'New "Reactor.TRF_' + codigo + nome_banco(index_banc) + '_R' + '"' + \
-                        ' phases=1 bus1=' + pac2 + '.4' + ' R=15 X=0 basefreq=60'
-                linhas_trafos_dss.append(linha)
+                if ligacao_trafo(lig_fas_s) != 'Delta':
+                    linha = 'New "Reactor.TRF_' + codigo + nome_banco(index_banc) + '_R' + '"' + \
+                            ' phases=1 bus1=' + pac2 + '.4' + ' R=15 X=0 basefreq=60'
+                    linhas_trafos_dss.append(linha)
 
     def get_lines_condutores(self, condutores, linhas_condutores_dss) -> None:
         """
@@ -309,9 +314,12 @@ class DssFilesGenerator:
 
         linhas_cargas_dss.clear()
 
+        cargas_fc['COD_ID'] = cargas_fc['COD_ID'].str.upper()
+        cargas['TIP_CC'] = cargas['TIP_CC'].str.upper()
+
         # Deve-se implementar para 12 meses e os 3 tipos de dia DO DU SA
-        mes = 1
-        tipo_dia = "DU"
+        mes = self.mes
+        tipo_dia = self.tipo_dia
 
         if mes < 10:
             strmes = '0' + str(mes)
@@ -333,7 +341,7 @@ class DssFilesGenerator:
             energy_mes = cargas.loc[index]['ENE_' + str(strmes)]
             dblDemMax_kW = cargas.loc[index]['DEM_' + str(strmes)]
             ano_base = cargas.loc[index]['ANO_BASE']
-            trafo_kw = cargas.loc[index]['POT_NOM']
+            trafo_kva = cargas.loc[index]['POT_NOM']
 
             if dblDemMax_kW > 0.0:
                 linhas_cargas_dss.append('New "Load.MT_' + strName + '_M1" bus1="' + strBus + nos(
@@ -362,25 +370,83 @@ class DssFilesGenerator:
                                        (cargas_fc['TIP_DIA'] == tipo_dia)]
                     dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc.iloc[0]['FC']
 
-                    trafo_kw = float(trafo_kw)
-                    if dblDemMax_kW > trafo_kw > 0:
-                        dblDemMax_kW = trafo_kw * 0.98  # valor arbitrario
+                    trafo_kva = float(trafo_kva)
+                    if dblDemMax_kW > trafo_kva > 0:
+                        dblDemMax_kW = trafo_kva * 0.98  # fator de potencia médio
 
                     linhas_cargas_dss.append('New "Load.MT_' + strName + '_M1" bus1="' + strBus + nos(
                         strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
                         strCodFas) + " model=2" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.7f}" +
-                                             " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+                        " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
                     linhas_cargas_dss.append('New "Load.MT_' + strName + '_M2" bus1="' + strBus + nos(
                         strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
                         strCodFas) + " model=3" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.7f}" +
-                                             " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+                        " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+
+    def get_lines_cargas_mt_ssdmt(self, cargas, cargas_fc, linhas_cargas_dss):
+
+        linhas_cargas_dss.clear()
+
+        # Remoção de cargas duplicados.
+        cargas.drop_duplicates(subset='COD_ID', keep='first', inplace=True)
+        cargas.reset_index(drop=True, inplace=True)
+
+        cargas_fc['COD_ID'] = cargas_fc['COD_ID'].str.upper()
+        cargas['TIP_CC'] = cargas['TIP_CC'].str.upper()
+
+        # Deve-se implementar para 12 meses e os 3 tipos de dia DO DU SA
+        mes = self.mes
+        tipo_dia = self.tipo_dia
+
+        if mes < 10:
+            strmes = '0' + str(mes)
+        else:
+            strmes = str(mes)
+
+        for index in range(cargas.shape[0]):
+            strName = cargas.loc[index]['COD_ID']
+            strCodCrvCrg = cargas.loc[index]['TIP_CC'] + '_' + tipo_dia
+            strCodFas = cargas.loc[index]['FAS_CON']
+            dblTensao_kV = cargas.loc[index]['KV_NOM']
+            strBus = cargas.loc[index]['PAC']
+            energy_mes = cargas.loc[index]['ENE_' + str(strmes)]
+            ano_base = cargas.loc[index]['ANO_BASE']
+
+
+            str_coments = ""
+            if energy_mes == 0:
+                str_coments = "!"
+                dblDemMax_kW = 0
+
+            else:
+                # colocar o numero de dias de cada mes
+                num_dias = calendar.monthrange(ano_base, mes)[1]
+
+                fc = cargas_fc.loc[(cargas_fc['COD_ID'] == cargas.loc[index]['TIP_CC']) &
+                                   (cargas_fc['TIP_DIA'] == tipo_dia)]
+                dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc.iloc[0]['FC']
+
+
+            linhas_cargas_dss.append(str_coments + 'New "Load.MT_' + strName + '_M1" bus1="' + strBus + nos(
+                strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
+                strCodFas) + " model=2" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.7f}" +
+                " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+            linhas_cargas_dss.append(str_coments + 'New "Load.MT_' + strName + '_M2" bus1="' + strBus + nos(
+                strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
+                strCodFas) + " model=3" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.7f}" +
+                " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
 
     def get_lines_cargas_bt(self, cargas_bt, cargas_fc, cargas_pip, linhas_cargas_bt_dss):
 
         linhas_cargas_bt_dss.clear()
+
+        cargas_bt['TIP_CC'] = cargas_bt['TIP_CC'].str.upper()
+        cargas_fc['COD_ID'] = cargas_fc['COD_ID'].str.upper()
+        cargas_pip['TIP_CC'] = cargas_pip['TIP_CC'].str.upper()
+
         # Deve-se implementar para 12 meses e os 3 tipos de dia DO DU SA
-        mes = 1
-        tipo_dia = "DU"
+        mes = self.mes
+        tipo_dia = self.tipo_dia
         if mes < 10:
             strmes = '0' + str(mes)
         else:
@@ -465,10 +531,16 @@ class DssFilesGenerator:
             dblDemMaxTrafo_kW = cargas_pip.loc[index]['POT_NOM'] * 0.92  # kVA
             ano_base = cargas_pip.loc[index]['ANO_BASE']
 
+            # Verificação do tipo de curva de carga associada a carga de iluminação pública
+            if 'IP-TIPO' not in strCodCrvCrg:
+                strCodCrvCrg = 'IP-TIPO1' + '_' + tipo_dia
+
             intTipTrafo = get_tipo_trafo(codi_tipo_trafo)
+
             num_dias = calendar.monthrange(ano_base, mes)[1]
+
             fc = cargas_fc.loc[(cargas_fc['COD_ID'] == cargas_pip.loc[index]['TIP_CC']) &
-                               (cargas_fc['TIP_DIA'] == tipo_dia)]
+                               (cargas_fc['TIP_DIA'].str.upper() == tipo_dia)]
             dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc.iloc[0]['FC']
 
             if dblDemMax_kW > dblDemMaxTrafo_kW:
@@ -487,8 +559,8 @@ class DssFilesGenerator:
     def get_lines_generators_bt(self, generators, crv_ger, linha_generators_bt_dss):
         linha_generators_bt_dss.clear()
         # O gerador terá a mesma curva de carga para os 12 meses
-        mes = 1
-        # tipo_dia = "DU"
+        mes = self.mes
+        # tipo_dia = self.tipo_dia
         if mes < 10:
             strmes = '0' + str(mes)
         else:
@@ -509,7 +581,7 @@ class DssFilesGenerator:
             cod_kv_sec_trafo = generators.loc[index]['TEN_SEC']
             cod_kv_gererator = generators.loc[index]['TEN_CON']
             if cod_kv_sec_trafo != cod_kv_gererator:
-                print(f"Erro: cod tensão do gerador diferente do transformador.")
+                #print(f"Erro: cod tensão do gerador diferente do transformador.")
                 print(f"Gerador: {str_gd_name} cod tensão: {dblTensao_kV} cod tensão trafo: {dbl_kv_sec_trafo}")
                 dblTensao_kV = dbl_kv_sec_trafo
 
@@ -547,11 +619,58 @@ class DssFilesGenerator:
                                            ' kv=' + str(dblTensao_kV) + ' model=1 kw=' + f'{dblDemMax_kW:.4f}' +
                                            ' pf=0.92 daily="' + dbdaily + '" status=variable vmaxpu=1.5 vminpu=0.93')
 
+    def get_lines_generators_mt_ssdmt(self, generators, crv_ger, linha_generators_mt_dss):
+
+        linha_generators_mt_dss.clear()
+
+        mes = self.mes
+        dbdaily = 'GeradorBT-Tipo1'
+
+        if mes < 10:
+            strmes = '0' + str(mes)
+        else:
+            strmes = str(mes)
+
+        for index in range(generators.shape[0]):
+            strName = generators.loc[index]['COD_ID']
+            strCodFas = generators.loc[index]['FAS_CON']
+            dblTensao_kV_form = generators.loc[index]['KV_FORM']
+            dblTensao_kV_con = generators.loc[index]['KV_CON']
+            strBus = generators.loc[index]['PAC']
+            energy_mes = generators.loc[index]['ENE_' + str(strmes)]
+            ano_base = generators.loc[index]['ANO_BASE']
+
+            dbconn = ligacao_gerador(strCodFas)  # "Wye" ou "Delta"
+
+            dblTensao_kV = dblTensao_kV_form
+            if dblTensao_kV_form is None:
+                dblTensao_kV = dblTensao_kV_con
+
+            for crv in crv_ger:
+                if crv[0] == dbdaily:
+                    pt_crv = crv[1]
+                    # media dos valores diferentes de zero
+                    fc = np.apply_along_axis(lambda v: np.mean(v[np.nonzero(v)]), 0, pt_crv)
+
+            num_dias = calendar.monthrange(ano_base, mes)[1]
+            dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc
+
+            # comenta geradores sem demanda
+            srt_comment_dss = ''
+            if dblDemMax_kW == 0:
+                srt_comment_dss = '!'
+
+            linha_generators_mt_dss.append(
+                srt_comment_dss + 'New Generator.MT_' + strName + '_M1 bus1=' + strBus + nos(strCodFas) +
+                ' phases=' + numero_fases_carga(strCodFas) + ' conn=' + dbconn + ' kv=' +
+                str(dblTensao_kV) + ' model=1 kw=' + f'{dblDemMax_kW:.4f}' + ' pf=0.92 daily="' +
+                dbdaily + '" status=variable vmaxpu=1.5 vminpu=0.93')
+
     def get_lines_generators_mt(self, generators, crv_ger, linha_generators_mt_dss):
         linha_generators_mt_dss.clear()
         # O gerador terá a mesma curva de carga para os 12 meses
-        mes = 1
-        # tipo_dia = "DU"
+        mes = self.mes
+        # tipo_dia = self.tipo_dia
         if mes < 10:
             strmes = '0' + str(mes)
         else:
@@ -569,10 +688,10 @@ class DssFilesGenerator:
             ano_base = generators.loc[index]['ANO_BASE']
 
             cod_kv_pri_trafo = generators.loc[index]['TEN_PRI']
-            cod_kv_gererator = generators.loc[index]['TEN_FORN']
-            if cod_kv_pri_trafo != cod_kv_gererator:
-                print(f"Erro: cod tensão do gerador diferente do transformador. Atualizar banco de dados")
-                print(f"cod tensão do gerador: {cod_kv_gererator} cod tensão trafo: {cod_kv_pri_trafo}")
+            cod_kv_generator = generators.loc[index]['TEN_FORN']
+            if cod_kv_pri_trafo != cod_kv_generator:
+                #print(f"Erro: cod tensão do gerador diferente do transformador. Atualizar banco de dados")
+                print(f"cod tensão do gerador: {cod_kv_generator} cod tensão trafo: {cod_kv_pri_trafo}")
                 dblTensao_kV = dbl_kv_trafo
 
             dbdaily = 'GeradorMT-Tipo1'
