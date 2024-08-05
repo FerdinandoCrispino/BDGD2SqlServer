@@ -88,7 +88,6 @@ def insert_data(cursor, table_name, data, data_base, data_carga):
         table_name_sql = table_name.replace('MT', 'D')
         table_name_sql = table_name.replace('AT', 'S')
 
-
     sql = f"INSERT INTO {table_name_sql} ({columns}) VALUES ({placeholders})"
     for row in data:
         try:
@@ -158,7 +157,7 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
             table_name_sql = table_name.replace('_tab', '')  # Deve ser removido o '_tab' do nome das tabelas
             table_name_ori = ""
             if table_name_sql in list_names_tables:
-                table_name_ori = table_name     # Para gravar os dados nas duas tabela com final D e MT
+                table_name_ori = table_name  # Para gravar os dados nas duas tabela com final D e MT
                 if 'MT' in table_name:
                     table_name_sql = table_name.replace('MT', 'D')
                 if 'AT' in table_name:
@@ -378,7 +377,7 @@ def numero_fases_segmento_neutro(strFases) -> str:
 def numero_fases(strFases) -> int:
     if strFases == "A" or strFases == "B" or strFases == "C" or strFases == "AN" or strFases == "BN" or strFases == "CN":
         return 1
-    elif strFases == "AB" or strFases == "BA" or strFases == "BC" or strFases == "CB" or  \
+    elif strFases == "AB" or strFases == "BA" or strFases == "BC" or strFases == "CB" or \
             strFases == "CA" or strFases == "AC" or strFases == "ABN" or strFases == "BAN" or \
             strFases == "BCN" or strFases == "CBN" or strFases == "CAN" or strFases == "ACN":
         return 2
@@ -569,7 +568,7 @@ def kvas_trafo(strCodFas2, strCodFas3, dblPotNom_kVA) -> str:
         return ""
 
 
-def tensao_enrolamento(strCodFas, dblTensao_kV) -> float:
+def tensao_enrolamento(strCodFas, dblTensao_kV):
     """
     Uma vez que o manual da BDGD aponta que esta tensão já é a tensão do equipamento em si,
      basta adotar estão tensão informada, sem precisar divir por raiz de 3.
@@ -577,9 +576,11 @@ def tensao_enrolamento(strCodFas, dblTensao_kV) -> float:
     :param dblTensao_kV:
     :return:
     """
-    if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
-            strCodFas == "CN" or strCodFas == "ABN" or strCodFas == "BCN" or strCodFas == "CAN" or strCodFas == "ABCN":
-        #return dblTensao_kV / math.sqrt(3)
+    if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or \
+            strCodFas == "AN" or strCodFas == "BN" or strCodFas == "CN":
+        return f'{dblTensao_kV / math.sqrt(3):.4}'
+        # return dblTensao_kV
+    elif strCodFas == "ABN" or strCodFas == "BCN" or strCodFas == "CAN" or strCodFas == "ABCN":
         return dblTensao_kV
     elif strCodFas == "AB" or strCodFas == "BC" or strCodFas == "CA" or strCodFas == "ABC":
         return dblTensao_kV
@@ -591,10 +592,15 @@ def kvs_trafo(intTipTrafo, strCodFas1, strCodFas2, strCodFas3, dblTensaoPrimTraf
     if intTipTrafo == 4:
         return str(dblTensaoPrimTrafo_kV) + " " + str(dblTensaoSecuTrafo_kV)
     elif strCodFas3 == "BN" or strCodFas3 == "CN" or strCodFas3 == "AN" or strCodFas2 == "ABN":
-        return str(tensao_enrolamento(strCodFas1, dblTensaoPrimTrafo_kV)) + " " + str(
-            dblTensaoSecuTrafo_kV / 2) + " " + str(dblTensaoSecuTrafo_kV / 2)
+        return str(tensao_enrolamento(strCodFas1, dblTensaoPrimTrafo_kV)) + " " + \
+               str(dblTensaoSecuTrafo_kV / 2) + " " + str(dblTensaoSecuTrafo_kV / 2)
     elif strCodFas3 == "0" and (
-            strCodFas2 == "AN" or strCodFas2 == "BN" or strCodFas2 == "CN" or strCodFas2 == "AB" or strCodFas2 == "BC" or strCodFas2 == "CA" or strCodFas2 == "ABN" or strCodFas2 == "BCN" or strCodFas2 == "CAN"):
+            strCodFas2 == "AN" or strCodFas2 == "BN" or strCodFas2 == "CN"):
+        return str((tensao_enrolamento(strCodFas1, dblTensaoPrimTrafo_kV))) + " " + \
+               f'{(dblTensaoSecuTrafo_kV / 2):.4f}'
+        # f'{(dblTensaoSecuTrafo_kV / math.sqrt(3)):.4f}'
+    elif strCodFas3 == "0" and (strCodFas2 == "AB" or strCodFas2 == "BC" or strCodFas2 == "CA" or
+                                strCodFas2 == "ABN" or strCodFas2 == "BCN" or strCodFas2 == "CAN"):
         return str((tensao_enrolamento(strCodFas1, dblTensaoPrimTrafo_kV))) + " " + str(dblTensaoSecuTrafo_kV)
     else:
         return ""
@@ -698,18 +704,27 @@ def get_tipo_trafo(codi_tipo_trafo):
 def kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo):
     intFase = numero_fases(strCodFas)
     kVCarga = 0.0
-    if intTipTrafo == 3 or intTipTrafo == 4 or intTipTrafo == 5 or intTipTrafo == 6:
-        if intFase == 1:
+    if intTipTrafo == 4: # trafo trifasico
+        if intFase == 1: # carga monofasica
             kVCarga = f"{(dblTenSecu_kV / math.sqrt(3)):.3f}"
         else:
             kVCarga = str(dblTenSecu_kV)
-    elif intTipTrafo == 1:
+
+    if intTipTrafo == 3 or intTipTrafo == 5 or intTipTrafo == 6:  # trafo bifasico
+        if intFase == 1: # carga monofasica
+            kVCarga = f"{(dblTenSecu_kV / 2):.3f}"
+        else:
+            kVCarga = str(dblTenSecu_kV)
+
+    elif intTipTrafo == 1:   # monofasico
         kVCarga = str(dblTenSecu_kV)
-    elif intTipTrafo == 2:
+
+    elif intTipTrafo == 2:   # MRT
         if intFase == 1:
             kVCarga = str(dblTenSecu_kV / 2)
         else:
             kVCarga = str(dblTenSecu_kV)
+
     return kVCarga
 
 
@@ -728,9 +743,9 @@ def ligacao_gerador(strCodFas):
     if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
             strCodFas == "CN" or strCodFas == "ABCN":
         return "Wye"
-    #elif strCodFas == "AB" or strCodFas == "BC" or strCodFas == "CA" or strCodFas == "ABN" or strCodFas == "BCN" or \
+    # elif strCodFas == "AB" or strCodFas == "BC" or strCodFas == "CA" or strCodFas == "ABN" or strCodFas == "BCN" or \
     #        strCodFas == "CAN" or strCodFas == "ABC":
-        #return "Delta"
+    # return "Delta"
     else:
         return "Delta"
 
@@ -782,4 +797,3 @@ def add_id_banc_to_dataframe(df, df_column_ref):
             i += 1
         ref_count = df.loc[index][df_column_ref]
         df.at[index, 'ID_BANC'] = i
-

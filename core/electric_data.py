@@ -44,7 +44,6 @@ class ElectricDataPort:
         self.cargas_pip = []
         self.monitors = []
 
-
     def query_circuitos(self) -> bool:
         """
         Busca os dados de circuitos
@@ -335,7 +334,7 @@ class ElectricDataPort:
             ;
         '''
 
-    def query_generators_bt(self, ctmt=None)-> bool:
+    def query_generators_bt(self, ctmt=None) -> bool:
         """
 
         :param ctmt:
@@ -348,7 +347,7 @@ class ElectricDataPort:
                      u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
                      t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, 
                      q.TEN_PRI, q.TEN_SEC, t2.TEN/1000 as kv_sec, u.TEN_CON, 
-                     t.PAC_2 as PAC_TRAFO, T.FAS_CON_P, T.FAS_CON_S, T.FAS_CON_T
+                     t.TIP_TRAFO, t.PAC_2 as PAC_TRAFO, T.FAS_CON_P, T.FAS_CON_S, T.FAS_CON_T
                 FROM sde.UGBT u
                 INNER JOIN sde.UNTRMT T
                      on u.UNI_TR_MT = T.COD_ID
@@ -367,7 +366,7 @@ class ElectricDataPort:
                      u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
                      t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, 
                      q.TEN_PRI, q.TEN_SEC, t2.TEN/1000 as KV_TRAFO_SEC, u.TEN_CON, 
-                     t.PAC_2 as PAC_TRAFO, T.FAS_CON_P, T.FAS_CON_S, T.FAS_CON_T
+                     t.TIP_TRAFO, t.PAC_2 as PAC_TRAFO, T.FAS_CON_P, T.FAS_CON_S, T.FAS_CON_T
                 FROM sde.UGBT u
                 INNER JOIN sde.UNTRMT T
                      on u.UNI_TR_MT = T.COD_ID
@@ -575,13 +574,19 @@ class ElectricDataPort:
             SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
                 u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
                 u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,                    
-                t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, t.FAS_CON as FAS_CON_SSDMT
+                t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, t.FAS_CON as FAS_CON_SSDMT, 
+                c.TEN_NOM, t2.TEN/1000 as KV_CTMT
             FROM sde.UCMT u 
             INNER JOIN sde.SSDMT t
-            on u.pac = t.pac_1 or u.pac=t.PAC_2 
-            INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1
-                on  u.dist='{self.dist}' and u.sub='{self.sub}' and u.CTMT='{ctmt}' and 
-                t1.cod_id = u.TEN_FORN and u.sit_ativ = 'AT' and u.pn_con != '0'
+               on u.pac = t.pac_1 or u.pac=t.PAC_2 
+            inner join (select distinct cod_id, ten_nom from sde.ctmt) c
+                on c.cod_id = u.CTMT
+            INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t1                
+                on t1.cod_id = u.TEN_FORN 
+            INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t2              
+                on t2.cod_id = c.TEN_NOM 
+            Where  u.dist='{self.dist}' and u.sub='{self.sub}' and u.CTMT='{ctmt}' and 
+                u.sit_ativ = 'AT' and u.pn_con != '0'
             ;
         '''
         self.cargas_mt_ssdmt = return_query_as_dataframe(query)
@@ -623,21 +628,21 @@ def write_files_dss(cod_sub, cod_dist, mes, tipo_dia):
     mes = mes
     tipo_dia = tipo_dia
 
-    print(f"Tratamento para empresa: {dist} e subestação: {sub}")
-    nome_arquivo_crv = f'CurvaCarga_{dist}_{sub}'
-    nome_arquivo_sup = f'Circuito_{dist}_{sub}'
-    nome_arquivo_cnd = f'CodCondutores_{dist}_{sub}'
-    nome_arquivo_chv_mt = f'ChavesMT_{dist}_{sub}'
-    nome_arquivo_re_mt = f'ReatoresMT_{dist}_{sub}'
-    nome_arquivo_tr_mt = f'TrafosMT_{dist}_{sub}'
-    nome_arquivo_seg_mt = f'TrechoMT_{dist}_{sub}'
-    nome_arquivo_crg_mt = f'CargasMT_{dist}_{sub}'
-    nome_arquivo_monitors = f'Monitors_{dist}_{sub}'
-    nome_arquivo_capacitors = f'Capacitors_{dist}_{sub}'
-    nome_arquivo_crg_bt = f'CargasBT_{dist}_{sub}'
-    nome_arquivo_generators_mt_dss = f'GeradoresMT_{dist}_{sub}'
-    nome_arquivo_generators_bt_dss = f'GeradoresBT_{dist}_{sub}'
-    nome_arquivo_master = f'Master_{dist}_{sub}'
+    print(f"Tratamento para empresa: {dist} subestação: {sub}, mes: {mes} e tipo dia: {tipo_dia}")
+    nome_arquivo_crv = f'{tipo_dia}_{mes}_CurvaCarga_{dist}_{sub}'
+    nome_arquivo_sup = f'{tipo_dia}_{mes}_Circuito_{dist}_{sub}'
+    nome_arquivo_cnd = f'{tipo_dia}_{mes}_CodCondutores_{dist}_{sub}'
+    nome_arquivo_chv_mt = f'{tipo_dia}_{mes}_ChavesMT_{dist}_{sub}'
+    nome_arquivo_re_mt = f'{tipo_dia}_{mes}_ReatoresMT_{dist}_{sub}'
+    nome_arquivo_tr_mt = f'{tipo_dia}_{mes}_TrafosMT_{dist}_{sub}'
+    nome_arquivo_seg_mt = f'{tipo_dia}_{mes}_TrechoMT_{dist}_{sub}'
+    nome_arquivo_crg_mt = f'{tipo_dia}_{mes}_CargasMT_{dist}_{sub}'
+    nome_arquivo_monitors = f'{tipo_dia}_{mes}_Monitors_{dist}_{sub}'
+    nome_arquivo_capacitors = f'{tipo_dia}_{mes}_Capacitors_{dist}_{sub}'
+    nome_arquivo_crg_bt = f'{tipo_dia}_{mes}_CargasBT_{dist}_{sub}'
+    nome_arquivo_generators_mt_dss = f'{tipo_dia}_{mes}_GeradoresMT_{dist}_{sub}'
+    nome_arquivo_generators_bt_dss = f'{tipo_dia}_{mes}_GeradoresBT_{dist}_{sub}'
+    nome_arquivo_master = f'{tipo_dia}_{mes}_Master_{dist}_{sub}'
 
     list_files_dss = [nome_arquivo_crv, nome_arquivo_sup, nome_arquivo_cnd, nome_arquivo_chv_mt, nome_arquivo_re_mt,
                       nome_arquivo_tr_mt, nome_arquivo_seg_mt, nome_arquivo_crg_mt, nome_arquivo_monitors,
@@ -733,9 +738,9 @@ def write_files_dss(cod_sub, cod_dist, mes, tipo_dia):
         write_to_dss(dist, sub, cod_circuito, linhas_trechos_mt_dss, nome_arquivo_seg_mt)
 
         # Grava arquivo DSS para o cargas MT
-        #bdgd_read.query_cargas_mt(cod_circuito)
-        #dss_adapter.get_lines_cargas_mt(bdgd_read.cargas_mt, bdgd_read.carga_fc, linhas_cargas_mt_dss)
-        #write_to_dss(dist, sub, cod_circuito, linhas_cargas_mt_dss, nome_arquivo_crg_mt)
+        # bdgd_read.query_cargas_mt(cod_circuito)
+        # dss_adapter.get_lines_cargas_mt(bdgd_read.cargas_mt, bdgd_read.carga_fc, linhas_cargas_mt_dss)
+        # write_to_dss(dist, sub, cod_circuito, linhas_cargas_mt_dss, nome_arquivo_crg_mt)
         # ...conectados nos segmentos
         bdgd_read.query_cargas_mt_ssdmt(cod_circuito)
         dss_adapter.get_lines_cargas_mt_ssdmt(bdgd_read.cargas_mt_ssdmt, bdgd_read.carga_fc, linhas_cargas_mt_dss)
@@ -754,12 +759,13 @@ def write_files_dss(cod_sub, cod_dist, mes, tipo_dia):
         # Grava arquivo DSS para cargas BT
         bdgd_read.query_cargas_bt(cod_circuito)
         bdgd_read.query_cargas_pip(cod_circuito)
-        dss_adapter.get_lines_cargas_bt(bdgd_read.cargas_bt, bdgd_read.carga_fc, bdgd_read.cargas_pip, linhas_cargas_bt_dss)
+        dss_adapter.get_lines_cargas_bt(bdgd_read.cargas_bt, bdgd_read.carga_fc, bdgd_read.cargas_pip,
+                                        linhas_cargas_bt_dss)
         write_to_dss(dist, sub, cod_circuito, linhas_cargas_bt_dss, nome_arquivo_crg_bt)
 
         # leitura de dados dos Geradores mt conectados nos trafos
-        #bdgd_read.query_generators_mt(cod_circuito)  # conetados no trafo
-        #dss_adapter.get_lines_generators_mt(bdgd_read.gerador_mt, multi_ger, linhas_generators_mt_dss)
+        # bdgd_read.query_generators_mt(cod_circuito)  # conetados no trafo
+        # dss_adapter.get_lines_generators_mt(bdgd_read.gerador_mt, multi_ger, linhas_generators_mt_dss)
         # ...conectados nos segmentos
         bdgd_read.query_generators_mt_ssdmt(cod_circuito)
         dss_adapter.get_lines_generators_mt_ssdmt(bdgd_read.gerador_mt_ssdmt, multi_ger, linhas_generators_mt_dss)
@@ -780,13 +786,20 @@ if __name__ == "__main__":
     # Definir código da subestação (sub) e da distribuidora (dist)
 
     dist = '404'  # Energisa MS
-    list_sub = ['40', '100', '58', '95', '96', '97']
-    #list_sub = ['40']
+    #ist_sub = ['40', '100', '58', '95', '96', '97']
+    list_sub = ['100']
 
-    #dist = '391'  # EDP_SP
-    #list_sub = ['ITQ']
-    mes = 1             # [1 12] mes do ano de referência para os dados de cargas e geração
-    tipo_dia = 'DU'     # ['DU, 'DO', 'SA'] tipo de dia para referência para as curvas típicas de carga e geração
-    for sub in list_sub:
-        write_files_dss(sub, dist, mes, tipo_dia)   # '40'    # testes para 100, 58, 95, 96, 97
+    # dist = '391'  # EDP_SP
+    # list_sub = ['ITQ']
+    mes = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
+    tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
 
+    control_of_run = True  # controle de execução para apenas um primeiro mes e um primeiro tipo de dia
+    for tipo_dia in tipo_de_dias:
+        for mes in range(1, 13):
+            for sub in list_sub:
+                write_files_dss(sub, dist, mes, tipo_dia)
+            if control_of_run:
+                break
+        if control_of_run:
+            break

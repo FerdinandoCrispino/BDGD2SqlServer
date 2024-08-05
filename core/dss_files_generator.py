@@ -1,11 +1,13 @@
-import numpy as np
+import math
 
+import numpy as np
 from Tools.tools import *
 import calendar
 
 """
 # @Date    : 20/06/2024
 # @Author  : Ferdinano Crispino
+# @Email   : ferdinando.crispino@usp.br
 Implemeta funcionalidades de preparação dos dados para escrita dos arquivos do openDSS
 """
 
@@ -88,7 +90,7 @@ class DssFilesGenerator:
             linhas_reguladores_dss.append(
                 'New "Regcontrol.REG_' + strNome + nome_banco(intCodBnc) + '"' + ' transformer="REG_' +
                 strNome + nome_banco(intCodBnc) + '"' + " winding=2 vreg=" +
-                str(float(dblTenRgl_pu * dblkvREG)) + " band=2 ptratio= 100")
+                str(float(dblTenRgl_pu * dblkvREG)) + " band=2 ptratio= 1")
 
     def get_lines_trafos(self, trafos, linhas_trafos_dss) -> None:
 
@@ -164,7 +166,7 @@ class DssFilesGenerator:
 
                 linhas_trafos_dss.append(linha)
                 linha = 'New "Reactor.TRF_' + codigo + nome_banco(index_banc) + "_R" + '"' + \
-                        ' phases=1 bus1=' + pac2 + '.4' + ' R=15 X=0 basefreq=60'
+                        ' phases=1 bus1=' + pac2 + '.4' + ' R=5 X=0 basefreq=60 '
                 linhas_trafos_dss.append(linha)
 
             else:
@@ -192,7 +194,7 @@ class DssFilesGenerator:
 
                 if ligacao_trafo(lig_fas_s) != 'Delta':
                     linha = 'New "Reactor.TRF_' + codigo + nome_banco(index_banc) + '_R' + '"' + \
-                            ' phases=1 bus1=' + pac2 + '.4' + ' R=15 X=0 basefreq=60'
+                            ' phases=1 bus1=' + pac2 + '.4' + ' R=5 X=0 basefreq=60'
                     linhas_trafos_dss.append(linha)
 
     def get_lines_condutores(self, condutores, linhas_condutores_dss) -> None:
@@ -408,9 +410,17 @@ class DssFilesGenerator:
             strCodCrvCrg = cargas.loc[index]['TIP_CC'] + '_' + tipo_dia
             strCodFas = cargas.loc[index]['FAS_CON']
             dblTensao_kV = cargas.loc[index]['KV_NOM']
+            kv_ctmt = cargas.loc[index]['KV_CTMT']
             strBus = cargas.loc[index]['PAC']
             energy_mes = cargas.loc[index]['ENE_' + str(strmes)]
             ano_base = cargas.loc[index]['ANO_BASE']
+
+            # verifica a tensão do circuito em relação a tensão da carga MT
+            if kv_ctmt != dblTensao_kV:
+                dblTensao_kV = kv_ctmt
+            if numero_fases_carga(strCodFas) == '1':
+                dblTensao_kV = f'{kv_ctmt / math.sqrt(3):.4f}'
+
 
 
             str_coments = ""
@@ -576,6 +586,9 @@ class DssFilesGenerator:
             strBus = generators.loc[index]['PAC_TRAFO']
             energy_mes = generators.loc[index]['ENE_' + str(strmes)]
             ano_base = generators.loc[index]['ANO_BASE']
+            codi_tipo_trafo = generators.loc[index]['TIP_TRAFO']
+
+            intTipTrafo = get_tipo_trafo(codi_tipo_trafo)
 
             # Verifica tensão do gerador e tensão do transformador
             cod_kv_sec_trafo = generators.loc[index]['TEN_SEC']
@@ -589,7 +602,7 @@ class DssFilesGenerator:
             fases_s_trafo = generators.loc[index]['FAS_CON_S']
             fases_t_trafo = generators.loc[index]['FAS_CON_T']
             for fase in strCodFas:
-                if fase not in fases_s_trafo and strCodFas not in fases_t_trafo:
+                if fase not in fases_s_trafo and fase not in fases_t_trafo:
                     if fases_t_trafo == '0':
                         strCodFas = fases_s_trafo
                     else:
@@ -616,7 +629,8 @@ class DssFilesGenerator:
             linha_generators_bt_dss.append(srt_comment_dss + 'New Generator.BT_' + strName +
                                            '_M1 bus1=' + strBus + nos(strCodFas) +
                                            ' phases=' + numero_fases_carga(strCodFas) + ' conn=' + dbconn +
-                                           ' kv=' + str(dblTensao_kV) + ' model=1 kw=' + f'{dblDemMax_kW:.4f}' +
+                                           ' kv=' + kv_carga(strCodFas, dblTensao_kV, intTipTrafo) +
+                                           ' model=1 kw=' + f'{dblDemMax_kW:.4f}' +
                                            ' pf=0.92 daily="' + dbdaily + '" status=variable vmaxpu=1.5 vminpu=0.93')
 
     def get_lines_generators_mt_ssdmt(self, generators, crv_ger, linha_generators_mt_dss):
