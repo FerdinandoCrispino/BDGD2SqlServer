@@ -196,7 +196,7 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
                 proc_table_parse_time_ini = time.time()
 
                 df = gpd.read_file(gdb_file, driver="pyogrio", layer=table_name, rows=slice(row_ini, row_end, 1),
-                                   ignore_geometry=True, use_arrow=True)
+                                   ignore_geometry=False, use_arrow=True)
                 print(f"Leitura de {len(df.index)} reg. em {round(time.time() - proc_table_parse_time_ini, 3)} de "
                       f"{round(time.time() - proc_table_time_ini, 3)} segundos.")
 
@@ -208,17 +208,22 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
                 df['DATA_BASE'] = data_base
                 df['DATA_CARGA'] = data_carga
                 # df = df[['OBJECTID'] + [col for col in df.columns if col != 'OBJECTID']]
-                """
-                if df.iloc[0].geometry.type == 'Point':
-                    df['POINT_Y'] = df['geometry'].y
-                    df['POINT_X'] = df['geometry'].x
 
-                if df.iloc[0].geometry.type == 'MultiLineString':
-                    df['POINT_Y1'] = df['geometry'][0].bounds[0]
-                    df['POINT_X1'] = df['geometry'][0].bounds[1]
-                    df['POINT_Y2'] = df['geometry'][1].bounds[0]
-                    df['POINT_X2'] = df['geometry'][1].bounds[1]
-                """
+                list_table_coords = ['PONNOT', 'SSDBT', 'SSDMT', 'SSDAT', 'UNTRMT', 'UNTRD',
+                                     'UNTRAT', 'UNTRS', 'UNSEMT', 'UNSEAT']
+                if table_name_sql in list_table_coords:
+                    if df.iloc[0]['geometry'].geom_type == 'Point':
+                        df['POINT_Y'] = df['geometry'].y  # lat
+                        df['POINT_X'] = df['geometry'].x  # lon
+
+                    if df.iloc[0]['geometry'].geom_type == 'MultiLineString':
+                        df['POINT_Y1'] = df['geometry'][0].bounds[0]
+                        df['POINT_X1'] = df['geometry'][0].bounds[1]
+                        df['POINT_Y2'] = df['geometry'][1].bounds[0]
+                        df['POINT_X2'] = df['geometry'][1].bounds[1]
+
+                    df.drop('geometry', axis=1, inplace=True)
+
                 row_ini += row_step
                 row_end = row_ini + row_step
 
