@@ -447,7 +447,9 @@ class ElectricDataPort:
             query = f'''
                 SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
                     u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
-                    u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,   
+                    u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12, 
+                    u.DEM_01, u.DEM_02, u.DEM_03, u.DEM_04, u.DEM_05, u.DEM_06, 
+                    u.DEM_07, u.DEM_08, u.DEM_09, u.DEM_10, u.DEM_11, u.DEM_12, 
                     t1.TEN/1000 as KV_FORM, t2.TEN/1000 as KV_CON, year(u.DATA_BASE) as ANO_BASE, 
                     u.TEN_CON 
                 FROM sde.UGMT u
@@ -464,7 +466,9 @@ class ElectricDataPort:
             query = f'''
                 SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
                     u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
-                    u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,   
+                    u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12, 
+                    u.DEM_01, u.DEM_02, u.DEM_03, u.DEM_04, u.DEM_05, u.DEM_06, 
+                    u.DEM_07, u.DEM_08, u.DEM_09, u.DEM_10, u.DEM_11, u.DEM_12, 
                     t1.TEN/1000 as KV_FORM, t2.TEN/1000 as KV_CON,  year(u.DATA_BASE) as ANO_BASE, 
                     u.TEN_CON 
                 FROM sde.UGMT u
@@ -573,7 +577,9 @@ class ElectricDataPort:
         query = f'''
             SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
                 u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
-                u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,                    
+                u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12, 
+                u.DEM_01, u.DEM_02, u.DEM_03, u.DEM_04, u.DEM_05, u.DEM_06, 
+                u.DEM_07, u.DEM_08, u.DEM_09, u.DEM_10, u.DEM_11, u.DEM_12,                       
                 t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, t.FAS_CON as FAS_CON_SSDMT, 
                 c.TEN_NOM, t2.TEN/1000 as KV_CTMT
             FROM sde.UCMT u 

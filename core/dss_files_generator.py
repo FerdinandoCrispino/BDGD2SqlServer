@@ -90,7 +90,7 @@ class DssFilesGenerator:
             linhas_reguladores_dss.append(
                 'New "Regcontrol.REG_' + strNome + nome_banco(intCodBnc) + '"' + ' transformer="REG_' +
                 strNome + nome_banco(intCodBnc) + '"' + " winding=2 vreg=" +
-                str(float(dblTenRgl_pu * dblkvREG)) + " band=2 ptratio= 1")
+                str(float(dblTenRgl_pu * dblkvREG * 100)) + " band=2 ptratio= 10")
 
     def get_lines_trafos(self, trafos, linhas_trafos_dss) -> None:
 
@@ -421,6 +421,7 @@ class DssFilesGenerator:
             kv_ctmt = cargas.loc[index]['KV_CTMT']
             strBus = cargas.loc[index]['PAC']
             energy_mes = cargas.loc[index]['ENE_' + str(strmes)]
+            demand_mes = cargas.loc[index]['DEM_' + str(strmes)]
             ano_base = cargas.loc[index]['ANO_BASE']
             strCodFasSSDMT = cargas.loc[index]['FAS_CON_SSDMT']
 
@@ -432,16 +433,19 @@ class DssFilesGenerator:
                     dblTensao_kV = f'{kv_ctmt / math.sqrt(3):.4f}'
 
             str_coments = ""
-            if energy_mes == 0:
-                str_coments = "!"
-                dblDemMax_kW = 0
+            if demand_mes == 0:
+                if energy_mes == 0:
+                    str_coments = "!"
+                    dblDemMax_kW = 0
+                else:
+                    # numero de dias do mes
+                    num_dias = calendar.monthrange(ano_base, mes)[1]
+                    # Fator de carga calculado a partir do tipo de curva de carga
+                    fc = cargas_fc.loc[(cargas_fc['COD_ID'] == cargas.loc[index]['TIP_CC']) &
+                                       (cargas_fc['TIP_DIA'] == tipo_dia)]
+                    dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc.iloc[0]['FC']
             else:
-                # colocar o numero de dias de cada mes
-                num_dias = calendar.monthrange(ano_base, mes)[1]
-
-                fc = cargas_fc.loc[(cargas_fc['COD_ID'] == cargas.loc[index]['TIP_CC']) &
-                                   (cargas_fc['TIP_DIA'] == tipo_dia)]
-                dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc.iloc[0]['FC']
+                dblDemMax_kW = demand_mes
 
             linhas_cargas_dss.append(str_coments + 'New "Load.MT_' + strName + '_M1" bus1="' + strBus + nos(
                 strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
@@ -644,7 +648,7 @@ class DssFilesGenerator:
         linha_generators_mt_dss.clear()
 
         mes = self.mes
-        dbdaily = 'GeradorBT-Tipo1'
+        dbdaily = 'GeradorMT-Tipo1'
 
         if mes < 10:
             strmes = '0' + str(mes)
@@ -658,6 +662,7 @@ class DssFilesGenerator:
             dblTensao_kV_con = generators.loc[index]['KV_CON']
             strBus = generators.loc[index]['PAC']
             energy_mes = generators.loc[index]['ENE_' + str(strmes)]
+            demand_mes = generators.loc[index]['DEM_' + str(strmes)]
             ano_base = generators.loc[index]['ANO_BASE']
 
             dbconn = ligacao_gerador(strCodFas)  # "Wye" ou "Delta"
@@ -666,14 +671,17 @@ class DssFilesGenerator:
             if dblTensao_kV_form is None:
                 dblTensao_kV = dblTensao_kV_con
 
-            for crv in crv_ger:
-                if crv[0] == dbdaily:
-                    pt_crv = crv[1]
-                    # media dos valores diferentes de zero
-                    fc = np.apply_along_axis(lambda v: np.mean(v[np.nonzero(v)]), 0, pt_crv)
+            if demand_mes == 0:
+                for crv in crv_ger:
+                    if crv[0] == dbdaily:
+                        pt_crv = crv[1]
+                        # media dos valores diferentes de zero
+                        fc = np.apply_along_axis(lambda v: np.mean(v[np.nonzero(v)]), 0, pt_crv)
 
-            num_dias = calendar.monthrange(ano_base, mes)[1]
-            dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc
+                num_dias = calendar.monthrange(ano_base, mes)[1]
+                dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc
+            else:
+                dblDemMax_kW = demand_mes
 
             # comenta geradores sem demanda
             srt_comment_dss = ''
