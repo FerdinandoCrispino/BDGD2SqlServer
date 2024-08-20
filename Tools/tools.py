@@ -605,8 +605,7 @@ def kvs_trafo(intTipTrafo, strCodFas1, strCodFas2, strCodFas3, dblTensaoPrimTraf
     elif strCodFas3 == "BN" or strCodFas3 == "CN" or strCodFas3 == "AN" or strCodFas2 == "ABN":
         return str(tensao_enrolamento(strCodFas1, dblTensaoPrimTrafo_kV)) + " " + \
                str(dblTensaoSecuTrafo_kV / 2) + " " + str(dblTensaoSecuTrafo_kV / 2)
-    elif strCodFas3 == "0" and (
-            strCodFas2 == "AN" or strCodFas2 == "BN" or strCodFas2 == "CN"):
+    elif strCodFas3 == "0" and (strCodFas2 == "AN" or strCodFas2 == "BN" or strCodFas2 == "CN"):
         return str((tensao_enrolamento(strCodFas1, dblTensaoPrimTrafo_kV))) + " " + \
                f'{(dblTensaoSecuTrafo_kV / 2):.4f}'
         # f'{(dblTensaoSecuTrafo_kV / math.sqrt(3)):.4f}'
@@ -665,7 +664,7 @@ def tens_regulador(rel_tp_id):
         ten_pri_eq = 23
     elif int(rel_tp_id) == 22:
         ten_pri_eq = 14.4
-    elif int(rel_tp_id) == 23:
+    elif int(rel_tp_id) in (11, 12, 13, 14, 23):
         ten_pri_eq = 13.8
     elif int(rel_tp_id) == 24:
         ten_pri_eq = 7.6
@@ -727,7 +726,7 @@ def kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo):
         else:
             kVCarga = str(dblTenSecu_kV)
 
-    elif intTipTrafo == 1:   # monofasico
+    elif intTipTrafo == 1:   # trafo monofasico
         kVCarga = str(dblTenSecu_kV)
 
     elif intTipTrafo == 2:   # MRT
