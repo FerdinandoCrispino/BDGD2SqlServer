@@ -17,6 +17,112 @@ class DssFilesGenerator:
         self.dist = dist
         self.sub = substation
 
+    def get_lines_substation(self, transfomers, circuits, linhas_substation_dss, mes, tipo_dia, voltagebases):
+        mes = mes
+        tipo_dia = tipo_dia
+
+        linhas_substation_dss.clear()
+
+        nome_arquivo_crv = f'{tipo_dia}_{mes}_CurvaCarga_{self.dist}_{self.sub}'
+        nome_arquivo_cnd = f'{tipo_dia}_{mes}_CodCondutores_{self.dist}_{self.sub}'
+        nome_arquivo_chv_mt = f'{tipo_dia}_{mes}_ChavesMT_{self.dist}_{self.sub}'
+        nome_arquivo_re_mt = f'{tipo_dia}_{mes}_ReatoresMT_{self.dist}_{self.sub}'
+        nome_arquivo_tr_mt = f'{tipo_dia}_{mes}_TrafosMT_{self.dist}_{self.sub}'
+        nome_arquivo_seg_mt = f'{tipo_dia}_{mes}_TrechoMT_{self.dist}_{self.sub}'
+        nome_arquivo_crg_mt = f'{tipo_dia}_{mes}_CargasMT_{self.dist}_{self.sub}'
+        nome_arquivo_monitors = f'{tipo_dia}_{mes}_Monitors_{self.dist}_{self.sub}'
+        nome_arquivo_capacitors = f'{tipo_dia}_{mes}_Capacitors_{self.dist}_{self.sub}'
+        nome_arquivo_crg_bt = f'{tipo_dia}_{mes}_CargasBT_{self.dist}_{self.sub}'
+        nome_arquivo_generators_mt_dss = f'{tipo_dia}_{mes}_GeradoresMT_{self.dist}_{self.sub}'
+        nome_arquivo_generators_bt_dss = f'{tipo_dia}_{mes}_GeradoresBT_{self.dist}_{self.sub}'
+
+        list_files_dss = [nome_arquivo_crv, nome_arquivo_cnd, nome_arquivo_chv_mt, nome_arquivo_re_mt,
+                          nome_arquivo_tr_mt, nome_arquivo_seg_mt, nome_arquivo_crg_mt, nome_arquivo_monitors,
+                          nome_arquivo_capacitors, nome_arquivo_crg_bt, nome_arquivo_generators_mt_dss,
+                          nome_arquivo_generators_bt_dss]
+
+        substation = circuits.merge(transfomers, how='inner', left_on='UNI_TR_AT', right_on='COD_ID')
+
+        base_kv = round(transfomers['TEN_PRI'] / 1000, 2)
+        voltagebases.loc[len(voltagebases.index)] = [base_kv[0]]
+
+        # Add Source
+        linhas_substation_dss.clear()
+        linhas_substation_dss.append('clear')
+        linhas_substation_dss.append('')
+        linhas_substation_dss.append(f'New Circuit.Sub_{self.sub} bus1=Sourcebus basekv={base_kv[0]} '
+                                     f'phases=3 pu=1 r1=0.0 x1=0.0001')
+
+        # Create dummy switch and transformer
+        for index in range(transfomers.shape[0]):
+            tr_name = transfomers.loc[index]['COD_ID']
+            tr_pac_1 = transfomers.loc[index]['PAC_1']
+            tr_pac_2 = transfomers.loc[index]['PAC_2']
+            tr_pac_3 = transfomers.loc[index]['PAC_3']
+            lig_fas_p = transfomers.loc[index]['FAS_CON_P']
+            lig_fas_s = transfomers.loc[index]['FAS_CON_S']
+            lig_fas_t = transfomers.loc[index]['FAS_CON_T']
+            tr_lig = transfomers.loc[index]['LIG']
+            ten_lin_pri = transfomers.loc[index]['TEN_PRI'] / 1000
+            ten_lin_sec = transfomers.loc[index]['TEN_SEC'] / 1000
+            kva_nom = transfomers.loc[index]['POT_NOM'] * 1000
+            PerdaTotalTrafo = transfomers.loc[index]['PER_TOT']
+            PerdaFerroTrafo = transfomers.loc[index]['PER_FER']
+
+            voltagebases.loc[len(voltagebases.index)] = [ten_lin_pri]
+            voltagebases.loc[len(voltagebases.index)] = [ten_lin_sec]
+
+            # Create dummy switch Transformer
+            linhas_substation_dss.append(f'New Line.DJ_{tr_name} phases=3 bus1=SourceBus bus2={tr_pac_1} '
+                                         f'r1=0.001 r0=0.001 x1=0 x0=0 c1=0 c0=0 length=0.001 units=km switch=T')
+            # Add transformer AT
+            PerdaFerroTrafo_per = PerdaFerroTrafo
+            PerdaCobreTrafo_per = PerdaTotalTrafo - PerdaFerroTrafo
+
+            linhas_substation_dss.append(f'New Transformer.{tr_name} phases={numero_fases_transformador(lig_fas_p)} '
+                                         f'windings={quantidade_enrolamentos(lig_fas_t, lig_fas_s)} '
+                                         f'buses=[{nos_com_neutro_trafo(lig_fas_p, lig_fas_s, lig_fas_t, ten_lin_sec, tr_pac_1, tr_pac_2)}] '
+                                         f'conns=[Wye {lig_trafo(tr_lig)}] kvs=({ten_lin_pri} {ten_lin_sec} ) '
+                                         f'kvas=({kvas_trafo(lig_fas_s, lig_fas_t, float(kva_nom))}) '
+                                         f'%loadloss={PerdaCobreTrafo_per} %noloadloss={PerdaFerroTrafo_per}')
+
+
+
+
+        # Create dummy switch for each circuit
+        for index in range(substation.shape[0]):
+            cir_name = substation.loc[index]['COD_ID_x']
+            tr_pac_2 = substation.loc[index]['PAC_2']
+            cir_pac_ini = substation.loc[index]['PAC_INI']
+
+            # Create dummy switch Transformer
+            linhas_substation_dss.append(f'New Line.SW_{cir_name} phases=3 bus1={tr_pac_2} bus2={cir_pac_ini} '
+                                         f'r1=0.001 r0=0.001 x1=0 x0=0 c1=0 c0=0 length=0.001 units=km switch=T')
+
+            # Create redirect files
+            linhas_substation_dss.append('')
+            for nome_arquivo in list_files_dss:
+                nome_arquivo += '_' + cir_name
+                linhas_substation_dss.append(f"redirect {cir_name}\{nome_arquivo}.dss")
+            linhas_substation_dss.append('')
+
+        # Inclui tensões nominais
+        # remove duplicates
+        voltagebases.drop_duplicates(subset=None, keep='first', inplace=True, ignore_index=False)
+        voltagebases_str = ", ".join(str(element) for element in voltagebases['TEN_LIN_SE'])
+        linhas_substation_dss.append(f"set voltagebases=({voltagebases_str})")
+        linhas_substation_dss.append('calcv')
+        # Inclui outros comandos
+        # linhas_master.append(f"buscoords coords.dss")
+        linhas_substation_dss.append(f"set mode=daily")
+        linhas_substation_dss.append(f"set tolerance=0.0001")
+        linhas_substation_dss.append(f"set maxcontroliter=100")
+        linhas_substation_dss.append(f"set maxiterations=100")
+        linhas_substation_dss.append(f"set stepsize=1h ! duracao de cada step")
+        linhas_substation_dss.append(f"set number=24 ! cada solve executa 24 steps")
+        linhas_substation_dss.append(f"solve")
+        linhas_substation_dss.append('')
+
     def get_lines_suprimento_circuito(self, se, circuito, linhas_suprimento_dss) -> None:
         """Função para determinar o suprimento de um determinado circuito"""
         linhas_suprimento_dss.clear()
@@ -88,7 +194,7 @@ class DssFilesGenerator:
             linhas_reguladores_dss.append(
                 'New "Regcontrol.CREG_' + strNome + nome_banco(intCodBnc) + '"' + ' transformer="REG_' +
                 strNome + nome_banco(intCodBnc) + '"' + " winding=2 vreg=" +
-                str(float(dblTenRgl_pu * dblkvREG * 100)) + " band=2 ptratio= 10")
+                f"{dblTenRgl_pu * 100:.0f}" + " band=2 ptratio=" + f"{dblkvREG * 10:.2f}")
 
     def get_lines_trafos(self, trafos, linhas_trafos_dss) -> None:
 
@@ -598,8 +704,7 @@ class DssFilesGenerator:
             str_gd_name = generators.loc[index]['CEG_GD']
             # strCodCrvCrg = generators.loc[index]['TIP_CC'] + '_' + tipo_dia
             strCodFas = generators.loc[index]['FAS_CON']
-            dblTensao_kV = generators.loc[index]['KV_NOM']
-            dbl_kv_sec_trafo = generators.loc[index]['KV_TRAFO_SEC']
+
             ten_lin_se_trafo = generators.loc[index]['TEN_LIN_SE']
             strBus = generators.loc[index]['PAC_TRAFO']
             energy_mes = generators.loc[index]['ENE_' + str(strmes)]
@@ -608,15 +713,6 @@ class DssFilesGenerator:
 
             intTipTrafo = get_tipo_trafo(codi_tipo_trafo)
 
-            # Verifica tensão do gerador e tensão do transformador
-            cod_kv_sec_trafo = generators.loc[index]['TEN_SEC']
-            cod_kv_gererator = generators.loc[index]['TEN_CON']
-            """
-            if cod_kv_sec_trafo != cod_kv_gererator:
-                # print(f"Erro: cod tensão do gerador diferente do transformador.")
-                print(f"Gerador: {str_gd_name} cod tensão: {dblTensao_kV} cod tensão trafo: {dbl_kv_sec_trafo}")
-                dblTensao_kV = dbl_kv_sec_trafo
-            """
             dblTensao_kV = ten_lin_se_trafo
 
             # Compara fases do gerador e fases do transformador, em caso de discordancia adota as fases do transformador
@@ -803,7 +899,7 @@ class DssFilesGenerator:
             linhas_master.append(f"redirect {nome_arquivo}.dss")
         linhas_master.append('')
 
-        # Inclui tensões nominais
+        # Inclui as tensões de linha nominais
         voltagebases_str = ",".join(str(element) for element in voltagebases)
         linhas_master.append(f"set voltagebases=({voltagebases_str})")
         linhas_master.append('calcv')

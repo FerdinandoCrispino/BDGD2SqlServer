@@ -317,7 +317,11 @@ def write_to_dss(dist, sub, circuito, linhas_arquivos_list: list, nome_arquivo: 
     :return: bool
     """
     # Escreve os arquivos DSS, sendo agrupados em um diretório para cada circuito
-    nome_arquivo += '_' + circuito
+    if circuito == '':
+        nome_arquivo += '_' + sub
+    else:
+        nome_arquivo += '_' + circuito
+
     try:
         path_dss_files = os.path.expanduser(config_bdgd['dss_files_folder'])
         # Verifica se existe diretório 'dss'
@@ -625,6 +629,13 @@ def nome_banco(intCodBnc) -> str:
         return "F"
     else:
         return ""
+
+
+def lig_trafo(str_lig):
+    if str_lig in ('1', '2', '3', '10'):
+        return "Wye"
+    else:
+        return "Delta"
 
 
 def ligacao_trafo(strCodFas) -> str:
