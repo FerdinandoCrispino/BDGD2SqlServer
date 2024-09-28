@@ -2,7 +2,7 @@
 import math
 import os
 import time
-
+import holidays
 import pandas as pd
 import geopandas as gpd
 import logging
@@ -10,6 +10,9 @@ import pyodbc
 import fiona
 import yaml
 from sqlalchemy import create_engine
+
+pd.set_option('display.max_colwidth', None)
+pd.set_option('display.max_columns', None)
 
 list_names_tables = ['EQTRAT', 'EQTRMT', 'UNTRAT', 'UNTRMT']
 
@@ -211,16 +214,18 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
 
                 list_table_coords = ['PONNOT', 'SSDBT', 'SSDMT', 'SSDAT', 'UNTRMT', 'UNTRD',
                                      'UNTRAT', 'UNTRS', 'UNSEMT', 'UNSEAT']
+                #gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4326")
                 if table_name_sql in list_table_coords:
                     if df.iloc[0]['geometry'].geom_type == 'Point':
                         df['POINT_Y'] = df['geometry'].y  # lat
                         df['POINT_X'] = df['geometry'].x  # lon
 
                     if df.iloc[0]['geometry'].geom_type == 'MultiLineString':
-                        df['POINT_Y1'] = df['geometry'][0].bounds[0]
-                        df['POINT_X1'] = df['geometry'][0].bounds[1]
-                        df['POINT_Y2'] = df['geometry'][1].bounds[0]
-                        df['POINT_X2'] = df['geometry'][1].bounds[1]
+                        bounds = df.geometry.boundary.explode(index_parts=True).unstack()
+                        df['POINT_Y1'] = bounds[0].y
+                        df['POINT_X1'] = bounds[0].x
+                        df['POINT_Y2'] = bounds[1].y
+                        df['POINT_X2'] = bounds[1].x
 
                     df.drop('geometry', axis=1, inplace=True)
 
@@ -495,7 +500,9 @@ def nos_com_neutro_trafo(strCodFas1, strCodFas2, strCodFas3, dblTensaoSecuTrafo_
             return ""
 
 
-def tap_trafo(strCodFas3, tap_pu) -> str:
+def tap_trafo(strCodFas3, tap_pu, tip_trafo=None) -> str:
+    if tip_trafo == 'DA':
+        tap_pu = "1.0"
     if strCodFas3 != "0":
         return "1 " + tap_pu + " " + tap_pu
     else:
@@ -649,18 +656,30 @@ def ligacao_trafo(strCodFas) -> str:
 
 
 def tens_regulador(rel_tp_id):
-    if int(rel_tp_id) == 3:
+    if int(rel_tp_id) == 1:
+        ten_pri_eq = 138 / math.sqrt(3)
+    elif int(rel_tp_id) == 2:
+        ten_pri_eq = 69 / math.sqrt(3)
+    elif int(rel_tp_id) == 3:
         ten_pri_eq = 34.5 / math.sqrt(3)
     elif int(rel_tp_id) == 4:
         ten_pri_eq = 25 / math.sqrt(3)
+    elif int(rel_tp_id) == 5:
+        ten_pri_eq = 24.9
     elif int(rel_tp_id) == 6:
         ten_pri_eq = 23 / math.sqrt(3)
+    elif int(rel_tp_id) in (7, 8, 9):
+        ten_pri_eq = 14.4
     elif int(rel_tp_id) == 10:
         ten_pri_eq = 14.4 / math.sqrt(3)
     elif int(rel_tp_id) == 15:
         ten_pri_eq = 13.8 / math.sqrt(3)
+    elif int(rel_tp_id) == 16:
+        ten_pri_eq = 7.6
     elif int(rel_tp_id) == 17:
         ten_pri_eq = 7.6 / math.sqrt(3)
+    elif int(rel_tp_id) == 18:
+        ten_pri_eq = 92 / math.sqrt(3)
     elif int(rel_tp_id) == 19:
         ten_pri_eq = 34.5
     elif int(rel_tp_id) == 20:
@@ -754,7 +773,11 @@ def numero_fases_carga_dss(strFases):
         return ""
 
 
-def ligacao_gerador(strCodFas):
+def ligacao_gerador(strCodFas, tip_trafo=None):
+    # Para gerador bt ligado no secundario do transformador, caso o transformador for tipo Delta Aberto
+    # e o gerador trifasico a conexão do gerador deverá ser Delta
+    if strCodFas == "ABCN" and tip_trafo == 'DA':
+        return "Delta"
     if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
             strCodFas == "CN" or strCodFas == "ABCN":
         return "Wye"
@@ -812,3 +835,36 @@ def add_id_banc_to_dataframe(df, df_column_ref):
             i += 1
         ref_count = df.loc[index][df_column_ref]
         df.at[index, 'ID_BANC'] = i
+
+
+def calc_du_sa_do_mes(ano, mes) -> dict:
+    # Gerar intervalo de datas para o mês especificado
+    data_inicial = f'{ano}-{mes:02d}-01'
+    data_final = pd.Period(f'{ano}-{mes:02d}').end_time.strftime('%Y-%m-%d')
+    dias = pd.date_range(start=data_inicial, end=data_final)
+
+    # Criar um conjunto de feriados para São Paulo, Brasil
+    feriados_brasil = holidays.Brazil(state='SP')
+
+    # Inicializar contadores
+    uteis = 0
+    sabados = 0
+    domingos = 0
+    feriados = 0
+
+    for dia in dias:
+        if dia in feriados_brasil:
+            # Contar como feriado, mesmo que caia em sábado ou domingo
+            feriados += 1
+        elif dia.weekday() == 5:  # Sábado
+            sabados += 1
+        elif dia.weekday() == 6:  # Domingo
+            domingos += 1
+        else:  # Dias úteis
+            uteis += 1
+
+    return {
+        'DU': uteis,
+        'SA': sabados,
+        'DO': domingos + feriados
+    }

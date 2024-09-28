@@ -1,3 +1,4 @@
+import Tools.tools
 from Tools.tools import return_query_as_dataframe, write_to_dss, ajust_eqre_codbanc
 import pandas as pd
 import dss_files_generator as dss_g
@@ -43,6 +44,7 @@ class ElectricDataPort:
         self.cargas_pip = []
         self.monitors = []
         self.voltage_tr_sec = []
+        self.propor = 0
 
     def query_circuitos(self) -> bool:
         """
@@ -153,7 +155,7 @@ class ElectricDataPort:
                 SELECT u.COD_ID, u.CTMT, u.PAC_1, u.PAC_2, u.PAC_3, u.FAS_CON_P, u.FAS_CON_S, u.FAS_CON_T, 
                 u.TIP_TRAFO, u.PER_TOT, u.PER_FER, u.POT_NOM, u.POS, u.TEN_LIN_SE, u.MRT, u.TAP, u.BANC,            
                 t1.TEN as TEN_PRI, t2.TEN as TEN_SEC, t3.TEN as TEN_TER, 
-                e.LIG, e.FAS_CON, e.POT_NOM as POT_NOM_EQ, e.LIG_FAS_S, e.LIG_FAS_T
+                e.LIG, e.FAS_CON, e.POT_NOM as COD_POT_EQ, t4.POT as POT_NOM_EQ, e.LIG_FAS_S, e.LIG_FAS_T
                 FROM (select distinct * from sde.EQTRMT) e
                 INNER JOIN (select distinct * from sde.UNTRMT) U
                     on u.dist='{self.dist}' and u.sub='{self.sub}' and 
@@ -163,7 +165,9 @@ class ElectricDataPort:
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t2
                     on  t2.cod_id = e.TEN_SEC
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t3
-                    on  t3.cod_id = e.TEN_TER                
+                    on  t3.cod_id = e.TEN_TER
+                INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TPOTAPRT t4
+                    on  t4.COD_ID = e.POT_NOM                
                 ;
             '''
         else:
@@ -171,7 +175,7 @@ class ElectricDataPort:
                 SELECT u.COD_ID, u.CTMT, u.PAC_1, u.PAC_2, u.PAC_3, u.FAS_CON_P, u.FAS_CON_S, u.FAS_CON_T, 
                 u.TIP_TRAFO, u.PER_TOT, u.PER_FER, u.POT_NOM, u.POS, u.TEN_LIN_SE, u.MRT, u.TAP, u.BANC,             
                 t1.TEN as TEN_PRI, t2.TEN as TEN_SEC, t3.TEN as TEN_TER,
-                e.LIG, e.FAS_CON, e.POT_NOM as POT_NOM_EQ, e.LIG_FAS_S, e.LIG_FAS_T
+                e.LIG, e.FAS_CON, e.POT_NOM as COD_POT_EQ, t4.POT as POT_NOM_EQ, e.LIG_FAS_S, e.LIG_FAS_T
                 FROM sde.EQTRMT e
                 INNER JOIN  sde.UNTRMT U
                     on u.dist='{self.dist}' and u.sub='{self.sub}' and u.ctmt='{ctmt}' and 
@@ -182,6 +186,8 @@ class ElectricDataPort:
                     on  t2.cod_id = e.TEN_SEC
                 INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t3
                     on  t3.cod_id = e.TEN_TER
+                INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TPOTAPRT t4
+                    on  t4.COD_ID = e.POT_NOM
                 ;
             '''
         self.trafos = return_query_as_dataframe(query)
@@ -292,16 +298,19 @@ class ElectricDataPort:
             '''
         else:
             query = f'''
-                SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
-                    u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
-                    u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12, 
-                    t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
-                FROM sde.UCBT u    
-                INNER JOIN sde.UNTRMT T
-                    on  t.COD_ID = u.UNI_TR_MT 
-                where u.dist='{self.dist}' and u.sub = '{self.sub}' and u.ctmt = '{ctmt}' and u.sit_ativ = 'AT' and 
-                    u.pn_con != '0'
-                order by cod_id
+                select * from (      
+                    SELECT  u.COD_ID, ROW_NUMBER() OVER(PARTITION BY u.COD_ID ORDER BY u.objectid DESC) rn
+                        ,u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD
+                        ,u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06 
+                        ,u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12 
+                        ,t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                    FROM sde.UCBT u    
+                    INNER JOIN sde.UNTRMT T on  t.COD_ID = u.UNI_TR_MT 
+                    where u.dist='{self.dist}' and u.sub = '{self.sub}' and u.ctmt = '{ctmt}' and u.sit_ativ = 'AT' and 
+                        u.pn_con != '0'
+                ) a
+                where rn = 1
+                order by a.cod_id
                 ;
             '''
         self.cargas_bt = return_query_as_dataframe(query)
@@ -379,7 +388,7 @@ class ElectricDataPort:
                 FROM sde.UGBT u
                 INNER JOIN sde.UNTRMT T
                      on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.SIT_ATIV='AT' and 
-                     u.UNI_TR_MT = T.COD_ID
+                     u.UNI_TR_MT = T.COD_ID and t.CTMT = u.ctmt
                 INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
                      on t1.cod_id = u.TEN_CON
                 ;  
@@ -396,7 +405,7 @@ class ElectricDataPort:
                 FROM sde.UGBT u
                 INNER JOIN sde.UNTRMT T
                      on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.ctmt='{ctmt}' and u.SIT_ATIV='AT' and 
-                     u.UNI_TR_MT = T.COD_ID
+                     u.UNI_TR_MT = T.COD_ID and t.CTMT = u.ctmt
                 INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
                      on t1.cod_id = u.TEN_CON
                  ;  
@@ -572,7 +581,7 @@ class ElectricDataPort:
 
     def query_capacitor(self, ctmt):
         query = f'''                       
-                SELECT A.COD_ID, A.POT_NOM, A.PAC_1, A.FAS_CON, B.POT, S.COD_ID as LiNE_COD, V.TEN
+                SELECT A.COD_ID, A.POT_NOM, A.PAC_1, A.FAS_CON, B.POT, S.COD_ID as LINE_COD, V.TEN
                 FROM SDE.UNCRMT A 
                 INNER JOIN sde.ctmt C
                     on A.CTMT = C.COD_ID 
@@ -627,8 +636,10 @@ class ElectricDataPort:
         self.voltage_tr_sec = return_query_as_dataframe(query)
         return True
 
-    def voltage_bases(self, df_voltage) -> list:
-        voltagebases = []
+    def voltage_bases(self, circ, df_voltage) -> list:
+        # Valor da tensão do circuito para os casos de circuitos sem transformadores
+        voltagebases = [self.circuitos.loc[self.circuitos.index[0], ["TEN"]][0]/1000]
+
         vbase = df_voltage[['TEN_PRI', 'TEN_SEC', 'TEN_TER']].copy()
 
         vbase_1 = vbase.iloc[0:, [0]].drop_duplicates().values.tolist()
@@ -673,7 +684,7 @@ def write_sub_dss(cod_sub, cod_dist, mes, tipo_dia):
     dist = cod_dist
     mes = mes
     tipo_dia = tipo_dia
-    nome_arquivo_sub = f'{tipo_dia}_{mes}_Master_substation_{dist}_{sub}'
+    nome_arquivo_sub = f'{tipo_dia}_{mes}_Master_substation_{dist}'
     linhas_substation_dss = []
 
     # inicializa classes de manipulação dos dados da bdgd
@@ -691,12 +702,23 @@ def write_sub_dss(cod_sub, cod_dist, mes, tipo_dia):
     write_to_dss(dist, sub, '', linhas_substation_dss, nome_arquivo_sub)
 
 
-def write_files_dss(cod_sub, cod_dist, mes, tipo_dia):
-    # Definir código da subestação (sub) e da distribuidora (dist)
+def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, model_type=1):
+    """
+    Procedimento principal de controle dos metodos de extração dos dados da BDGD para todos os elementos
+    de rede e cria lista com os modelos para o openDSS e gerência a escrita dos arquivos para o openDSS.
+    :param cod_sub: código da subestação definido na BDGD
+    :param cod_dist: código da distribuido definido na BDGD
+    :param mes: mês de refeêencia para a associação das curvas de carga.
+    :param tipo_dia: tipo de dia (DU, DO, SA) de referência para associação das curvas de carga.
+    :return:
+    """
+
     sub = cod_sub
     dist = cod_dist
     mes = mes
     tipo_dia = tipo_dia
+    ano = ano
+    tipo_modelo = model_type
 
     print(f"Tratamento para empresa: {dist} subestação: {sub}, mes: {mes} e tipo dia: {tipo_dia}")
     nome_arquivo_crv = f'{tipo_dia}_{mes}_CurvaCarga_{dist}_{sub}'
@@ -744,6 +766,9 @@ def write_files_dss(cod_sub, cod_dist, mes, tipo_dia):
 
     multi_ger.append(['GeradorBT-Tipo2', [0, 0, 0, 0, 0, 0, 0.1, 0.2, 0.3, 0.5, 0.8, 0.9, 1.0, 1.0, 0.99, 0.9, 0.7,
                                           0.4, 0.1, 0, 0, 0, 0, 0]])
+
+    multi_ger.append(['PVIrrad_diaria', [0, 0, 0, 0, 0, 0, 0.1, 0.2, 0.3, 0.5, 0.8, 0.9, 1.0, 1.0, 0.99, 0.9, 0.7,
+                                         0.4, 0.1, 0, 0, 0, 0, 0]])
 
     # inicializa classes de manipulação dos dados da bdgd
     dss_adapter = dss_g.DssFilesGenerator()
@@ -829,8 +854,8 @@ def write_files_dss(cod_sub, cod_dist, mes, tipo_dia):
         # Grava arquivo DSS para cargas BT
         bdgd_read.query_cargas_bt(cod_circuito)
         bdgd_read.query_cargas_pip(cod_circuito)
-        dss_adapter.get_lines_cargas_bt(bdgd_read.cargas_bt, bdgd_read.carga_fc, bdgd_read.cargas_pip,
-                                        linhas_cargas_bt_dss, mes, tipo_dia)
+        dss_adapter.get_lines_cargas_bt(bdgd_read.curvas_cargas, bdgd_read.cargas_bt, bdgd_read.carga_fc,
+                                        bdgd_read.cargas_pip, linhas_cargas_bt_dss, mes, tipo_dia)
         write_to_dss(dist, sub, cod_circuito, linhas_cargas_bt_dss, nome_arquivo_crg_bt)
 
         # leitura de dados dos Geradores mt conectados nos trafos
@@ -843,38 +868,43 @@ def write_files_dss(cod_sub, cod_dist, mes, tipo_dia):
 
         # Grava arquivo DSS para o Gerador BT
         bdgd_read.query_generators_bt(cod_circuito)
-        dss_adapter.get_lines_generators_bt(bdgd_read.gerador_bt, multi_ger, linhas_generators_bt_dss, mes)
+        dss_adapter.get_lines_generators_bt(bdgd_read.gerador_bt, multi_ger, linhas_generators_bt_dss, mes, tipo_modelo)
         write_to_dss(dist, sub, cod_circuito, linhas_generators_bt_dss, nome_arquivo_generators_bt_dss)
 
         # Grava arquivo DSS para o master
-        voltagebases = bdgd_read.voltage_bases(bdgd_read.trafos)
+        voltagebases = bdgd_read.voltage_bases(cod_circuito, bdgd_read.trafos)
         dss_adapter.get_lines_master(cod_circuito, voltagebases, list_files_dss, linhas_trafos_mt_dss, linhas_master)
         write_to_dss(dist, sub, cod_circuito, linhas_master, nome_arquivo_master)
 
 
 if __name__ == "__main__":
-    # Definir código da subestação (sub) e da distribuidora (dist)
 
+    ano = 2022   # obert dado do config_database.yml
+    # Definir código da subestação (sub) e da distribuidora (dist)
     # dist = '404'  # Energisa MS
     # list_sub = ['40', '100', '58', '95', '96', '97']
     # list_sub = ['100']
 
     dist = '391'  # EDP_SP
-    #list_sub = ['ITQ', 'VGA', 'JNO', 'CAC']
-    list_sub = ['JNO']
+    # list_sub = ['ITQ', 'VGA', 'JNO', 'CAC','SAT','PME','CPA','ARA']
+    list_sub = ['ARA']
     mes = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
 
     print(f'Ajusting CodBNC....')
     ajust_eqre_codbanc(dist)
 
-    control_mes = True  # controle de execução para apenas um primeiro mes e um primeiro tipo de dia
+    # controles de execução para apenas um primeiro mes e um primeiro tipo de dia
+    control_mes = True
     control_tipo_dia = True
+
     for tipo_dia in tipo_de_dias:
         for mes in range(1, 13):
             for sub in list_sub:
+                # Gera arquivo com execução do fluxo de potência para toda a subestação
                 write_sub_dss(sub, dist, mes, tipo_dia)
-                write_files_dss(sub, dist, mes, tipo_dia)
+                # Gera arquivos do openDSS para cada circuito de uma subestação
+                write_files_dss(sub, dist, ano, mes, tipo_dia, model_type=1)  # model_type=1 PVSystem else Generator
             if control_mes:
                 break
         if control_tipo_dia:

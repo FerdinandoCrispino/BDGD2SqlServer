@@ -78,4 +78,4 @@ if __name__ == "__main__":
         print(f"Erro ao conectar ao banco de dados: {e}")
         exit(1)
 
-    check_connect_ssdmt(engine, '58', 'PAC')  # PAC or PN_CON
+    check_connect_ssdmt(engine, 'JNO', 'PAC')  # PAC or PN_CON
