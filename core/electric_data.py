@@ -1,9 +1,8 @@
-import Tools.tools
-from Tools.tools import return_query_as_dataframe, write_to_dss, ajust_eqre_codbanc
-import pandas as pd
-import dss_files_generator as dss_g
 import time
-import sys
+from Tools.tools import return_query_as_dataframe, write_to_dss, ajust_eqre_codbanc, \
+    create_connection, load_config
+import dss_files_generator as dss_g
+
 
 """
 # @Date    : 20/06/2024
@@ -22,6 +21,7 @@ class ElectricDataPort:
     """
 
     def __init__(self, dist, sub):
+
         # self.memoria_interna = memoria_interna
         self.sub = sub
         self.dist = dist
@@ -46,7 +46,7 @@ class ElectricDataPort:
         self.voltage_tr_sec = []
         self.propor = 0
 
-    def query_circuitos(self) -> bool:
+    def query_circuitos(self, engine) -> bool:
         """
         Busca os dados de circuitos
         :return:
@@ -57,10 +57,10 @@ class ElectricDataPort:
             WHERE sub='{self.sub}' and c.TEN_NOM = t.COD_ID Order by UNI_TR_AT
             ;
         '''
-        self.circuitos = return_query_as_dataframe(query)
+        self.circuitos = return_query_as_dataframe(query, engine)
         return True
 
-    def query_trafos_at(self):
+    def query_trafos_at(self, engine):
         query = f'''
                 SELECT t1.TEN as TEN_PRI, t2.TEN as TEN_SEC, t3.TEN as TEN_TER, e.TIP_INST,T.[COD_ID],[PAC_1],[PAC_2]
                     ,[PAC_3],[FAS_CON_P],[FAS_CON_S],[FAS_CON_T],[SIT_ATIV],T.[POT_NOM], [LIG]
@@ -80,10 +80,10 @@ class ElectricDataPort:
                 Where t.dist='{self.dist}' and t.sub='{self.sub}' and t.SIT_ATIV='AT'
               ;
         '''
-        self.trafos_at = return_query_as_dataframe(query)
+        self.trafos_at = return_query_as_dataframe(query, engine)
         return True
 
-    def query_reatores_mt(self, ctmt=None) -> bool:
+    def query_reatores_mt(self, ctmt, engine) -> bool:
         """
         Busca os dados de reatores MT
         :return:
@@ -112,10 +112,10 @@ class ElectricDataPort:
                  (c.pac_1 = e.pac_1 or c.pac_2 = e.pac_2 or c.pac_1 = e.pac_2 or c.pac_2 = e.pac_1)
                  ;
             '''
-        self.reatores = return_query_as_dataframe(query)
+        self.reatores = return_query_as_dataframe(query, engine)
         return True
 
-    def query_crvcrg(self) -> bool:
+    def query_crvcrg(self, engine) -> bool:
         """
         Busca dados de curvas de cargas
         :return:
@@ -127,10 +127,10 @@ class ElectricDataPort:
             WHERE dist='{self.dist}' 
             ;
         '''
-        self.curvas_cargas = return_query_as_dataframe(query)
+        self.curvas_cargas = return_query_as_dataframe(query, engine)
         return True
 
-    def query_segcon(self) -> bool:
+    def query_segcon(self, engine) -> bool:
         """
         Busca dados de condutores (LineCode)
         :return:
@@ -142,10 +142,10 @@ class ElectricDataPort:
             WHERE dist='{self.dist}' 
             ;
         '''
-        self.condutores = return_query_as_dataframe(query)
+        self.condutores = return_query_as_dataframe(query, engine)
         return True
 
-    def query_trafos_mt(self, ctmt=None) -> bool:
+    def query_trafos_mt(self, ctmt, engine) -> bool:
         """
         Busca dados de transformadores MT
         :return:
@@ -190,10 +190,10 @@ class ElectricDataPort:
                     on  t4.COD_ID = e.POT_NOM
                 ;
             '''
-        self.trafos = return_query_as_dataframe(query)
+        self.trafos = return_query_as_dataframe(query, engine)
         return True
 
-    def query_chaves_mt(self, ctmt=None) -> bool:
+    def query_chaves_mt(self, ctmt, engine) -> bool:
         """
         Busca dados de chaves MT
         :ctmt: Optional
@@ -213,10 +213,10 @@ class ElectricDataPort:
                 WHERE dist='{self.dist}' and sub='{self.sub}' and CTMT='{ctmt}' and SIT_ATIV='AT'
                 ;
             '''
-        self.chaves_mt = return_query_as_dataframe(query)
+        self.chaves_mt = return_query_as_dataframe(query, engine)
         return True
 
-    def query_trechos_mt(self, ctmt):
+    def query_trechos_mt(self, ctmt, engine):
         if ctmt is None:
             query = f'''
                 SELECT COD_ID, CTMT, PAC_1, PAC_2, POS, FAS_CON, TIP_CND, COMP
@@ -231,10 +231,10 @@ class ElectricDataPort:
                 WHERE dist='{self.dist}' and sub='{self.sub}' and CTMT='{ctmt}' 
                 ;
             '''
-        self.trechos_mt = return_query_as_dataframe(query)
+        self.trechos_mt = return_query_as_dataframe(query, engine)
         return True
 
-    def query_cargas_mt(self, ctmt=None) -> bool:
+    def query_cargas_mt(self, ctmt, engine) -> bool:
         """
         Busca dados das Cargas de Média Tensão para a escrever dos arquivos DSS
         :param ctmt:
@@ -272,10 +272,10 @@ class ElectricDataPort:
                     t1.cod_id = u.TEN_FORN and u.sit_ativ = 'AT' and u.pn_con != '0'
                 ;
             '''
-        self.cargas_mt = return_query_as_dataframe(query)
+        self.cargas_mt = return_query_as_dataframe(query, engine)
         return True
 
-    def query_cargas_bt(self, ctmt=None) -> bool:
+    def query_cargas_bt(self, ctmt, engine) -> bool:
         """
         Busca dados das Cargas de Baixa Tensão para a escrever dos arquivos DSS
         As cargas são conectadas no transformador de média Tensão
@@ -284,28 +284,63 @@ class ElectricDataPort:
         """
         if ctmt is None:
             query = f'''
-                SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
-                    u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
-                    u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12, 
-                    t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD
+                    , u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06
+                    , u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12 
+                    , t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                    , m.FAS_CON as M_FAS_CON
                 FROM sde.UCBT u    
                 INNER JOIN sde.UNTRMT T
                     on  t.COD_ID = u.UNI_TR_MT 
+                left join sde.eqme M
+                    on u.COD_ID = m.UC_UG and u.PAC = m.PAC
                 where u.dist='{self.dist}' and u.sub = '{self.sub}' and u.sit_ativ = 'AT' and 
                     u.pn_con != '0'
                 order by cod_id
                 ;
             '''
+
+            """
+            WITH UCBT_CTE AS (
+            SELECT COD_ID, CTMT, PAC, FAS_CON, TIP_CC, TEN_FORN, CEG_GD,
+                   ENE_01, ENE_02, ENE_03, ENE_04, ENE_05, ENE_06, 
+                   ENE_07, ENE_08, ENE_09, ENE_10, ENE_11, ENE_12,
+                   UNI_TR_MT, DIST, SUB, SIT_ATIV, PN_CON
+            FROM sde.UCBT
+            WHERE DIST = '391' AND SUB = 'ITQ' AND SIT_ATIV = 'AT' AND PN_CON != '0'
+        ),
+        UNTRMT_CTE AS (
+            SELECT COD_ID, TIP_TRAFO, TEN_LIN_SE, POT_NOM, PAC_2, DATA_BASE
+            FROM sde.UNTRMT
+        ),
+        EQME_CTE AS (
+            SELECT DISTINCT UC_UG, FAS_CON AS M_FAS_CON, PAC 
+            FROM sde.EQME
+        )
+        
+        SELECT DISTINCT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, m.M_FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
+                        u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
+                        u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12, 
+                        t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, YEAR(t.DATA_BASE) AS ANO_BASE
+        FROM UCBT_CTE u
+        INNER JOIN UNTRMT_CTE t ON t.COD_ID = u.UNI_TR_MT
+        LEFT JOIN EQME_CTE m ON u.COD_ID = m.UC_UG and u.PAC = m.PAC
+        ORDER BY u.COD_ID;
+        """
         else:
             query = f'''
                 select * from (      
                     SELECT  u.COD_ID, ROW_NUMBER() OVER(PARTITION BY u.COD_ID ORDER BY u.objectid DESC) rn
-                        ,u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD
-                        ,u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06 
-                        ,u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12 
-                        ,t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                        , u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD
+                        , u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06 
+                        , u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12 
+                        , t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                        , m.FAS_CON as M_FAS_CON, v.TEN
                     FROM sde.UCBT u    
                     INNER JOIN sde.UNTRMT T on  t.COD_ID = u.UNI_TR_MT 
+                    inner join [GEO_SIGR_DDAD_M10].sde.tten as v on u.TEN_FORN = v.COD_ID
+                    left join sde.eqme M
+                        on u.COD_ID = m.UC_UG and u.PAC = m.PAC
                     where u.dist='{self.dist}' and u.sub = '{self.sub}' and u.ctmt = '{ctmt}' and u.sit_ativ = 'AT' and 
                         u.pn_con != '0'
                 ) a
@@ -313,10 +348,10 @@ class ElectricDataPort:
                 order by a.cod_id
                 ;
             '''
-        self.cargas_bt = return_query_as_dataframe(query)
+        self.cargas_bt = return_query_as_dataframe(query, engine)
         return True
 
-    def query_cargas_pip(self, ctmt=None) -> bool:
+    def query_cargas_pip(self, ctmt, engine) -> bool:
         """
          Busca dados das Cargas de Iluminação Pública para a escrever nos arquivos DSS
          As cargas são conectadas no transformador de média Tensão
@@ -350,10 +385,10 @@ class ElectricDataPort:
                     p.pn_con != '0'
                 ;
              '''
-        self.cargas_pip = return_query_as_dataframe(query)
+        self.cargas_pip = return_query_as_dataframe(query, engine)
         return True
 
-    def query_check_cod_ten_gerador_mt(self):
+    def query_check_cod_ten_gerador_mt(self, engine):
         """
         Verifica se a tensão do gerador é igual a tensõa do transformador da linha onde ele está conectado.
         Verificar se é possivel fazer um update na tabela UGMT substituindo o cod da tensão pelo cod da tensão do trafo.
@@ -370,7 +405,7 @@ class ElectricDataPort:
             ;
         '''
 
-    def query_generators_bt(self, ctmt=None) -> bool:
+    def query_generators_bt(self, ctmt, engine) -> bool:
         """
 
         :param ctmt:
@@ -411,10 +446,10 @@ class ElectricDataPort:
                  ;  
              '''
 
-        self.gerador_bt = return_query_as_dataframe(query)
+        self.gerador_bt = return_query_as_dataframe(query, engine)
         return True
 
-    def query_generators_mt(self, ctmt=None) -> bool:
+    def query_generators_mt(self, ctmt, engine) -> bool:
         """
         Busca dados dos GERADORES de Média Tensão para a escrever dos arquivos DSS
         Geradores conectados aos transformadores de média tensão
@@ -463,10 +498,10 @@ class ElectricDataPort:
                     t1.cod_id = u.TEN_FORN
                 ;  
             '''
-        self.gerador_mt = return_query_as_dataframe(query)
+        self.gerador_mt = return_query_as_dataframe(query, engine)
         return True
 
-    def query_generators_mt_ssdmt(self, ctmt=None) -> bool:
+    def query_generators_mt_ssdmt(self, ctmt, engine) -> bool:
         """
         Busca dados dos GERADORES de Média Tensão para a escrever dos arquivos DSS
         Geradores conectados aos segmentos de média tensão
@@ -512,15 +547,14 @@ class ElectricDataPort:
                     on t2.cod_id = u.TEN_CON
                 ;  
              '''
-        self.gerador_mt_ssdmt = return_query_as_dataframe(query)
+        self.gerador_mt_ssdmt = return_query_as_dataframe(query, engine)
         return True
 
-    def query_fator_de_carga(self) -> bool:
+    def query_fator_de_carga(self, engine) -> bool:
         """
         O fator de carga é utilizado para calcular a demanda máxima a partir da energia para nos casos
         que não é fornecido a demanda mensal.
-        :param cod_id: Codigo da curva de carga.
-        :param tipo_dia: DO, DU ou SA
+        :param engine: conexão com o banco de dados
         :return:
         """
 
@@ -528,15 +562,18 @@ class ElectricDataPort:
             select s.COD_ID, s.TIP_DIA, (s.DEM_MED/s.DEN_MAX) as FC
             from (
             SELECT COD_ID, TIP_DIA, GREATEST(
-            [POT_01] ,[POT_02] ,[POT_03] ,[POT_04] ,[POT_05] ,[POT_06] ,[POT_07] ,[POT_08] ,[POT_09],
-            [POT_10] ,[POT_11] ,[POT_12] ,[POT_13],[POT_14] ,[POT_15] ,[POT_16] ,[POT_17] ,[POT_18],[POT_19],
-            [POT_20] ,[POT_21], [POT_22] ,[POT_23],[POT_24] ,[POT_25] ,[POT_26] ,[POT_27] ,[POT_28],[POT_29] ,[POT_30],
-            [POT_31] ,[POT_32] ,[POT_33] ,[POT_34],[POT_35] ,[POT_36] ,[POT_37] ,[POT_38] ,[POT_39],[POT_40] ,[POT_41],
-            [POT_42] ,[POT_43] ,[POT_44] ,[POT_45],[POT_46] ,[POT_47], [POT_48] ,[POT_49] ,[POT_50],[POT_51] ,[POT_52],
-            [POT_53] ,[POT_54] ,[POT_55] ,[POT_56],[POT_57] ,[POT_58] ,[POT_59] ,[POT_60], [POT_61],[POT_62] ,[POT_63],
-            [POT_64] ,[POT_65] ,[POT_66] ,[POT_67],[POT_68] ,[POT_69] ,[POT_70] ,[POT_71], [POT_72],[POT_73] ,[POT_74],
-            [POT_75] ,[POT_76] ,[POT_77] ,[POT_78],[POT_79] ,[POT_80] ,[POT_81] ,[POT_82], [POT_83],[POT_84] ,[POT_85],
-            [POT_86] ,[POT_87] ,[POT_88], [POT_89],[POT_90] ,[POT_91], [POT_92] ,[POT_93] ,[POT_94],[POT_95] ,[POT_96]
+            ([POT_01] + [POT_02] + [POT_03] + [POT_04])/4 ,([POT_05] + [POT_06] + [POT_07] + [POT_08])/4 ,
+            ([POT_09] + [POT_10] + [POT_11] + [POT_12])/4 ,([POT_13] + [POT_14] + [POT_15] + [POT_16])/4 ,
+            ([POT_17] + [POT_18] + [POT_19] + [POT_20])/4 ,([POT_21] + [POT_22] + [POT_23] + [POT_24])/4 ,
+            ([POT_25] + [POT_26] + [POT_27] + [POT_28])/4 ,([POT_29] + [POT_30] + [POT_31] + [POT_32])/4 ,
+            ([POT_33] + [POT_34] + [POT_35] + [POT_36])/4 ,([POT_37] + [POT_38] + [POT_39] + [POT_40])/4 ,
+            ([POT_41] + [POT_42] + [POT_43] + [POT_44])/4 ,([POT_45] + [POT_46] + [POT_47] + [POT_48])/4 ,
+            ([POT_49] + [POT_50] + [POT_51] + [POT_52])/4 ,([POT_53] + [POT_54] + [POT_55] + [POT_56])/4 ,
+            ([POT_57] + [POT_58] + [POT_59] + [POT_60])/4 ,([POT_61] + [POT_62] + [POT_63] + [POT_64])/4 ,
+            ([POT_65] + [POT_66] + [POT_67] + [POT_68])/4 ,([POT_69] + [POT_70] + [POT_71] + [POT_72])/4 ,
+            ([POT_73] + [POT_74] + [POT_75] + [POT_76])/4 ,([POT_77] + [POT_78] + [POT_79] + [POT_80])/4 ,
+            ([POT_81] + [POT_82] + [POT_83] + [POT_84])/4 ,([POT_85] + [POT_86] + [POT_87] + [POT_88])/4 , 
+            ([POT_89] + [POT_90] + [POT_91] + [POT_92])/4 ,([POT_93] + [POT_94] + [POT_95] + [POT_96])/4
             ) as DEN_MAX
             ,([POT_01] +[POT_02] +[POT_03] +[POT_04] +[POT_05] +[POT_06] +[POT_07] +[POT_08] +[POT_09] +[POT_10]
              +[POT_11] +[POT_12] +[POT_13] +[POT_14] +[POT_15] +[POT_16] +[POT_17] +[POT_18] +[POT_19] +[POT_20] 
@@ -552,10 +589,10 @@ class ElectricDataPort:
               ) as s
             ;
         '''
-        self.carga_fc = return_query_as_dataframe(query)
+        self.carga_fc = return_query_as_dataframe(query, engine)
         return True
 
-    def query_monitors(self, ctmt) -> bool:
+    def query_monitors(self, ctmt, engine) -> bool:
         query = f'''
                 SELECT E.COD_ID, E.ELEM FROM (
                     SELECT  'Line.SMT_' + A.COD_ID AS COD_ID, 'SSDMT' AS ELEM FROM sde.SSDMT A
@@ -576,10 +613,10 @@ class ElectricDataPort:
                 ) E
                 ;
             '''
-        self.monitors = return_query_as_dataframe(query)
+        self.monitors = return_query_as_dataframe(query, engine)
         return True
 
-    def query_capacitor(self, ctmt):
+    def query_capacitor(self, ctmt, engine):
         query = f'''                       
                 SELECT A.COD_ID, A.POT_NOM, A.PAC_1, A.FAS_CON, B.POT, S.COD_ID as LINE_COD, V.TEN
                 FROM SDE.UNCRMT A 
@@ -594,12 +631,13 @@ class ElectricDataPort:
                 WHERE s.dist = '{self.dist}' and s.sub='{self.sub}' and A.CTMT='{ctmt}' and A.SIT_ATIV='AT'
                 ;
             '''
-        self.capacitors = return_query_as_dataframe(query)
+        self.capacitors = return_query_as_dataframe(query, engine)
         return True
 
-    def query_cargas_mt_ssdmt(self, ctmt=None) -> bool:
+    def query_cargas_mt_ssdmt(self, ctmt, engine) -> bool:
         """
         Busca dados das Cargas de Média Tensão para a escrever dos arquivos DSS
+        Não considerer a SIT_ATV pq se refere a sutuação do final do periodo e não reflete a situação mes a mes.
         Seleciona as Cargas conectadas no Segmento
         :param ctmt:
         :return:
@@ -623,17 +661,17 @@ class ElectricDataPort:
             INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN t2              
                 on t2.cod_id = c.TEN_NOM 
             Where  u.dist='{self.dist}' and u.sub='{self.sub}' and u.CTMT='{ctmt}' and 
-                u.sit_ativ = 'AT' and u.pn_con != '0'
+                u.pn_con != '0'
             ;
         '''
-        self.cargas_mt_ssdmt = return_query_as_dataframe(query)
+        self.cargas_mt_ssdmt = return_query_as_dataframe(query, engine)
         return True
 
-    def query_voltagebases_trafos_mt(self):
+    def query_voltagebases_trafos_mt(self, engine):
         query = f'''
             Select distinct TEN_LIN_SE from sde.untrmt where sub='{self.sub}'
         '''
-        self.voltage_tr_sec = return_query_as_dataframe(query)
+        self.voltage_tr_sec = return_query_as_dataframe(query, engine)
         return True
 
     def voltage_bases(self, circ, df_voltage) -> list:
@@ -669,7 +707,7 @@ class ElectricDataPort:
         return voltagebases
 
 
-def write_sub_dss(cod_sub, cod_dist, mes, tipo_dia):
+def write_sub_dss(cod_sub, cod_dist, mes, tipo_dia, engine, dss_files_folder):
     """
     Gera arquivo master_substation.dss
     Esse arquivo faz a união dos trnasformadores de alta tensão com os seus cricuitos utilizando a modelagem do openDSS
@@ -693,16 +731,16 @@ def write_sub_dss(cod_sub, cod_dist, mes, tipo_dia):
     bdgd_read = ElectricDataPort(dist, sub)
 
     # Leitura de dados dos circuitos de uma subestação da bdgd
-    bdgd_read.query_circuitos()
+    bdgd_read.query_circuitos(engine)
     # Leitura de dados de Trasformadores AT
-    bdgd_read.query_trafos_at()
-    bdgd_read.query_voltagebases_trafos_mt()
+    bdgd_read.query_trafos_at(engine)
+    bdgd_read.query_voltagebases_trafos_mt(engine)
     dss_adapter.get_lines_substation(bdgd_read.trafos_at, bdgd_read.circuitos, linhas_substation_dss,
                                      mes, tipo_dia, bdgd_read.voltage_tr_sec)
-    write_to_dss(dist, sub, '', linhas_substation_dss, nome_arquivo_sub)
+    write_to_dss(dist, sub, '', linhas_substation_dss, nome_arquivo_sub, dss_files_folder)
 
 
-def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, model_type=1):
+def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, engine, model_type=1):
     """
     Procedimento principal de controle dos metodos de extração dos dados da BDGD para todos os elementos
     de rede e cria lista com os modelos para o openDSS e gerência a escrita dos arquivos para o openDSS.
@@ -777,20 +815,20 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, model_type=1):
 
     # Leitura de dados dos circuitos de uma subestação da bdgd
     print(f'Process Circuit....')
-    bdgd_read.query_circuitos()
+    bdgd_read.query_circuitos(engine)
 
     # leitura de dados de condutores
     print(f'Process LineCode....')
-    bdgd_read.query_segcon()
+    bdgd_read.query_segcon(engine)
     dss_adapter.get_lines_condutores(bdgd_read.condutores, linhas_condutores_dss)
 
     # leitura de dados de curvas de carga da bdgd
     print(f'Process LoadShape....')
-    bdgd_read.query_crvcrg()
+    bdgd_read.query_crvcrg(engine)
     dss_adapter.get_lines_curvas_carga(bdgd_read.curvas_cargas, multi_ger, linhas_curvas_carga_dss)
 
     # Fator de carga
-    bdgd_read.query_fator_de_carga()
+    bdgd_read.query_fator_de_carga(engine)
 
     for i in range(bdgd_read.circuitos.shape[0]):
         cod_circuito = bdgd_read.circuitos.loc[i]['COD_ID']
@@ -798,101 +836,110 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, model_type=1):
 
         # Grava arquivo DSS de curva de cargas
         # No mesmo arquivo as curvas de carga tipicas AT, MT e BT e diferentes tipos de dias (DU, SA, DO).
-        write_to_dss(dist, sub, cod_circuito, linhas_curvas_carga_dss, nome_arquivo_crv)
+        write_to_dss(dist, sub, cod_circuito, linhas_curvas_carga_dss, nome_arquivo_crv, dss_files_folder)
 
         # Grava arquivo DSS LineCode
-        write_to_dss(dist, sub, cod_circuito, linhas_condutores_dss, nome_arquivo_cnd)
+        write_to_dss(dist, sub, cod_circuito, linhas_condutores_dss, nome_arquivo_cnd, dss_files_folder)
 
         #  leitura de dados do circuito
         circuito_dict = bdgd_read.circuitos.loc[i].to_dict()
         dss_adapter.get_lines_suprimento_circuito(sub, circuito_dict, linhas_suprimento_dss)
         # Grava arquivo DSS para o circuito
-        write_to_dss(dist, sub, cod_circuito, linhas_suprimento_dss, nome_arquivo_sup)
+        write_to_dss(dist, sub, cod_circuito, linhas_suprimento_dss, nome_arquivo_sup, dss_files_folder)
 
         # leitura de dados das chaves MT por circuito
-        bdgd_read.query_chaves_mt(cod_circuito)
+        bdgd_read.query_chaves_mt(cod_circuito, engine=engine)
         dss_adapter.get_lines_chaves_mt(bdgd_read.chaves_mt, linhas_chaves_mt_dss)
         # Grava arquivo DSS Chaves_MT
-        write_to_dss(dist, sub, cod_circuito, linhas_chaves_mt_dss, nome_arquivo_chv_mt)
+        write_to_dss(dist, sub, cod_circuito, linhas_chaves_mt_dss, nome_arquivo_chv_mt, dss_files_folder)
 
         # Grava arquivo DSS para o reatores
-        bdgd_read.query_reatores_mt(cod_circuito)
+        bdgd_read.query_reatores_mt(cod_circuito, engine=engine)
         dss_adapter.get_lines_reguladores(bdgd_read.reatores, linhas_reatores_mt_dss)
-        write_to_dss(dist, sub, cod_circuito, linhas_reatores_mt_dss, nome_arquivo_re_mt)
+        write_to_dss(dist, sub, cod_circuito, linhas_reatores_mt_dss, nome_arquivo_re_mt, dss_files_folder)
 
         # Grava arquivo DSS para o Transformadores MT
-        bdgd_read.query_trafos_mt(cod_circuito)
+        bdgd_read.query_trafos_mt(cod_circuito, engine=engine)
         dss_adapter.get_lines_trafos(bdgd_read.trafos, linhas_trafos_mt_dss)
-        write_to_dss(dist, sub, cod_circuito, linhas_trafos_mt_dss, nome_arquivo_tr_mt)
+        write_to_dss(dist, sub, cod_circuito, linhas_trafos_mt_dss, nome_arquivo_tr_mt, dss_files_folder)
 
         # Grava arquivo DSS para o Trechos MT
-        bdgd_read.query_trechos_mt(cod_circuito)
+        bdgd_read.query_trechos_mt(cod_circuito, engine=engine)
         is_bt = False
         dss_adapter.get_lines_trechos_mt(is_bt, bdgd_read.trechos_mt, linhas_trechos_mt_dss)
-        write_to_dss(dist, sub, cod_circuito, linhas_trechos_mt_dss, nome_arquivo_seg_mt)
+        write_to_dss(dist, sub, cod_circuito, linhas_trechos_mt_dss, nome_arquivo_seg_mt, dss_files_folder)
 
         # Grava arquivo DSS para o cargas MT
         # bdgd_read.query_cargas_mt(cod_circuito)
         # dss_adapter.get_lines_cargas_mt(bdgd_read.cargas_mt, bdgd_read.carga_fc, linhas_cargas_mt_dss)
         # write_to_dss(dist, sub, cod_circuito, linhas_cargas_mt_dss, nome_arquivo_crg_mt)
         # ...conectados nos segmentos
-        bdgd_read.query_cargas_mt_ssdmt(cod_circuito)
-        dss_adapter.get_lines_cargas_mt_ssdmt(bdgd_read.cargas_mt_ssdmt, bdgd_read.carga_fc,
+        bdgd_read.query_cargas_mt_ssdmt(cod_circuito, engine=engine)
+        dss_adapter.get_lines_cargas_mt_ssdmt(bdgd_read.curvas_cargas, bdgd_read.cargas_mt_ssdmt, bdgd_read.carga_fc,
                                               linhas_cargas_mt_dss, mes, tipo_dia)
-        write_to_dss(dist, sub, cod_circuito, linhas_cargas_mt_dss, nome_arquivo_crg_mt)
+        write_to_dss(dist, sub, cod_circuito, linhas_cargas_mt_dss, nome_arquivo_crg_mt, dss_files_folder)
 
         # Grava arquivo DSS para monitores
-        bdgd_read.query_monitors(cod_circuito)
+        bdgd_read.query_monitors(cod_circuito, engine=engine)
         dss_adapter.get_lines_medidores(bdgd_read.monitors, linhas_monitors_dss)
-        write_to_dss(dist, sub, cod_circuito, linhas_monitors_dss, nome_arquivo_monitors)
+        write_to_dss(dist, sub, cod_circuito, linhas_monitors_dss, nome_arquivo_monitors, dss_files_folder)
 
         # Grava arquivo DSS para capacitors
-        bdgd_read.query_capacitor(cod_circuito)
+        bdgd_read.query_capacitor(cod_circuito, engine=engine)
         dss_adapter.get_line_capacitor(bdgd_read.capacitors, linhas_capacitors_dss)
-        write_to_dss(dist, sub, cod_circuito, linhas_capacitors_dss, nome_arquivo_capacitors)
+        write_to_dss(dist, sub, cod_circuito, linhas_capacitors_dss, nome_arquivo_capacitors, dss_files_folder)
 
         # Grava arquivo DSS para cargas BT
-        bdgd_read.query_cargas_bt(cod_circuito)
-        bdgd_read.query_cargas_pip(cod_circuito)
+        bdgd_read.query_cargas_bt(cod_circuito, engine=engine)
+        bdgd_read.query_cargas_pip(cod_circuito, engine=engine)
         dss_adapter.get_lines_cargas_bt(bdgd_read.curvas_cargas, bdgd_read.cargas_bt, bdgd_read.carga_fc,
                                         bdgd_read.cargas_pip, linhas_cargas_bt_dss, mes, tipo_dia)
-        write_to_dss(dist, sub, cod_circuito, linhas_cargas_bt_dss, nome_arquivo_crg_bt)
+        write_to_dss(dist, sub, cod_circuito, linhas_cargas_bt_dss, nome_arquivo_crg_bt, dss_files_folder)
 
         # leitura de dados dos Geradores mt conectados nos trafos
         # bdgd_read.query_generators_mt(cod_circuito)  # conetados no trafo
         # dss_adapter.get_lines_generators_mt(bdgd_read.gerador_mt, multi_ger, linhas_generators_mt_dss)
         # ...conectados nos segmentos
-        bdgd_read.query_generators_mt_ssdmt(cod_circuito)
+        bdgd_read.query_generators_mt_ssdmt(cod_circuito, engine=engine)
         dss_adapter.get_lines_generators_mt_ssdmt(bdgd_read.gerador_mt_ssdmt, multi_ger, linhas_generators_mt_dss, mes)
-        write_to_dss(dist, sub, cod_circuito, linhas_generators_mt_dss, nome_arquivo_generators_mt_dss)
+        write_to_dss(dist, sub, cod_circuito, linhas_generators_mt_dss, nome_arquivo_generators_mt_dss, dss_files_folder)
 
         # Grava arquivo DSS para o Gerador BT
-        bdgd_read.query_generators_bt(cod_circuito)
+        bdgd_read.query_generators_bt(cod_circuito, engine=engine)
         dss_adapter.get_lines_generators_bt(bdgd_read.gerador_bt, multi_ger, linhas_generators_bt_dss, mes, tipo_modelo)
-        write_to_dss(dist, sub, cod_circuito, linhas_generators_bt_dss, nome_arquivo_generators_bt_dss)
+        write_to_dss(dist, sub, cod_circuito, linhas_generators_bt_dss, nome_arquivo_generators_bt_dss, dss_files_folder)
 
         # Grava arquivo DSS para o master
         voltagebases = bdgd_read.voltage_bases(cod_circuito, bdgd_read.trafos)
         dss_adapter.get_lines_master(cod_circuito, voltagebases, list_files_dss, linhas_trafos_mt_dss, linhas_master)
-        write_to_dss(dist, sub, cod_circuito, linhas_master, nome_arquivo_master)
+        write_to_dss(dist, sub, cod_circuito, linhas_master, nome_arquivo_master, dss_files_folder)
 
 
 if __name__ == "__main__":
+    proc_time_ini = time.time()
+    config = load_config('391')
+    ano = config['data_base'].split('-')[0]
+    dist = config['dist']
+    engine = create_connection(config)
+    dss_files_folder = config['dss_files_folder']
 
-    ano = 2022   # obert dado do config_database.yml
     # Definir código da subestação (sub) e da distribuidora (dist)
     # dist = '404'  # Energisa MS
     # list_sub = ['40', '100', '58', '95', '96', '97']
     # list_sub = ['100']
 
-    dist = '391'  # EDP_SP
-    # list_sub = ['ITQ', 'VGA', 'JNO', 'CAC','SAT','PME','CPA','ARA']
-    list_sub = ['ARA']
-    mes = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
-    tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
+    # EDP_SP = 391
+    # list_sub = ['ITQ', 'VGA', 'JNO', 'CAC','SAT','PME','CPA','ARA','CAR','BON']
+    list_sub = ['CPM']
+
+    # Cosern = 40
+    list_sub = ['CPA']
 
     print(f'Ajusting CodBNC....')
-    ajust_eqre_codbanc(dist)
+    ajust_eqre_codbanc(dist, engine)
+
+    mes = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
+    tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
 
     # controles de execução para apenas um primeiro mes e um primeiro tipo de dia
     control_mes = True
@@ -902,10 +949,12 @@ if __name__ == "__main__":
         for mes in range(1, 13):
             for sub in list_sub:
                 # Gera arquivo com execução do fluxo de potência para toda a subestação
-                write_sub_dss(sub, dist, mes, tipo_dia)
+                write_sub_dss(sub, dist, mes, tipo_dia, engine, dss_files_folder)
                 # Gera arquivos do openDSS para cada circuito de uma subestação
-                write_files_dss(sub, dist, ano, mes, tipo_dia, model_type=1)  # model_type=1 PVSystem else Generator
+                write_files_dss(sub, dist, ano, mes, tipo_dia, dss_files_folder, model_type=1, engine=engine)  # model_type=1 PVSystem else Generator
             if control_mes:
                 break
         if control_tipo_dia:
             break
+
+    print(f"Processo concluído em {time.time() - proc_time_ini}")

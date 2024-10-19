@@ -1,39 +1,29 @@
 # -*- encoding: utf-8 -*-
-
 import os
-
 import glob
 import pyodbc
 import pandas as pd
-
 from simpledbf import Dbf5
 # from dbfread import DBF
 from datetime import datetime
-
 import logging
 import yaml
 
 from Tools.tools import *
-
-# application_path = expandvars(r'$ADMS')
-application_path = os.path.dirname(os.path.abspath(__file__))
-with open(os.path.join(application_path, r'config_database.yml'), 'r') as file:
-    config_bdgd = yaml.load(file, Loader=yaml.BaseLoader)
-
 
 # Configuração do logger
 logging.basicConfig(filename='processamento_dbf.log',level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-#+ Diretório contendo os arquivos DBF
-dbf_directory = config_bdgd['dbf_directory']
-
-#+ Valores dos campos adicionais
-data_base = "2019-12-31"
-data_carga = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-
 if __name__ == "__main__":
+    config_bdgd = load_config('391')
+    # + Diretório contendo os arquivos DBF
+    dbf_directory = config_bdgd['dbf_directory']
+    # + Valores dos campos adicionais
+    data_base = config_bdgd['data_base']
+
+    data_carga = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     # Conectando ao banco de dados sqlserver
     conn = create_connection_pyodbc()
     cursor = conn.cursor()
@@ -45,8 +35,8 @@ if __name__ == "__main__":
         # Extraindo o nome do arquivo (sem extensão) para usar como nome da tabela
         table_name = os.path.splitext(os.path.basename(dbf_file))[0]
 
-        if config_bdgd['bancos']['schema'] != '':
-            table_name = f'{config_bdgd["bancos"]["schema"]}.{table_name}'
+        if config_bdgd['databases']['schema'] != '':
+            table_name = f'{config_bdgd["databases"]["schema"]}.{table_name}'
 
         try:
             # Lendo o arquivo DBF

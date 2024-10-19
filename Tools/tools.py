@@ -16,36 +16,40 @@ pd.set_option('display.max_columns', None)
 
 list_names_tables = ['EQTRAT', 'EQTRMT', 'UNTRAT', 'UNTRMT']
 
-application_path = os.path.dirname(os.path.abspath(__file__))
-with open(os.path.join(application_path, r'../config_database.yml'), 'r') as file:
-    config_bdgd = yaml.load(file, Loader=yaml.BaseLoader)
 
-schema = config_bdgd['bancos']['schema']
+def load_config(dist, config_path="../config_database.yml"):
+    application_path = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(application_path, config_path), 'r') as file:
+        config = yaml.load(file, Loader=yaml.BaseLoader)
 
-print(os.path.expanduser(config_bdgd['dss_files_folder']))
+    config_bdgd = config.get("databases", {}).get(dist)
+    if not config_bdgd:
+        raise ValueError(f"Configurações para o banco de dados '{dist}' não foram encontradas.")
+
+    return config_bdgd
 
 
-def create_connection_pyodbc():
+def create_connection_pyodbc(config_bdgd):
     """Função para criar uma conexão com o banco de dados SQL Server"""
     conn_str = (
             'DRIVER={ODBC Driver 17 for SQL Server};'
-            'SERVER=' + config_bdgd['bancos']['server'] + ';'
-                                                          'DATABASE=' + config_bdgd['bancos']['database'] + ';'
-                                                                                                            'UID=' +
-            config_bdgd['bancos']['username'] + ';'
-                                                'PWD=' + config_bdgd['bancos']['password']
+            'SERVER=' + config_bdgd['databases']['server'] + ';'
+                                                             'DATABASE=' + config_bdgd['databases']['database'] + ';'
+                                                                                                                  'UID=' +
+            config_bdgd['databases']['username'] + ';'
+                                                   'PWD=' + config_bdgd['databases']['password']
     )
     return pyodbc.connect(conn_str)
 
 
-def create_connection():
+def create_connection(config_bdgd):
     """Função para criar uma conexão com o banco de dados SQL Server"""
 
     engine = create_engine(f"mssql+pyodbc://"
-                           f"{config_bdgd['bancos']['username']}:"
-                           f"{config_bdgd['bancos']['password']}@"
-                           f"{config_bdgd['bancos']['server']}/"
-                           f"{config_bdgd['bancos']['database']}?"
+                           f"{config_bdgd['username']}:"
+                           f"{config_bdgd['password']}@"
+                           f"{config_bdgd['server']}/"
+                           f"{config_bdgd['database']}?"
                            f"driver=ODBC+Driver+17+for+SQL+Server",
                            fast_executemany=True, pool_pre_ping=True)
 
@@ -146,7 +150,7 @@ def insert_BDGD_consolidada(conn, data_base, data_carga, dist, cod_bdgd):
                  f"values(2,1,'BASE',{data_base},{dist},{cod_bdgd},{data_carga},1,{data_base})")
 
 
-def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
+def process_gdb_files(gdb_file, engine, schema, data_base, data_carga, column_renames):
     """Função para processar arquivos GeoDatabase"""
     with engine.connect() as conn, conn.begin():
         # gdf = gpd.read_file(gdb_file)
@@ -214,7 +218,7 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
 
                 list_table_coords = ['PONNOT', 'SSDBT', 'SSDMT', 'SSDAT', 'UNTRMT', 'UNTRD',
                                      'UNTRAT', 'UNTRS', 'UNSEMT', 'UNSEAT']
-                #gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4326")
+                # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4326")
                 if table_name_sql in list_table_coords:
                     if df.iloc[0]['geometry'].geom_type == 'Point':
                         df['POINT_Y'] = df['geometry'].y  # lat
@@ -271,7 +275,7 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
                     # muito tempo sem atividade.
                     if '08S01' in e.args[0]:
                         time.sleep(5)
-                        engine = create_connection()
+                        # engine = create_connection()
                         time.sleep(5)
                         df.to_sql(table_name_sql,
                                   engine,
@@ -290,8 +294,7 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
                 continue
 
 
-def return_query_as_dataframe(query: str) -> pd.DataFrame:
-    engine = create_connection()
+def return_query_as_dataframe(query: str, engine) -> pd.DataFrame:
     df = pd.DataFrame([])
     retry_flag = True
     retry_count = 0
@@ -306,15 +309,15 @@ def return_query_as_dataframe(query: str) -> pd.DataFrame:
     return df
 
 
-def exec_query(query: str):
-    engine = create_connection()
+def exec_query(query: str, engine):
     with engine.begin() as conn:  # TRANSACTION
         conn.execute(query)
 
 
-def write_to_dss(dist, sub, circuito, linhas_arquivos_list: list, nome_arquivo: str) -> bool:
+def write_to_dss(dist, sub, circuito, linhas_arquivos_list: list, nome_arquivo: str, dss_files_folder) -> bool:
     """
     Função que escreve arquivos DSS (OpenDSS) representativos dos objetos de rede carregada em memória.
+    :param dss_files_folder:
     :param nome_arquivo:
     :param circuito:
     :param sub:
@@ -328,7 +331,7 @@ def write_to_dss(dist, sub, circuito, linhas_arquivos_list: list, nome_arquivo: 
         nome_arquivo += '_' + circuito
 
     try:
-        path_dss_files = os.path.expanduser(config_bdgd['dss_files_folder'])
+        path_dss_files = os.path.expanduser(dss_files_folder)
         # Verifica se existe diretório 'dss'
         if not os.path.isdir(path_dss_files):
             os.mkdir(path_dss_files)
@@ -578,7 +581,9 @@ def conexoes_trafo(strCodFas1, strCodFas2, strCodFas3) -> str:
 def kvas_trafo(strCodFas2, strCodFas3, dblPotNom_kVA) -> str:
     if strCodFas3 == "BN" or strCodFas3 == "CN" or strCodFas3 == "AN" or strCodFas2 == "ABN":
         return str(dblPotNom_kVA) + " " + str(dblPotNom_kVA) + " " + str(dblPotNom_kVA)
-    elif strCodFas3 == "0" or strCodFas2 == "AN" or strCodFas2 == "BN" or strCodFas2 == "CN" or strCodFas2 == "AB" or strCodFas2 == "BC" or strCodFas2 == "CA" or strCodFas2 == "AC" or strCodFas2 == "ABCN" or strCodFas2 == "ABC":
+    elif strCodFas3 == "0" or strCodFas2 == "AN" or strCodFas2 == "BN" or strCodFas2 == "CN" or \
+            strCodFas2 == "AB" or strCodFas2 == "BC" or strCodFas2 == "CA" or strCodFas2 == "AC" or \
+            strCodFas2 == "ABCN" or strCodFas2 == "ABC":
         return str(dblPotNom_kVA) + " " + str(dblPotNom_kVA)
     else:
         return ""
@@ -738,22 +743,22 @@ def get_tipo_trafo(codi_tipo_trafo):
 def kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo):
     intFase = numero_fases(strCodFas)
     kVCarga = 0.0
-    if intTipTrafo == 4: # trafo trifasico
-        if intFase == 1: # carga monofasica
+    if intTipTrafo == 4:  # trafo trifasico
+        if intFase == 1:  # carga monofasica
             kVCarga = f"{(dblTenSecu_kV / math.sqrt(3)):.3f}"
         else:
             kVCarga = str(dblTenSecu_kV)
 
-    if intTipTrafo == 3 or intTipTrafo == 5 or intTipTrafo == 6:  # trafo bifasico
-        if intFase == 1: # carga monofasica
+    if intTipTrafo == 3 or intTipTrafo == 5 or intTipTrafo == 6:  # trafo bifasico ou delta aberto
+        if intFase == 1:  # carga monofasica
             kVCarga = f"{(dblTenSecu_kV / 2):.3f}"
         else:
             kVCarga = str(dblTenSecu_kV)
 
-    elif intTipTrafo == 1:   # trafo monofasico
+    elif intTipTrafo == 1:  # trafo monofasico
         kVCarga = str(dblTenSecu_kV)
 
-    elif intTipTrafo == 2:   # MRT
+    elif intTipTrafo == 2:  # MRT
         if intFase == 1:
             kVCarga = str(dblTenSecu_kV / 2)
         else:
@@ -788,7 +793,7 @@ def ligacao_gerador(strCodFas, tip_trafo=None):
         return "Delta"
 
 
-def ajust_eqre_codbanc(dist):
+def ajust_eqre_codbanc(dist, engine):
     """
     Obtém os valores de CodBNC a partir da sequencia de dados da UNREMT
     :return: Dicionário com os codi_id da tabela EQRE com os respectivos valores de CodBNC
@@ -802,7 +807,7 @@ def ajust_eqre_codbanc(dist):
          (c.pac_1 = e.pac_1 or c.pac_2 = e.pac_2 or c.pac_1 = e.pac_2 or c.pac_2 = e.pac_1) order by c.[COD_ID]
          ;
     '''
-    eqre_data = return_query_as_dataframe(query)
+    eqre_data = return_query_as_dataframe(query, engine)
     # codbanc_re = []
     i = 0
     unremt_id = ''
@@ -818,7 +823,7 @@ def ajust_eqre_codbanc(dist):
         # codbanc_re.append(strcodbanc_re)
 
         sql = f"update SDE.EQRE SET codBNC={i} where COD_ID='{eqre_id}'"
-        exec_query(sql)
+        exec_query(sql, engine)
 
     # return codbanc_re
 
@@ -868,3 +873,16 @@ def calc_du_sa_do_mes(ano, mes) -> dict:
         'SA': sabados,
         'DO': domingos + feriados
     }
+
+
+def circuit_by_bus(pac: str, dist):
+    config = load_config(dist)
+    engine = create_connection(config)
+    pac = pac.upper()
+    query = f'''
+         SELECT DISTINCT CTMT
+         FROM SDE.SSDMT 
+         WHERE pac_1 = '{pac}' or pac_2 = '{pac}'
+         ;
+    '''
+    return return_query_as_dataframe(query, engine)

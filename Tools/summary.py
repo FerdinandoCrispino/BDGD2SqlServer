@@ -1,15 +1,16 @@
 # -*- encoding: utf-8 -*-
-from tools import return_query_as_dataframe
+from Tools.tools import return_query_as_dataframe, load_config, create_connection
 
 
 class Summary:
 
-    def __init__(self, dist, sub):
+    def __init__(self, engine, dist, sub):
         self.dist = dist
         self.sub = sub
         self.summary_sub = []
         self.summary_sub_at = []
         self.summary_ctmt = []
+        self.engine = engine
 
     def query_sumario_sub(self):
         """
@@ -18,14 +19,14 @@ class Summary:
         """
         query = f'''            
                 SELECT c.DIST, c.SUB, s.NOME            
-                      ,count( distinct c.UNI_TR_AT) as Num_Trafo_AT, count(c.NOME) as Circuitos
+                      ,count( distinct c.UNI_TR_AT) as TR_AT, count(c.NOME) as CIRC
                 FROM [sde].[CTMT] c  
                 inner join sde.SUB S on c.sub  = s.COD_ID
                 where c.sub = '{self.sub}' and c.dist = '{self.dist}'
                 group by c. dist, c.SUB, s.NOME  
             ;
         '''
-        self.summary_sub = return_query_as_dataframe(query)
+        self.summary_sub = return_query_as_dataframe(query, self.engine)
 
     def query_sumario_trafos_at(self):
         """
@@ -47,7 +48,7 @@ class Summary:
                 where c.sub = '{self.sub}' and c.dist = '{self.dist}'
                 ;
                 '''
-        self.summary_sub_at = return_query_as_dataframe(query)
+        self.summary_sub_at = return_query_as_dataframe(query, self.engine)
 
     def query_sumario_ctmt(self):
         """
@@ -59,14 +60,14 @@ class Summary:
                     SELECT c.COD_ID, c.NOME, 
                            COUNT(DISTINCT t.COD_ID) AS TRAFO_MT
                     FROM sde.ctmt c
-                    INNER JOIN sde.untrmt t ON c.COD_ID = t.CTMT
+                    Left JOIN sde.untrmt t ON c.COD_ID = t.CTMT
                     WHERE c.sub = '{self.sub}' and c.dist = '{self.dist}'
                     GROUP BY c.COD_ID, c.NOME
                 ),
                 UCMT_CTE AS (
                     SELECT cm.CTMT, 
                            COUNT(DISTINCT cm.COD_ID) AS UCMT, 
-                           COUNT(DISTINCT cm.CEG_GD) AS GDMT,
+                           SUM(CASE WHEN (len(trim(cm.CEG_GD))) > 0 THEN 1 ELSE 0 END) AS GDMT,
                            Format(sum(cm.DEM_01),'0.00') as DEM_01,
                            Format(sum(cm.DEM_02),'0.00') as DEM_02,
                            Format(sum(cm.DEM_03),'0.00') as DEM_03,
@@ -80,12 +81,13 @@ class Summary:
                            Format(sum(cm.DEM_11),'0.00') as DEM_11,
                            Format(sum(cm.DEM_12),'0.00') as DEM_12
                     FROM sde.ucmt cm
+                    WHERE cm.sub = '{self.sub}' and cm.dist = '{self.dist}'
                     GROUP BY cm.CTMT
                 ),
                 UCBT_CTE AS (
                     SELECT cb.CTMT, 
-                        COUNT(DISTINCT cb.COD_ID) AS UCBT, 
-                        COUNT(DISTINCT cb.CEG_GD) AS UGBT,
+                        COUNT(DISTINCT cb.COD_ID) AS UCBT,                        
+                        SUM(CASE WHEN (len(trim(cb.CEG_GD))) > 0 THEN 1 ELSE 0 END) AS UGBT,
                         Format(sum(cb.ENE_01),'0.00') as BT_ENE_01,
                         Format(sum(cb.ENE_02),'0.00') as BT_ENE_02,
                         Format(sum(cb.ENE_03),'0.00') as BT_ENE_03,
@@ -99,6 +101,7 @@ class Summary:
                         Format(sum(cb.ENE_11),'0.00') as BT_ENE_11,
                         Format(sum(cb.ENE_12),'0.00') as BT_ENE_12
                     FROM sde.ucbt cb
+                    WHERE cb.sub = '{self.sub}' and cb.dist = '{self.dist}'
                     GROUP BY cb.CTMT
                 )
                 SELECT t.COD_ID, t.NOME, 
@@ -135,7 +138,7 @@ class Summary:
                 LEFT JOIN UCMT_CTE ucmt ON t.COD_ID = ucmt.CTMT
                 LEFT JOIN UCBT_CTE ucbt ON t.COD_ID = ucbt.CTMT;
                 '''
-        self.summary_ctmt = return_query_as_dataframe(query)
+        self.summary_ctmt = return_query_as_dataframe(query, self.engine)
 
     def max_demand_mt(self):
         self.summary_ctmt['MT_MAX_DEM'] = self.summary_ctmt[['MT_DEM_01', 'MT_DEM_02', 'MT_DEM_03',
@@ -153,11 +156,12 @@ class Summary:
 
 
 if __name__ == "__main__":
-    sumario = Summary(sub='PME', dist='391')
+    config = load_config('391')
+    engine = create_connection(config)
+    sumario = Summary(engine, sub='CAR', dist='391')
     sumario.query_sumario_sub()
     sumario.query_sumario_trafos_at()
     sumario.query_sumario_ctmt()
-
 
     print("--"*30)
     print(sumario.summary_sub)
