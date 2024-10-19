@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+
+{% block title %}Página Inicial{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-4">Bem-vindo ao App de Mapas</h1>
+    <p class="lead">Esta é a sua aplicação para visualização e análise de segmentos de retas baseadas em coordenadas geoespaciais. Utilize os filtros disponíveis para personalizar sua experiência no mapa.</p>
+    <hr class="my-4">
+    <p>Você pode explorar o mapa com dados geoespaciais e aplicar filtros como Distribuidora, Subestação e Circuito para refinar os resultados.</p>
+    <a class="btn btn-primary btn-lg" href="/map" role="button">Ir para o Mapa</a>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <h3>Recursos da Aplicação</h3>
+        <ul>
+            <li>Visualização de segmentos de reta no mapa</li>
+            <li>Filtros dinâmicos para Distribuidora, Subestação e Circuito</li>
+            <li>Estilização personalizável das camadas do mapa</li>
+        </ul>
+    </div>
+    <div class="col-md-4">
+        <h3>Como usar</h3>
+        <ul>
+            <li>Navegue até a seção de mapa</li>
+            <li>Selecione os filtros desejados no painel lateral</li>
+            <li>Visualize os segmentos de reta no mapa</li>
+        </ul>
+    </div>
+    <div class="col-md-4">
+        <h3>Sobre</h3>
+        <p>Esta aplicação foi desenvolvida para facilitar a visualização e interação com dados geoespaciais usando OpenLayers, Flask e consultas dinâmicas a banco de dados SQL Server.</p>
+    </div>
+</div>
+{% endblock %}
