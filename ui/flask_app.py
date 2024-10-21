@@ -62,8 +62,10 @@ def get_coords_SSDMT_from_db(sub, ctmt):
     # coordinates = [(row["longitude"], row["latitude"]) for index, row in rows.iterrows()]
     # color "red" utilizado para indicar problemas na rede como sobre tensões subtensões ou sobrecorrentes
     colour = ["blue", "green", "DarkKhaki", "purple", "orange", "DarkOliveGreen", "Brown", "DarkCyan", "pink"
-              "SlateGray", "teal", "goldenrod", "chocolate", "darkred", "olivedrab", "aqua", "skyblue", "tan", "cyan"
-              "violet", "silver", "indigo", "black"]
+                                                                                                       "SlateGray",
+              "teal", "goldenrod", "chocolate", "darkred", "olivedrab", "aqua", "skyblue", "tan", "cyan"
+                                                                                                  "violet", "silver",
+              "indigo", "black"]
 
     # rows["cor"] = [np.random.choice(colour) for i in range(rows.shape[0])]
     # rows['cor'] = rows['CTMT'].groupby(rows['CTMT']).transform(lambda x: np.random.choice(colour))
@@ -117,7 +119,11 @@ def read_json_from_result(distribuidora, subestacao, circuito):
     if circuito == '':
         dados_combinados = {}
         path_json_file = os.path.join(path_flask_static, distribuidora, subestacao)
-        json_files = [pos_json for pos_json in os.listdir(path_json_file) if pos_json.endswith('.json')]
+        try:
+            json_files = [pos_json for pos_json in os.listdir(path_json_file) if pos_json.endswith('.json')]
+        except Exception as e:
+            print(f"Resultados não encontrados: {path_json_file}. {e}")
+            return None
 
         for index, js in enumerate(json_files):
             print(js)
@@ -130,9 +136,15 @@ def read_json_from_result(distribuidora, subestacao, circuito):
         json_file = f"{circuito}.json"
         path_json_file = os.path.join(path_flask_static, distribuidora, subestacao, json_file)
         print(path_json_file)
-        f = open(path_json_file, 'r')
-        # returns JSON object as a list
-        return json.load(f)[12]  # para testes será utilizado a hora 12
+        try:
+            f = open(path_json_file, 'r')
+            result = json.load(f)[12]
+            # returns JSON object as a list
+            return result  # para testes será utilizado a hora 12
+        except Exception as e:
+            print(f"File not found: {path_json_file}. {e}")
+            return None
+        
 
 
 # Função para criar GeoJSON a partir dos segmentos de retas
@@ -149,11 +161,15 @@ def create_geojson_from_segments(line_segments, json_data):
     circ = []
     for start, end, pac, ctmt, cor in line_segments:
         lines.append(LineString([start, end]))
-        voltage_bus = json_data.get(f"{pac}.1".lower())   # para testes - somente node=1
+        if json_data is not None:
+            voltage_bus = json_data.get(f"{pac}.1".lower())  # para testes - somente node=1
+        else:
+            voltage_bus = ''
         # color_intensity = (voltage_bus - voltage_min) / (voltage_max - voltage_min)
         # cores.append(str(Color(cor, luminance=f'{color_intensity}', equality=RGB_equivalence)))
-        if float(voltage_bus) > 1.05 or float(voltage_bus) < 0.95:
-            cor = 'red'
+        if voltage_bus != '':
+            if float(voltage_bus) > 1.05 or float(voltage_bus) < 0.95:
+                cor = 'red'
         cores.append(cor)
         bus.append(voltage_bus)
         circ.append(ctmt)

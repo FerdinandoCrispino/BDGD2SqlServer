@@ -77,9 +77,13 @@ class DssFilesGenerator:
             # Add transformer AT
             PerdaFerroTrafo_per = PerdaFerroTrafo
             PerdaCobreTrafo_per = PerdaTotalTrafo - PerdaFerroTrafo
-            # todos os circuits de um transformador AT deveriam ter a mesma tensão de operação !!!!
+            # todos os circuits de um transformador AT deveriam ter a mesma tensão de operação!!!!
             # NA BDGD foram obtidos valores diferentes assim será adota o menor valor de operação.
-            ten_ope_pu = min(circuits[circuits['UNI_TR_AT'] == tr_name]['TEN_OPE'])
+            # Pode existir um TR_AT sem circuitos associados (TR RESERVA) adotar ten_ope_pu = 1.0
+            if tr_name in set(circuits['UNI_TR_AT']):
+                ten_ope_pu = min(circuits[circuits['UNI_TR_AT'] == tr_name]['TEN_OPE'])
+            else:
+                ten_ope_pu = '1.0'
 
             linhas_substation_dss.append(f'New Transformer.{tr_name} phases={numero_fases_transformador(lig_fas_p)} '
                                          f'windings={quantidade_enrolamentos(lig_fas_t, lig_fas_s)} '
@@ -863,6 +867,12 @@ class DssFilesGenerator:
                         strCodFas = fases_s_trafo
                     else:
                         strCodFas = fases_s_trafo.replace('N', '') + fases_t_trafo
+
+            # Acrescentar Neutro a todas as fases.
+            if (strCodFas == 'A' or strCodFas == 'B' or strCodFas == 'C' or
+                    strCodFas == 'AB' or strCodFas == 'BC' or strCodFas == 'CA' or
+                    strCodFas == 'ABC'):
+                strCodFas += 'N'
 
             dbdaily = 'GeradorBT-Tipo1'
             pv_daily = 'PVIrrad_diaria'
