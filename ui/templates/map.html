@@ -222,7 +222,7 @@
                     });
                     if (selected) {
                         var h = selected.get("bus");
-                        popup1.setInfo(h +' p.u' );
+                        popup1.setInfo('Vpu '+ h +' pu' );
                     } else {
                         popup1.setInfo();
                     }
@@ -236,7 +236,7 @@
                     content += "<img src='static/scenarios/base/" + document.getElementById('distribuidora').value
                     content += "/" + document.getElementById('subestacao').value
                     content += "/" + feature.get("ctmt") + "/" +  feature.get("ctmt")
-                    content += "_m1.png' style='width:750px; height:300px;'/>";
+                    content += "_Balance_m1.png' style='width:750px; height:300px;'/>";
                     //content += feature.get("linha");
                     popup.show(feature.getGeometry().getFirstCoordinate(), content);
                     console.log(content);

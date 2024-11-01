@@ -26,7 +26,28 @@ class SimuladorOpendss:
         self.tipo_dia = config_opendss['master_type_day']
         self.database = config_opendss['master_data_base']
         self.dist = config_opendss['master_dist'].split('\\')[0]
+        self.sub = config_opendss['master_sub']
         print(self.dss_file)
+
+    def _save_json(self, json_type, dados):
+        dirname = os.path.dirname(__file__)
+        json_path = os.path.abspath(os.path.join(dirname, "../ui/static/scenarios/base/", self.dist, self.sub))
+        os.makedirs(json_path, exist_ok=True)
+
+        #with open(f"{json_path}\\{self.dss.circuit.name.upper()}_{self.database}_{self.tipo_dia}_{self.mes}_"
+        with open(f"{json_path}\\{self.dss.circuit.name.upper()}.json", "w") as file_json:
+            json.dump(dados, file_json, indent=2)
+
+    def _calc_kva(self, channel):
+        if channel == 1:
+            return [round(math.sqrt((p1**2) + (q1**2)), 4) for p1, q1 in
+                    zip(self.dss.monitors.channel(1), self.dss.monitors.channel(2))]
+        if channel == 2:
+            return [round(math.sqrt((p1 ** 2) + (q1 ** 2)), 4) for p1, q1 in
+                    zip(self.dss.monitors.channel(3), self.dss.monitors.channel(4))]
+        if channel == 3:
+            return [round(math.sqrt((p1 ** 2) + (q1 ** 2)), 4) for p1, q1 in
+                    zip(self.dss.monitors.channel(4), self.dss.monitors.channel(5))]
 
     def plot_data_monitors(self) -> None:
 
@@ -34,18 +55,21 @@ class SimuladorOpendss:
 
         monitor_mode = {0: "Voltages", 1: "Powers ", 2: "Tap Position"}
         nun_monit = 1
+        p_data_list = []
+        p_data_dict = dict()
         monitor = self.dss.monitors.first()
         while monitor:
-
             xpoints = np.array([])
-
+            """
             print(f"Monitor: {self.dss.monitors.name} - "
                   f"Element: {self.dss.monitors.element} - "
                   f"header: {self.dss.monitors.header} - "
                   f"num_channels: {self.dss.monitors.num_channels}")
             print(f"Monitor:{self.dss.monitors.channel(1)} ")
-            print(f"Monitor:{self.dss.monitors.channel(2)} ")
+            print(f"Monitor:{self.dss.monitors.channel(3)} ")
+            print(f"Monitor:{self.dss.monitors.channel(5)} ")
             print(f"Sample_count:{self.dss.monitors.sample_count} ")
+            """
 
             # Get power from monitored transformer
             tr_kva = ''
@@ -54,6 +78,42 @@ class SimuladorOpendss:
                     if 'transformer.' + tr_name == self.dss.monitors.element:
                         self.dss.transformers.name = tr_name
                         tr_kva = f' {self.dss.transformers.kva} kVA'
+
+                        p_data_dict.clear()
+                        p1_kva = self._calc_kva(1)
+                        p2_kva = self._calc_kva(2)
+                        p3_kva = self._calc_kva(3)
+
+                        max_p1 = max(p1_kva)
+                        max_p2 = max(p2_kva)
+                        max_p3 = max(p3_kva)
+
+                        min_p1 = min(p1_kva)
+                        min_p2 = min(p2_kva)
+                        min_p3 = min(p3_kva)
+
+                        # max_index1 = pd.Series(self.dss.monitors.channel(1)).idxmax()
+                        # max_index2 = self.dss.monitors.channel(1).index(max_p1)
+                        # min_index2 = self.dss.monitors.channel(1).index(min_p1)
+                        p_data_dict[f"sub"] = self.sub
+                        p_data_dict[f"nome"] = self.dss.monitors.name
+
+                        p_data_dict[f"P1_max"] = max_p1 / self.dss.transformers.kva
+                        p_data_dict[f"P2_max"] = max_p2 / self.dss.transformers.kva
+                        p_data_dict[f"P3_max"] = max_p3 / self.dss.transformers.kva
+                        p_data_dict[f"P1_time_max"] = p1_kva.index(max_p1)
+                        p_data_dict[f"P2_time_max"] = p2_kva.index(max_p2)
+                        p_data_dict[f"P3_time_max"] = p3_kva.index(max_p3)
+
+                        p_data_dict[f"P1_min"] = min_p1 / self.dss.transformers.kva
+                        p_data_dict[f"P2_min"] = min_p2 / self.dss.transformers.kva
+                        p_data_dict[f"P3_min"] = min_p3 / self.dss.transformers.kva
+                        p_data_dict[f"P1_time_min"] = p1_kva.index(min_p1)
+                        p_data_dict[f"P2_time_min"] = p2_kva.index(min_p2)
+                        p_data_dict[f"P3_time_min"] = p3_kva.index(min_p3)
+
+                        p_data_list.append(p_data_dict.copy())
+
                         break
 
             xpoints = np.append(xpoints, np.arange(self.dss.monitors.sample_count))
@@ -94,16 +154,19 @@ class SimuladorOpendss:
                                     config_opendss['master_dist'], self.dss.circuit.name.upper())
             os.makedirs(plt_path, exist_ok=True)
             plt.savefig(f'{plt_path}\\{self.dss.circuit.name.upper()}_Balance_M{nun_monit}.png')
-
             # mng = plt.get_current_fig_manager()
             # mng.window.state("zoomed")
             # mng.frame.Maximize(True)
             # mng.full_screen_toggle()
             # O comando show aguarda o usuario fechar o grafico para continuar
             # plt.show()
+            plt.close()
 
             monitor = self.dss.monitors.next()
             nun_monit += 1
+
+        p_adata = pd.DataFrame.from_dict(p_data_list)
+        p_adata.to_csv(f'{self.database}_{self.tipo_dia}_{self.mes}_power.csv')
 
     def executa_fluxo_potencia(self) -> None:
         """
@@ -123,14 +186,14 @@ class SimuladorOpendss:
 
         self.dss.text("set mode = daily")
         self.dss.text("Set stepsize = 1h")
-        #self.dss.text("set number = 1")
-        #self.dss.text("solve")
+        # self.dss.text("set number = 1")
+        # self.dss.text("solve")
 
-        #for meter_name in self.dss.meters.names:
+        # for meter_name in self.dss.meters.names:
         #    self.dss.meters.name = meter_name
         #    self.dss.meters.sample()
 
-        #print(min(self.dss.circuit.buses_vmag_pu))
+        # print(min(self.dss.circuit.buses_vmag_pu))
 
         total_number = 24
         voltage_bus_dict = dict()
@@ -151,6 +214,7 @@ class SimuladorOpendss:
             status = self.dss.solution.converged
             if status == 0:
                 print('OpenDSS not solved!!!!')
+                print(f"{self.dss.solution.event_log}")
                 exit()
 
             active_bus = ''
@@ -168,15 +232,20 @@ class SimuladorOpendss:
                     continue
                 vll_pu = []
                 vll = []
-                for i in range(self.dss.bus.num_nodes):
-                    vll_pu.append(round(math.sqrt(self.dss.bus.pu_vll[i*2] ** 2 + self.dss.bus.pu_vll[(i*2)+1] ** 2), 8))
-                    vll.append(round(math.sqrt(self.dss.bus.vll[i] ** 2 + self.dss.bus.vll[i+1] ** 2), 5))
-                    voltage_bus_dict[f"{bus_name.split('.')[0]}.{i+1}"] = vll_pu[i]
+                # Não funciona! em alguns casos pode haver diferença entre o tamanho o vetor de pu_vll e do vmag_pu
+                # for i in range(self.dss.bus.num_nodes):
+                num_nodes = int(len(self.dss.bus.vll)/2)
+                # Não existe valores de tensão de linha para barras monofasicas
+                if num_nodes > 1:
+                    for i in range(num_nodes):
+                        vll_pu.append(round(math.sqrt(self.dss.bus.pu_vll[i*2] ** 2 + self.dss.bus.pu_vll[(i*2)+1] ** 2), 8))
+                        vll.append(round(math.sqrt(self.dss.bus.vll[i] ** 2 + self.dss.bus.vll[i+1] ** 2), 5))
+                        voltage_bus_dict[f"{bus_name.split('.')[0]}.{i+1}"] = vll_pu[i]
 
-                if self.dss.bus.num_nodes == 3:
-                    beta = (vll[0] ** 4 + vll[1] ** 4 + vll[2] ** 4) / (vll[0] ** 2 + vll[1] ** 2 + vll[2] ** 2) ** 2
-                    vuf = round(math.sqrt((abs(1 - math.sqrt(3 - 6 * beta))) / (1 + math.sqrt(3 - 6 * beta))) * 100, 5)
-                    vuf_bus_dict[f"{bus_name.split('.')[0]}"] = vuf
+                    if num_nodes == 3:
+                        beta = (vll[0] ** 4 + vll[1] ** 4 + vll[2] ** 4) / (vll[0] ** 2 + vll[1] ** 2 + vll[2] ** 2) ** 2
+                        vuf = round(math.sqrt((abs(1 - math.sqrt(3 - 6 * beta))) / (1 + math.sqrt(3 - 6 * beta))) * 100, 5)
+                        vuf_bus_dict[f"{bus_name.split('.')[0]}"] = vuf
 
                 """  
                 vab_pu = round(math.sqrt(self.dss.bus.pu_vll[0] ** 2 + self.dss.bus.pu_vll[1] ** 2), 6)
@@ -200,6 +269,7 @@ class SimuladorOpendss:
             vuf_bus_list.append(vuf_bus_dict.copy())
             voltage_bus_list.append(voltage_bus_dict.copy())
 
+            # violação de tensão
             voltage_bus_violation_dict = dict((k, v) for k, v in voltage_bus_dict.items() if (float(v) < 0.95 or
                                                                                               float(v) > 1.05))
             voltage_bus_violation_list.append(voltage_bus_violation_dict.copy())
@@ -211,8 +281,9 @@ class SimuladorOpendss:
             max_vol = max(voltage_bus_dict.items(), key=lambda x: x[1])
             min_vol = min(voltage_bus_dict.items(), key=lambda x: x[1])
 
-            #max_vol = max(voltage_bus_dict.values())
-            #min_vol = min(voltage_bus_dict.values())
+            # os valores de max e min poidem apresentar diferença nos caso onde existem valores iguais
+            # max_vol = max(voltage_bus_dict.values())
+            # min_vol = min(voltage_bus_dict.values())
 
             # print(len(voltage_bus_dict.values()))
             print(f'Tensão máxima na hora {number}: {max_vol}')
@@ -252,54 +323,57 @@ class SimuladorOpendss:
         df_vuf.to_csv(f'{self.database}_{self.tipo_dia}_{self.mes}_vuf_bus_violation_scenario.csv')
 
         # convert into json
-        #result = json.dumps(voltage_bus_list, indent=2)
-        dirname = os.path.dirname(__file__)
-        json_path = os.path.abspath(os.path.join(dirname, "../ui/static/scenarios/base/", config_opendss['master_dist']))
-        os.makedirs(json_path, exist_ok=True)
-        with open(f"{json_path}\\{self.dss.circuit.name.upper()}.json", "w") as final:
-            json.dump(voltage_bus_list, final, indent=2)
+        self._save_json('v_pu_bus', voltage_bus_list)
 
 
 if __name__ == '__main__':
-    master_folder = os.path.expanduser('~\\dss')
-    dist = "391"
-    circ = "ITQ"
-    master_type_day = "DU"
-    master_month = "1"
-    master_data_base = "2022"
-    master_file = f"{master_type_day}_{master_month}_Master_substation_{dist}_{circ}.dss"
 
-    config_opendss = {"master_folder": master_folder,
-                      "master_dist": os.path.join(dist, circ),
-                      "master_file": master_file,
-                      "master_type_day": master_type_day,
-                      "master_month": master_month,
-                      "master_data_base": master_data_base}
-    """
-    config_opendss = {"master_folder": os.path.expanduser('~\\dss'),
-                      "master_dist": "391\\ITQ\\RITQ1312",
-                      "master_file": "DU_1_Master_391_ITQ_RITQ1312.dss",
-                      "master_type_day": "DU",
-                      "master_month": "1",
-                      "master_data_base": "2022"}
-    """
-    folder = os.path.join(config_opendss['master_folder'], config_opendss['master_dist'])
-    master_file = glob.glob(folder + "/*.dss")
-    # sub_folders = [name for name in os.listdir(folder) if os.path.isdir(os.path.join(folder, name))]
-    # print(sub_folders)
+    # list_sub = ['ITQ', 'VGA', 'JNO', 'CAC', 'SAT', 'PME', 'CPA', 'ARA', 'CAR', 'BON','CMB', 'APA', 'ASP', 'BIR', 'SJC']
+    # list_sub = ['ITQ', 'JNO', 'SAT', 'PME', 'CPA', 'ARA', 'CAR', 'BON', 'CMB', 'APA', 'ASP', 'BIR', 'SJC','TAU']
+    list_sub = ['TAU']
+    for nome_sub in list_sub:
+        sub = nome_sub
 
-    simul = SimuladorOpendss(config_opendss)
+        master_folder = os.path.expanduser('~\\dss')
+        dist = "391"
+        # sub = "ITQ"
+        master_type_day = "DU"
+        master_month = "1"
+        master_data_base = "2022"
+        master_file = f"{master_type_day}_{master_month}_Master_substation_{dist}_{sub}.dss"
 
-    # True para rodar o master com todos os circuitos e os transformadores de alta ou
-    # False para rodar um circuito de cada vez
-    exec_by_substation = True
-    if exec_by_substation:
-        for file_dss in (glob.glob(folder + f"/*/{master_type_day}_{master_month}*.dss")):
-            if "Master" in file_dss:
-                simul.list_file_dss.append(file_dss)
-                simul.dss_file = file_dss
-                simul.executa_fluxo_potencia()
-                simul.plot_data_monitors()
-    else:
-        simul.executa_fluxo_potencia()
-        simul.plot_data_monitors()
+        config_opendss = {"master_folder": master_folder,
+                          "master_dist": os.path.join(dist, sub),
+                          "master_file": master_file,
+                          "master_type_day": master_type_day,
+                          "master_month": master_month,
+                          "master_data_base": master_data_base,
+                          "master_sub": sub}
+        """
+        config_opendss = {"master_folder": os.path.expanduser('~\\dss'),
+                          "master_dist": "391\\ITQ\\RITQ1312",
+                          "master_file": "DU_1_Master_391_ITQ_RITQ1312.dss",
+                          "master_type_day": "DU",
+                          "master_month": "1",
+                          "master_data_base": "2022"}
+        """
+        folder = os.path.join(config_opendss['master_folder'], config_opendss['master_dist'])
+        master_file = glob.glob(folder + "/*.dss")
+        # sub_folders = [name for name in os.listdir(folder) if os.path.isdir(os.path.join(folder, name))]
+        # print(sub_folders)
+
+        simul = SimuladorOpendss(config_opendss)
+
+        # True para rodar o master com todos os circuitos e os transformadores de alta ou
+        # False para rodar um circuito de cada vez
+        exec_by_substation = True
+        if exec_by_substation:
+            for file_dss in (glob.glob(folder + f"/*/{master_type_day}_{master_month}*.dss")):
+                if "Master" in file_dss:
+                    simul.list_file_dss.append(file_dss)
+                    simul.dss_file = file_dss
+                    simul.executa_fluxo_potencia()
+                    simul.plot_data_monitors()
+        else:
+            simul.executa_fluxo_potencia()
+            simul.plot_data_monitors()

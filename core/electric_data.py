@@ -155,7 +155,8 @@ class ElectricDataPort:
                 SELECT u.COD_ID, u.CTMT, u.PAC_1, u.PAC_2, u.PAC_3, u.FAS_CON_P, u.FAS_CON_S, u.FAS_CON_T, 
                 u.TIP_TRAFO, u.PER_TOT, u.PER_FER, u.POT_NOM, u.POS, u.TEN_LIN_SE, u.MRT, u.TAP, u.BANC,            
                 t1.TEN as TEN_PRI, t2.TEN as TEN_SEC, t3.TEN as TEN_TER, 
-                e.LIG, e.FAS_CON, e.POT_NOM as COD_POT_EQ, t4.POT as POT_NOM_EQ, e.LIG_FAS_S, e.LIG_FAS_T
+                e.LIG, e.FAS_CON, e.POT_NOM as COD_POT_EQ, t4.POT as POT_NOM_EQ, 
+                e.LIG_FAS_P, e.LIG_FAS_S, e.LIG_FAS_T
                 FROM (select distinct * from sde.EQTRMT) e
                 INNER JOIN (select distinct * from sde.UNTRMT) U
                     on u.dist='{self.dist}' and u.sub='{self.sub}' and 
@@ -175,7 +176,8 @@ class ElectricDataPort:
                 SELECT u.COD_ID, u.CTMT, u.PAC_1, u.PAC_2, u.PAC_3, u.FAS_CON_P, u.FAS_CON_S, u.FAS_CON_T, 
                 u.TIP_TRAFO, u.PER_TOT, u.PER_FER, u.POT_NOM, u.POS, u.TEN_LIN_SE, u.MRT, u.TAP, u.BANC,             
                 t1.TEN as TEN_PRI, t2.TEN as TEN_SEC, t3.TEN as TEN_TER,
-                e.LIG, e.FAS_CON, e.POT_NOM as COD_POT_EQ, t4.POT as POT_NOM_EQ, e.LIG_FAS_S, e.LIG_FAS_T
+                e.LIG, e.FAS_CON, e.POT_NOM as COD_POT_EQ, t4.POT as POT_NOM_EQ, 
+                e.LIG_FAS_P, e.LIG_FAS_S, e.LIG_FAS_T
                 FROM sde.EQTRMT e
                 INNER JOIN  sde.UNTRMT U
                     on u.dist='{self.dist}' and u.sub='{self.sub}' and u.ctmt='{ctmt}' and 
@@ -308,25 +310,25 @@ class ElectricDataPort:
                    UNI_TR_MT, DIST, SUB, SIT_ATIV, PN_CON
             FROM sde.UCBT
             WHERE DIST = '391' AND SUB = 'ITQ' AND SIT_ATIV = 'AT' AND PN_CON != '0'
-        ),
-        UNTRMT_CTE AS (
-            SELECT COD_ID, TIP_TRAFO, TEN_LIN_SE, POT_NOM, PAC_2, DATA_BASE
-            FROM sde.UNTRMT
-        ),
-        EQME_CTE AS (
-            SELECT DISTINCT UC_UG, FAS_CON AS M_FAS_CON, PAC 
-            FROM sde.EQME
-        )
-        
-        SELECT DISTINCT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, m.M_FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
-                        u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
-                        u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12, 
-                        t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, YEAR(t.DATA_BASE) AS ANO_BASE
-        FROM UCBT_CTE u
-        INNER JOIN UNTRMT_CTE t ON t.COD_ID = u.UNI_TR_MT
-        LEFT JOIN EQME_CTE m ON u.COD_ID = m.UC_UG and u.PAC = m.PAC
-        ORDER BY u.COD_ID;
-        """
+            ),
+            UNTRMT_CTE AS (
+                SELECT COD_ID, TIP_TRAFO, TEN_LIN_SE, POT_NOM, PAC_2, DATA_BASE
+                FROM sde.UNTRMT
+            ),
+            EQME_CTE AS (
+                SELECT DISTINCT UC_UG, FAS_CON AS M_FAS_CON, PAC 
+                FROM sde.EQME
+            )
+            
+            SELECT DISTINCT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, m.M_FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
+                            u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
+                            u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12, 
+                            t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, YEAR(t.DATA_BASE) AS ANO_BASE
+            FROM UCBT_CTE u
+            INNER JOIN UNTRMT_CTE t ON t.COD_ID = u.UNI_TR_MT
+            LEFT JOIN EQME_CTE m ON u.COD_ID = m.UC_UG and u.PAC = m.PAC
+            ORDER BY u.COD_ID;
+            """
         else:
             query = f'''
                 select * from (      
@@ -361,11 +363,12 @@ class ElectricDataPort:
 
         if ctmt is None:
             query = f'''
-                SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN,
+                SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN, v.TEN, 
                      p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
                      p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12, 
                      t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
-                FROM sde.PIP P    
+                FROM sde.PIP P  
+                inner join [GEO_SIGR_DDAD_M10].sde.tten as v on p.TEN_FORN = v.COD_ID
                 INNER JOIN sde.UNTRMT T
                      on t.COD_ID = p.UNI_TR_MT 
                 WHERE p.dist='{self.dist}' and p.sub = '{self.sub}' and p.sit_ativ = 'AT' and 
@@ -374,11 +377,12 @@ class ElectricDataPort:
              '''
         else:
             query = f'''
-                SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN,
+                SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN, v.TEN, 
                      p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
                      p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12, 
                      t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
-                FROM sde.PIP P    
+                FROM sde.PIP P  
+                inner join [GEO_SIGR_DDAD_M10].sde.tten as v on p.TEN_FORN = v.COD_ID
                 INNER JOIN sde.UNTRMT T
                      on t.COD_ID = p.UNI_TR_MT 
                 WHERE p.dist='{self.dist}' and p.sub = '{self.sub}' and p.ctmt = '{ctmt}' and p.sit_ativ = 'AT' and 
@@ -732,6 +736,10 @@ def write_sub_dss(cod_sub, cod_dist, mes, tipo_dia, engine, dss_files_folder):
 
     # Leitura de dados dos circuitos de uma subestação da bdgd
     bdgd_read.query_circuitos(engine)
+    if bdgd_read.circuitos.empty:
+        print(f"{sub} - Subestação inexistente!!!")
+        exit()
+
     # Leitura de dados de Trasformadores AT
     bdgd_read.query_trafos_at(engine)
     bdgd_read.query_voltagebases_trafos_mt(engine)
@@ -901,7 +909,8 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
         # dss_adapter.get_lines_generators_mt(bdgd_read.gerador_mt, multi_ger, linhas_generators_mt_dss)
         # ...conectados nos segmentos
         bdgd_read.query_generators_mt_ssdmt(cod_circuito, engine=engine)
-        dss_adapter.get_lines_generators_mt_ssdmt(bdgd_read.gerador_mt_ssdmt, multi_ger, linhas_generators_mt_dss, mes)
+        dss_adapter.get_lines_generators_mt_ssdmt(bdgd_read.gerador_mt_ssdmt, multi_ger, linhas_generators_mt_dss,
+                                                  mes, tipo_modelo)
         write_to_dss(dist, sub, cod_circuito, linhas_generators_mt_dss, nome_arquivo_generators_mt_dss, dss_files_folder)
 
         # Grava arquivo DSS para o Gerador BT
@@ -925,15 +934,17 @@ if __name__ == "__main__":
 
     # Definir código da subestação (sub) e da distribuidora (dist)
     # dist = '404'  # Energisa MS
-    # list_sub = ['40', '100', '58', '95', '96', '97']
+    list_sub = ['40', '100', '58', '95', '96', '97']
     # list_sub = ['100']
 
     # EDP_SP = 391
-    # list_sub = ['ITQ', 'VGA', 'JNO', 'CAC','SAT','PME','CPA','ARA','CAR','BON']
-    list_sub = ['CPM']
+    #list_sub = ['ITQ', 'VGA', 'JNO', 'CAC', 'SAT', 'PME','CPA','ARA','CAR','BON', 'CMB', 'APA', 'ASP',
+    #            'BIR', 'SJC', 'AVP', 'FER', 'DUT', 'TAU']
+    list_sub = ['BIR']
 
     # Cosern = 40
-    list_sub = ['CPA']
+    # list_sub = [ 'SBN', 'STO', 'MSU', 'JCT', 'CPG', 'AAF' ]
+    #list_sub = ['NCR']
 
     print(f'Ajusting CodBNC....')
     ajust_eqre_codbanc(dist, engine)
@@ -941,7 +952,7 @@ if __name__ == "__main__":
     mes = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
 
-    # controles de execução para apenas um primeiro mes e um primeiro tipo de dia
+    # controles de execução para apenas um primeiro mes e um primeiro tipo de dia da lista 'tipo_de_dias'
     control_mes = True
     control_tipo_dia = True
 

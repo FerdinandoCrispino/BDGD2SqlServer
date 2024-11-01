@@ -885,4 +885,7 @@ def circuit_by_bus(pac: str, dist):
          WHERE pac_1 = '{pac}' or pac_2 = '{pac}'
          ;
     '''
-    return return_query_as_dataframe(query, engine)
+    ctmt = return_query_as_dataframe(query, engine)
+    if ctmt.empty:
+        ctmt["CTMT"] = [pac]
+    return ctmt

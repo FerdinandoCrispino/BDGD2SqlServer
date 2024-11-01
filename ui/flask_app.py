@@ -4,7 +4,10 @@ import sys
 import geopandas as gpd
 import pandas as pd
 from colour import Color
-from flask import Flask, render_template, jsonify, request
+
+from flask import Flask, render_template, request, url_for, redirect, jsonify
+from flask import flash
+
 from shapely.geometry import LineString
 
 import Tools.summary as resumo
@@ -13,6 +16,7 @@ from Tools.tools import return_query_as_dataframe, create_connection, load_confi
 sys.path.append('../')
 # Configuração do Flask
 app = Flask(__name__)
+app.secret_key = "123456"
 
 
 # Função para buscar as subestações com base na distribuidora
@@ -44,16 +48,16 @@ def get_circuitos(subestacao):
 def get_coords_SSDMT_from_db(sub, ctmt):
     if ctmt == "":
         query = f'''Select  point_x1 as start_longitude, POINT_y1 as start_latitude, 
-                            point_x2 as end_longitude, POINT_y2 as end_latitude,
-                            ss.CTMT, ss.PAC_1, ss.PAC_2
-                            from sde.ssdmt ss
-                            where ss.SUB= '{sub}' 
+                        point_x2 as end_longitude, POINT_y2 as end_latitude,
+                        ss.CTMT, ss.PAC_1, ss.PAC_2, ss.SUB
+                    from sde.ssdmt ss
+                    where ss.SUB= '{sub}' 
                 ;   
                 '''
     else:
         query = f'''Select  point_x1 as start_longitude, POINT_y1 as start_latitude, 
-                            point_x2 as end_longitude, POINT_y2 as end_latitude,
-                            ss.CTMT, ss.PAC_1, ss.PAC_2
+                        point_x2 as end_longitude, POINT_y2 as end_latitude,
+                        ss.CTMT, ss.PAC_1, ss.PAC_2, SS.SUB
                     from sde.ssdmt ss
                     where ss.SUB= '{sub}' and ss.ctmt = '{ctmt}'
                 ;   
@@ -144,7 +148,6 @@ def read_json_from_result(distribuidora, subestacao, circuito):
         except Exception as e:
             print(f"File not found: {path_json_file}. {e}")
             return None
-        
 
 
 # Função para criar GeoJSON a partir dos segmentos de retas
@@ -167,7 +170,7 @@ def create_geojson_from_segments(line_segments, json_data):
             voltage_bus = ''
         # color_intensity = (voltage_bus - voltage_min) / (voltage_max - voltage_min)
         # cores.append(str(Color(cor, luminance=f'{color_intensity}', equality=RGB_equivalence)))
-        if voltage_bus != '':
+        if voltage_bus != '' and voltage_bus is not None:
             if float(voltage_bus) > 1.05 or float(voltage_bus) < 0.95:
                 cor = 'red'
         cores.append(cor)
@@ -195,7 +198,9 @@ def segments():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
     circuito = request.args.get('circuito', 'defaultCircuito')
-
+    if subestacao == '':
+        print(f"Selecione uma subestação!")
+        return None  # retornar erro!
     line_segments = get_coords_SSDMT_from_db(subestacao, circuito)
     # Leitura do arquiso de resultados do fluxo de potencia
     json_data = read_json_from_result(distribuidora, subestacao, circuito)
@@ -207,6 +212,19 @@ def segments():
 @app.route('/map')
 def map_view():
     return render_template('map.html')
+
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        if request.form['username'] != 'admin' or \
+                request.form['password'] != 'admin':
+            error = 'Invalid username or password. Please try again!'
+        else:
+            flash('You were successfully logged in')
+            return redirect(url_for('index'))
+    return render_template('login.html', error=error)
 
 
 # Rota para listar os dados de uma tabela
@@ -250,4 +268,4 @@ def get_table_data(res, id_summary):
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(use_reloader=False, debug=True)

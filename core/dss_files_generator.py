@@ -1,4 +1,6 @@
 # -*- encoding: utf-8 -*-
+import math
+
 import numpy as np
 from Tools.tools import *
 import calendar
@@ -229,12 +231,14 @@ class DssFilesGenerator:
             circ = trafos.loc[index]['CTMT']
             codigo = trafos.loc[index]['COD_ID']
             lig_fas_eq = trafos.loc[index]['FAS_CON']
+            lig_fas_eq_p = trafos.loc[index]['LIG_FAS_P']
             lig_fas_eq_s = trafos.loc[index]['LIG_FAS_S']
             lig_fas_eq_t = trafos.loc[index]['LIG_FAS_T']
             lig_fas_p = trafos.loc[index]['FAS_CON_P']
             lig_fas_s = trafos.loc[index]['FAS_CON_S']
             lig_fas_t = trafos.loc[index]['FAS_CON_T']
             ten_lin_sec = trafos.loc[index]['TEN_LIN_SE']
+            eq_ten_lin_sec = trafos.loc[index]['TEN_SEC']
             pac1 = trafos.loc[index]['PAC_1']
             pac2 = trafos.loc[index]['PAC_2']
             codi_tipo_trafo = trafos.loc[index]['TIP_TRAFO']
@@ -253,7 +257,10 @@ class DssFilesGenerator:
 
             tipo_trafo = get_tipo_trafo(codi_tipo_trafo)
 
-            # considera-se que tap maiores que 1.5 é um erro de cadastro. Ex.: 1.6 será convertido para 1.06
+            if ten_lin_sec == 0:
+                ten_lin_sec = eq_ten_lin_sec
+
+            # Considera-se que tap maiores que 1.5 é um erro de cadastro. Ex.: 1.6 será convertido para 1.06
             if tap > 1.5:
                 tap = ((tap - 1) / 10) + 1
 
@@ -269,9 +276,11 @@ class DssFilesGenerator:
 
             if lig_fas_p != lig_fas_eq:
                 lig_fas_p = lig_fas_eq
+
             if int(lig_eq) == 6 and int(banc) == 1 and int(mrt) == 0:
                 mrt = 1
-            if kva_nom != pot_eq:
+
+            if kva_nom != pot_eq and pot_eq != 0:
                 kva_nom = pot_eq
 
             if int(banc) == 1:
@@ -703,6 +712,14 @@ class DssFilesGenerator:
                     strCodFas == 'ABC'):
                 strCodFas += 'N'
 
+            # casos onde a tensão do secundario vem zerada, então utilizar a tensão da carga
+            if dblTenSecu_kV == 0:
+                if strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN':
+                    dblTenSecu_kV = dblTen_carga * math.sqrt(3)
+                else:
+                    dblTenSecu_kV = dblTen_carga
+
+
             intTipTrafo = get_tipo_trafo(codi_tipo_trafo)
 
             # num_dias = calendar.monthrange(ano_base, mes)[1]
@@ -790,6 +807,7 @@ class DssFilesGenerator:
             strBus = cargas_pip.loc[index]['PAC_2']  # ligar as cargas PIP no secundario do transformador
             energy_mes = cargas_pip.loc[index]['ENE_' + str(strmes)]
             dblTenSecu_kV = cargas_pip.loc[index]['TEN_LIN_SE']
+            pip_dblTen = cargas_pip.loc[index]['TEN']
             codi_tipo_trafo = cargas_pip.loc[index]['TIP_TRAFO']
             dblDemMaxTrafo_kW = cargas_pip.loc[index]['POT_NOM'] * 0.92  # kVA
             ano_base = cargas_pip.loc[index]['ANO_BASE']
@@ -800,6 +818,36 @@ class DssFilesGenerator:
             #    strCodCrvCrg = 'IP-TIPO1' + '_' + tipo_dia
 
             intTipTrafo = get_tipo_trafo(codi_tipo_trafo)
+
+            # casos onde a tensão do secundario vem zerada, então utilizar a tensão da carga
+            if dblTenSecu_kV == 0:
+                if intTipTrafo == 1:  # transformador Monofasico
+                    dblTenSecu_kV = pip_dblTen
+                if intTipTrafo == 2:  # Transformador MRT
+                    if strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN':
+                        dblTenSecu_kV = pip_dblTen * 2
+                    else:
+                        dblTenSecu_kV = pip_dblTen
+                if intTipTrafo == 3:  # transformador bifasico
+                    dblTenSecu_kV = pip_dblTen
+                if intTipTrafo == 4:  # transformador trifasico
+                    if strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN':
+                        dblTenSecu_kV = pip_dblTen * math.sqrt(3)
+                    else:
+                        dblTenSecu_kV = pip_dblTen
+                if intTipTrafo == 5:  # transformador Monofasico
+                    dblTenSecu_kV = pip_dblTen
+                if intTipTrafo == 6:  # transformador delta aberto
+                    if strCodFas == 'AN':
+                        strCodFas = 'AB'
+                    if strCodFas == 'BN':
+                        strCodFas = 'AB'
+                    if strCodFas == 'CN':
+                        strCodFas = 'CA'
+                    dblTenSecu_kV = pip_dblTen   # possivel problema
+
+
+
 
             num_dias = calendar.monthrange(ano_base, mes)[1]
 
@@ -844,7 +892,7 @@ class DssFilesGenerator:
 
         for index in range(generators.shape[0]):
             strName = generators.loc[index]['COD_ID']
-            str_gd_name = generators.loc[index]['CEG_GD']
+            cod_gd = generators.loc[index]['CEG_GD']
             # strCodCrvCrg = generators.loc[index]['TIP_CC'] + '_' + tipo_dia
             strCodFas = generators.loc[index]['FAS_CON']
 
@@ -893,7 +941,10 @@ class DssFilesGenerator:
 
             dbconn = ligacao_gerador(strCodFas, codi_tipo_trafo)  # "Wye" ou "Delta"
 
-            if model_pv_system == 1:
+            if model_pv_system == 1 and cod_gd[:2].upper() == 'GD':
+                # No início do arquivo uma unica vez para todos os PV.
+                # deverá ser substituido por dados de um banco de dados de irradiancia e temperatura
+                # A curva de irradiancia normalizada é inserida no parametro Daily
                 if not set_pv_system:
                     linha_generators_bt_dss.append(f'New XYCurve.MyPvsT npts=4 '
                                                    f'xarray=[0  25  75  100]  yarray=[1.2 1.0 0.8  0.6] ')
@@ -910,8 +961,8 @@ class DssFilesGenerator:
                                                f'conn={dbconn} '
                                                f'kv={kv_carga(strCodFas, dblTensao_kV, intTipTrafo)} '
                                                f'pf=0.95 '
-                                               f'pmpp={dblDemMax_kW:.3f} '
-                                               f'kva={(dblDemMax_kW / 0.95):.3f} '
+                                               f'pmpp={dblDemMax_kW:.3f} '  # potencia do painel
+                                               f'kva={(dblDemMax_kW / 0.95):.3f} '  # potencia do inversor
                                                f'irradiance=1.0 temperature=25 %cutin=0.1 %cutout=0.1 '
                                                f'effcurve=Myeff P-TCurve=MyPvsT Daily={pv_daily} TDaily=MyTemp')
             else:
@@ -923,12 +974,23 @@ class DssFilesGenerator:
                                                ' pf=0.95 daily="' + dbdaily +
                                                '" status=variable vmaxpu=1.5 vminpu=0.93')
 
-    def get_lines_generators_mt_ssdmt(self, generators, crv_ger, linha_generators_mt_dss, mes):
-
+    def get_lines_generators_mt_ssdmt(self, generators, crv_ger, linha_generators_mt_dss, mes, model_pv_system):
+        """
+        Escreve os arquivos DSS para os geradores MT
+        :param model_pv_system:
+        :param generators:
+        :param crv_ger:
+        :param linha_generators_mt_dss:
+        :param mes:
+        :return:
+        """
         linha_generators_mt_dss.clear()
+        set_pv_system = False
+        model_pv_system = model_pv_system
 
         mes = mes
         dbdaily = 'GeradorMT-Tipo1'
+        pv_daily = 'PVIrrad_diaria'
 
         if mes < 10:
             strmes = '0' + str(mes)
@@ -944,6 +1006,7 @@ class DssFilesGenerator:
             energy_mes = generators.loc[index]['ENE_' + str(strmes)]
             demand_mes = generators.loc[index]['DEM_' + str(strmes)]
             ano_base = generators.loc[index]['ANO_BASE']
+            cod_ceg = generators.loc[index]['CEG_GD']
 
             dbconn = ligacao_gerador(strCodFas)  # "Wye" ou "Delta"
 
@@ -968,11 +1031,46 @@ class DssFilesGenerator:
             if dblDemMax_kW == 0:
                 srt_comment_dss = '!'
 
+            if model_pv_system == 1 and cod_ceg[:2].upper() == 'GD':
+                # No início do arquivo uma unica vez para todos os PV.
+                # deverá ser substituido por dados de um banco de dados de irradiancia e temperatura
+                # A curva de irradiancia normalizada é inserida no parametro Daily
+                if not set_pv_system:
+                    linha_generators_mt_dss.append(f'New XYCurve.MyPvsT npts=4 '
+                                                   f'xarray=[0  25  75  100]  yarray=[1.2 1.0 0.8  0.6] ')
+                    linha_generators_mt_dss.append(f'New XYCurve.MyEff npts=4 '
+                                                   f'xarray=[0.1  0.2  0.4  1.0]  yarray=[0.86  0.9  0.93  0.97] ')
+                    linha_generators_mt_dss.append(f'New Tshape.MyTemp npts=24 interval=1 '
+                                                   f'temp=[25, 25, 25, 25, 25, 25, 25, 25, 35, 40, 45, 50, '
+                                                   f'60, 60, 55, 40, 35, 30, 25, 25, 25, 25, 25, 25] \n')
+                    set_pv_system = True
+
+                linha_generators_mt_dss.append(f'{srt_comment_dss}New PVsystem.MT_{strName}_M1 '
+                                               f'phases={numero_fases_transformador(strCodFas)} '
+                                               f'bus1={strBus}{nos(strCodFas)} '
+                                               f'conn={dbconn} '
+                                               f'kv={str(dblTensao_kV)} '
+                                               f'pf=0.95 '
+                                               f'pmpp={dblDemMax_kW:.3f} '  # potencia do painel
+                                               f'kva={(dblDemMax_kW / 0.95):.3f} '  # potencia do inversor
+                                               f'irradiance=1.0 temperature=25 %cutin=0.1 %cutout=0.1 '
+                                               f'effcurve=Myeff P-TCurve=MyPvsT Daily={pv_daily} TDaily=MyTemp')
+            else:
+                linha_generators_mt_dss.append(f'{srt_comment_dss}New Generator.MT_{strName}_M1 '
+                                               f'phases={numero_fases_carga(strCodFas)} '
+                                               f'bus1={strBus}{nos(strCodFas)} '
+                                               f'conn={dbconn} '
+                                               f'kv={str(dblTensao_kV)} '
+                                               f'model=1 kw={dblDemMax_kW:.4f} '
+                                               f'pf=0.92 daily={dbdaily} '
+                                               f'status=variable vmaxpu=1.5 vminpu=0.93')
+            """                                   
             linha_generators_mt_dss.append(
-                srt_comment_dss + 'New Generator.MT_' + strName + '_M1 bus1=' + strBus + nos(strCodFas) +
+                srt_comment_dss + 'New Generator.MT_' + strName + '_M1 bus1=' + strBus  + nos(strCodFas) +
                 ' phases=' + numero_fases_carga(strCodFas) + ' conn=' + dbconn + ' kv=' +
                 str(dblTensao_kV) + ' model=1 kw=' + f'{dblDemMax_kW:.4f}' + ' pf=0.92 daily="' +
                 dbdaily + '" status=variable vmaxpu=1.5 vminpu=0.93')
+            """
 
     def get_lines_generators_mt(self, generators, crv_ger, linha_generators_mt_dss):
         linha_generators_mt_dss.clear()
@@ -1045,16 +1143,24 @@ class DssFilesGenerator:
             strCodFas = capacitores.loc[index]['FAS_CON']
             dbl_pot = capacitores.loc[index]['POT']
             line_cod = capacitores.loc[index]['LINE_COD']
-            kv_nom = capacitores.loc[index]['TEN']
-            c_on = kv_nom / 60 * 0.95
-            c_off = kv_nom / 60
+            kv_nom = capacitores.loc[index]['TEN'] / 1000
+
+            num_fases = numero_fases(strCodFas)
+            if num_fases == 3:
+                vln = (kv_nom*1000) / math.sqrt(3)
+            else:
+                vln = kv_nom * 1000
+
+            ptratio = 60
+            c_on = vln / ptratio * 0.95  # valor em volts - tensão de fase
+            c_off = vln / ptratio
 
             linha_capacitores_dss.append(
                 f'New "Capacitor.CAP_{str_name}" bus1="{str_pac}{nos(strCodFas)}" kvar={dbl_pot} kv={kv_nom} '
-                f'phases={numero_fases(strCodFas)} conn={ligacao_trafo(strCodFas)}')
+                f'phases={num_fases} conn={ligacao_trafo(strCodFas)}')
             linha_capacitores_dss.append(
                 f'New "CapControl.C1ctrl_{str_name}" element="Line.SMT_{line_cod}" Capacitor=CAP_{str_name} '
-                f'Type=voltage ptratio=60 ON={c_on} OFF={c_off}')
+                f'Type=voltage ptratio={ptratio} ON={c_on} OFF={c_off}')
 
     def get_lines_medidores(self, monitors, linha_medidores_dss):
         """ Função para gerar os Medidores do arquivo MEDIDORES>DSS """
