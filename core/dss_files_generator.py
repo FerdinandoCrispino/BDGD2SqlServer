@@ -616,11 +616,13 @@ class DssFilesGenerator:
 
             str_coments = ""
             if energy_mes == 0:
-                if demand_mes == 0:
-                    str_coments = "!"
-                    dblDemMax_kW = 0
-                else:
-                    dblDemMax_kW = demand_mes
+                str_coments = "!"
+                dblDemMax_kW = 0
+                # if demand_mes == 0:
+                #     str_coments = "!"
+                #     dblDemMax_kW = 0
+                # else:
+                #     dblDemMax_kW = demand_mes
             else:
                 # numero de dias do mes
                 num_dias = calendar.monthrange(ano_base, mes)[1]
