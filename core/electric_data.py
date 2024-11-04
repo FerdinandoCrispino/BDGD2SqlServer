@@ -282,6 +282,11 @@ class ElectricDataPort:
         Busca dados das Cargas de Baixa Tensão para a escrever dos arquivos DSS
         As cargas são conectadas no transformador de média Tensão
         Busca dados de Cargas BT
+        Podem existir cargas duplicadas onde o valor da energia para um determinado mes pode estar em
+            diferentes registros.
+            Assim remover a condição de selecionar somente carga Ativa e realizar o tratamento dos valores
+            diplicados e a escolha do registro da energia a posteriore
+
         :return:
         """
         if ctmt is None:
@@ -290,13 +295,14 @@ class ElectricDataPort:
                     , u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06
                     , u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12 
                     , t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
-                    , m.FAS_CON as M_FAS_CON
+                    , m.FAS_CON as M_FAS_CON, v.TEN
                 FROM sde.UCBT u    
                 INNER JOIN sde.UNTRMT T
                     on  t.COD_ID = u.UNI_TR_MT 
+                inner join [GEO_SIGR_DDAD_M10].sde.tten as v on u.TEN_FORN = v.COD_ID 
                 left join sde.eqme M
                     on u.COD_ID = m.UC_UG and u.PAC = m.PAC
-                where u.dist='{self.dist}' and u.sub = '{self.sub}' and u.sit_ativ = 'AT' and 
+                where u.dist='{self.dist}' and u.sub = '{self.sub}' and 
                     u.pn_con != '0'
                 order by cod_id
                 ;
@@ -330,6 +336,23 @@ class ElectricDataPort:
             ORDER BY u.COD_ID;
             """
         else:
+            query = f'''                    
+                    SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD
+                        , u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06 
+                        , u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12 
+                        , t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                        , m.FAS_CON as M_FAS_CON, v.TEN
+                    FROM sde.UCBT u    
+                    INNER JOIN sde.UNTRMT T on  t.COD_ID = u.UNI_TR_MT 
+                    inner join [GEO_SIGR_DDAD_M10].sde.tten as v on u.TEN_FORN = v.COD_ID
+                    left join sde.eqme M
+                        on u.COD_ID = m.UC_UG and u.PAC = m.PAC
+                    where u.dist='{self.dist}' and u.sub = '{self.sub}' and u.ctmt = '{ctmt}' and 
+                        u.pn_con != '0'
+                    ;
+                '''
+
+            """            
             query = f'''
                 select * from (      
                     SELECT  u.COD_ID, ROW_NUMBER() OVER(PARTITION BY u.COD_ID ORDER BY u.objectid DESC) rn
@@ -350,6 +373,8 @@ class ElectricDataPort:
                 order by a.cod_id
                 ;
             '''
+            """
+
         self.cargas_bt = return_query_as_dataframe(query, engine)
         return True
 

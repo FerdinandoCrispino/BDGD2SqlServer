@@ -673,6 +673,11 @@ class DssFilesGenerator:
         else:
             strmes = str(mes)
 
+        # Remoção de cargas duplicados.
+        cargas_bt = cargas_bt.sort_values(by='ENE_' + str(strmes), ascending=False)
+        cargas_bt.drop_duplicates(subset='COD_ID', keep='first', inplace=True)
+        cargas_bt.reset_index(drop=True, inplace=True)
+
         for index in range(cargas_bt.shape[0]):
             strName = cargas_bt.loc[index]['COD_ID']
             strCodCrvCrg = cargas_bt.loc[index]['TIP_CC'] + '_' + tipo_dia
