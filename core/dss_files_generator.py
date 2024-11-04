@@ -853,9 +853,6 @@ class DssFilesGenerator:
                         strCodFas = 'CA'
                     dblTenSecu_kV = pip_dblTen   # possivel problema
 
-
-
-
             num_dias = calendar.monthrange(ano_base, mes)[1]
 
             fc = cargas_fc.loc[(cargas_fc['COD_ID'] == cargas_pip.loc[index]['TIP_CC']) &
@@ -872,7 +869,13 @@ class DssFilesGenerator:
                     'New "Load.PIP_' + strName + '_M1" bus1="' + strBus + nos_com_neutro(strCodFas) + '"' +
                     " phases=" + numero_fases_carga_dss(strCodFas) + " conn=" + ligacao_carga(strCodFas) +
                     " model=2" + " kv=" + kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo) + " kw=" +
-                    f"{dblDemMaxCorrigida_kW:.7f}" + " pf=0.92" + ' daily="' + strCodCrvCrg +
+                    f"{(dblDemMaxCorrigida_kW / 2):.6f}" + " pf=0.92" + ' daily="' + strCodCrvCrg +
+                    '" status=variable vmaxpu=1.5 vminpu=0.92')
+                linhas_cargas_bt_dss.append(
+                    'New "Load.PIP_' + strName + '_M2" bus1="' + strBus + nos_com_neutro(strCodFas) + '"' +
+                    " phases=" + numero_fases_carga_dss(strCodFas) + " conn=" + ligacao_carga(strCodFas) +
+                    " model=3" + " kv=" + kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo) + " kw=" +
+                    f"{(dblDemMaxCorrigida_kW / 2):.6f}" + " pf=0.92" + ' daily="' + strCodCrvCrg +
                     '" status=variable vmaxpu=1.5 vminpu=0.92')
 
     def get_lines_generators_bt(self, generators, crv_ger, linha_generators_bt_dss, mes, model_pv_system):
