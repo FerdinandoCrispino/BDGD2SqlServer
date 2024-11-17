@@ -8,7 +8,7 @@ from colour import Color
 from flask import Flask, render_template, request, url_for, redirect, jsonify
 from flask import flash
 
-from shapely.geometry import LineString
+from shapely.geometry import LineString, Point
 
 import Tools.summary as resumo
 from Tools.tools import return_query_as_dataframe, create_connection, load_config
@@ -42,6 +42,101 @@ def get_circuitos(subestacao):
     rows = return_query_as_dataframe(query, engine)
     circuitos = rows.values.tolist()
     return jsonify(circuitos)
+
+
+def get_coords_from_db(sub, ctmt, table_name):
+    if ctmt == "":
+        query = f'''Select POINT_X, POINT_Y, CTMT, SUB
+                    from sde.{table_name} 
+                    where SUB= '{sub}' 
+                ;   
+                '''
+    else:
+        query = f'''Select POINT_X, POINT_Y, CTMT, SUB
+                    from sde.{table_name}
+                    where SUB= '{sub}' and ctmt = '{ctmt}'
+                ;   
+                '''
+    rows = return_query_as_dataframe(query, engine)
+    rows["nome"] = table_name
+    points = [((row["POINT_X"], row["POINT_Y"]), rows["CTMT"], rows["nome"]) for index, row in rows.iterrows()]
+    return points
+
+
+def get_coords_ucmt_from_db(sub, ctmt):
+    if ctmt == "":
+        query = f'''Select POINT_X, POINT_Y, CTMT, SUB
+                    from sde.UCMT 
+                    where SUB= '{sub}' 
+                ;   
+                '''
+    else:
+        query = f'''Select POINT_X, POINT_Y, CTMT, SUB
+                    from sde.UCMT
+                    where SUB= '{sub}' and ctmt = '{ctmt}'
+                ;   
+                '''
+    rows = return_query_as_dataframe(query, engine)
+    rows["nome"] = "UCMT"
+    points = [((row["POINT_X"], row["POINT_Y"]), rows["CTMT"], rows["nome"]) for index, row in rows.iterrows()]
+    return points
+
+
+def create_geojson_from_points_ucmt(points_ucmt):
+    # Criar uma lista de geometria de segmentos de linha a partir dos pontos
+    # lines = [LineString([start, end]) for start, end in line_segments]
+    points = []
+    circ = []
+
+    for pt, ctmt, nome in points_ucmt:
+        points.append(Point([pt]))
+        circ.append(ctmt)
+
+    # Criar um GeoDataFrame com as geometrias e dados extras
+    gdf = gpd.GeoDataFrame({'geometry': points, 'ctmt': ctmt, 'tipo': nome}, crs="EPSG:4326")
+    # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
+
+    # Converter o GeoDataFrame para GeoJSON
+    geojson = gdf.to_json()
+    return geojson
+
+
+def get_coords_tarfos_mt_from_db(sub, ctmt):
+    if ctmt == "":
+        query = f'''Select POINT_X, POINT_Y, CTMT, SUB
+                    from sde.UNTRMT 
+                    where SUB= '{sub}' 
+                ;   
+                '''
+    else:
+        query = f'''Select POINT_X, POINT_Y, CTMT, SUB
+                    from sde.UNTRMT
+                    where SUB= '{sub}' and ctmt = '{ctmt}'
+                ;   
+                '''
+    rows = return_query_as_dataframe(query, engine)
+    rows["nome"] = "trafos"
+    points = [((row["POINT_X"], row["POINT_Y"]), rows["CTMT"], rows["nome"]) for index, row in rows.iterrows()]
+    return points
+
+
+def create_geojson_from_points_trafos(points_trafos):
+    # Criar uma lista de geometria de segmentos de linha a partir dos pontos
+    # lines = [LineString([start, end]) for start, end in line_segments]
+    points = []
+    circ = []
+
+    for pt_trafo, ctmt, nome in points_trafos:
+        points.append(Point([pt_trafo]))
+        circ.append(ctmt)
+
+    # Criar um GeoDataFrame com as geometrias e dados extras
+    gdf = gpd.GeoDataFrame({'geometry': points, 'ctmt': ctmt, 'tipo': nome}, crs="EPSG:4326")
+    # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
+
+    # Converter o GeoDataFrame para GeoJSON
+    geojson = gdf.to_json()
+    return geojson
 
 
 # Função para conectar ao SQL Server e obter coordenadas da tabela SSDMT
@@ -87,9 +182,9 @@ def get_coords_SSDMT_from_db(sub, ctmt):
     # Criar um mapeamento de grupos para valores
     mapa_grupos = dict(zip(grupos_unicos, valores_truncados))
     rows['cor'] = rows['CTMT'].map(mapa_grupos)
-
+    rows["nome"] = "segmentos"
     line_segments = [((row["start_longitude"], row["start_latitude"]), (row["end_longitude"], row["end_latitude"]),
-                      row["PAC_2"], rows["CTMT"], rows["cor"][index]) for index, row in rows.iterrows()]
+                      row["PAC_2"], rows["CTMT"], rows["cor"][index], rows["nome"]) for index, row in rows.iterrows()]
 
     return line_segments
 
@@ -162,7 +257,7 @@ def create_geojson_from_segments(line_segments, json_data):
     cores = []
     bus = []
     circ = []
-    for start, end, pac, ctmt, cor in line_segments:
+    for start, end, pac, ctmt, cor, nome in line_segments:
         lines.append(LineString([start, end]))
         if json_data is not None:
             voltage_bus = json_data.get(f"{pac}.1".lower())  # para testes - somente node=1
@@ -177,7 +272,7 @@ def create_geojson_from_segments(line_segments, json_data):
         bus.append(voltage_bus)
         circ.append(ctmt)
     # Criar um GeoDataFrame com as geometrias e dados extras
-    gdf = gpd.GeoDataFrame({'geometry': lines, 'color': cores, 'ctmt': ctmt, 'bus': bus}, crs="EPSG:4326")
+    gdf = gpd.GeoDataFrame({'geometry': lines, 'color': cores, 'ctmt': ctmt, 'bus': bus, 'tipo': nome}, crs="EPSG:4326")
     # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
 
     # Converter o GeoDataFrame para GeoJSON
@@ -190,6 +285,45 @@ def create_geojson_from_segments(line_segments, json_data):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+
+@app.route('/api/UGMT')
+def ugmt():
+    distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
+    subestacao = request.args.get('subestacao', 'defaultSubestacao')
+    circuito = request.args.get('circuito', 'defaultCircuito')
+    if subestacao == '':
+        print(f"Selecione uma subestação!")
+        return None  # retornar erro!
+    point_ugmt = get_coords_from_db(subestacao, circuito, "UGMT")
+    geojson = create_geojson_from_points_ucmt(point_ugmt)
+    return geojson, 200, {'Content-Type': 'application/json'}
+
+
+@app.route('/api/UCMT')
+def ucmt():
+    distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
+    subestacao = request.args.get('subestacao', 'defaultSubestacao')
+    circuito = request.args.get('circuito', 'defaultCircuito')
+    if subestacao == '':
+        print(f"Selecione uma subestação!")
+        return None  # retornar erro!
+    point_ucmt = get_coords_from_db(subestacao, circuito, "UCMT")
+    geojson = create_geojson_from_points_ucmt(point_ucmt)
+    return geojson, 200, {'Content-Type': 'application/json'}
+
+
+@app.route('/api/trafos')
+def trafos():
+    distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
+    subestacao = request.args.get('subestacao', 'defaultSubestacao')
+    circuito = request.args.get('circuito', 'defaultCircuito')
+    if subestacao == '':
+        print(f"Selecione uma subestação!")
+        return None  # retornar erro!
+    point_trafos = get_coords_from_db(subestacao, circuito, "UNTRMT")
+    geojson = create_geojson_from_points_trafos(point_trafos)
+    return geojson, 200, {'Content-Type': 'application/json'}
 
 
 # Função que busca os segmentos de reta filtrados
@@ -241,27 +375,32 @@ def api_list_table():
     circuito = request.args.get('circuito', 'defaultCircuito')
     id_summary = request.args.get('idSummary', '0')
 
-    res = resumo.Summary(engine=engine, sub=subestacao, dist=distribuidora)
-    table_data = get_table_data(res, id_summary)
+    sumario = resumo.Summary(engine=engine, sub=subestacao, dist=distribuidora)
+    table_data = get_table_data(sumario, id_summary)
 
     return jsonify(table_data), 200
 
 
-def get_table_data(res, id_summary):
+def get_table_data(sumario, id_summary):
     df_summary = pd.DataFrame()
     if id_summary == '0':
-        res.query_sumario_sub()
-        print(res.summary_sub)
-        df_summary = res.summary_sub
+        sumario.query_sumario_sub()
+        print(sumario.summary_sub)
+        df_summary = sumario.summary_sub
     elif id_summary == '1':
-        res.query_sumario_trafos_at()
-        df_summary = res.summary_sub_at
+        sumario.query_sumario_trafos_at()
+        sumario.query_summary_penetration()
+        sub_at = pd.merge(sumario.summary_sub_at, sumario.summary_penetration, how='inner', on='UNI_TR_AT')
+        print(sub_at)
+        df_summary = sub_at
     elif id_summary == '2':
-        res.query_sumario_ctmt()
-        df_summary = res.max_demand_mt()
+        sumario.query_sumario_ctmt()
+        print(sumario.max_demand_mt())
+        df_summary = sumario.max_demand_mt()
     elif id_summary == '3':
-        res.query_sumario_ctmt()
-        df_summary = res.max_energy_bt()
+        sumario.query_sumario_ctmt()
+        print(sumario.max_energy_bt())
+        df_summary = sumario.max_energy_bt()
 
     table_data = df_summary.to_dict(orient='records')
     return table_data

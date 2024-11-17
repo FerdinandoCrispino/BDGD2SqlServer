@@ -1,5 +1,6 @@
 # -*- encoding: utf-8 -*-
 from Tools.tools import return_query_as_dataframe, load_config, create_connection
+import pandas as pd
 
 
 class Summary:
@@ -10,6 +11,7 @@ class Summary:
         self.summary_sub = []
         self.summary_sub_at = []
         self.summary_ctmt = []
+        self.summary_penetration = []
         self.engine = engine
 
     def query_sumario_sub(self):
@@ -154,22 +156,59 @@ class Summary:
                                                              'BT_ENE_10', 'BT_ENE_11', 'BT_ENE_12']].max(axis=1)
         return self.summary_ctmt[['NOME', 'TRAFO_MT', 'UCBT', 'GDBT', 'BT_MAX_ENE']]
 
+    def query_summary_penetration(self):
+        """
+        Algumas correções para casos de erros obivius de cadastro do valor da potência instalada dos geradores BT.
+        Potencia instalada:
+            maior que 1MW será dividido por 1000
+            menor que 0,01 será multilicado por 1000
+
+        :return:
+        """
+        query = f'''            
+                WITH A AS (
+                    select UNI_TR_AT, round(sum(POT_INST),2) AS TOTAL_GD_MT 
+                    from sde.ugmt 
+                    where sub = '{self.sub}' and dist = '{self.dist}' group by UNI_TR_AT
+                    ),
+                    B as (
+                    select UNI_TR_AT, round(sum(case
+                                                    when bt.POT_INST >= 1000 then bt.POT_INST/1000
+                                                    when bt.POT_INST > 100 AND bt.POT_INST < 1000 then bt.POT_INST/100 
+                                                    when bt.POT_INST <= 0.01 then bt.POT_INST*1000 
+                                                    when (bt.POT_INST > 0.01 AND bt.POT_INST < 0.1) then bt.POT_INST*100 
+                                                    else bt.POT_INST
+                                                end) ,2) AS TOTAL_GD_BT 
+                    from sde.ugbt bt 
+                    where sub = '{self.sub}' and dist = '{self.dist}' group by UNI_TR_AT
+                    )
+                    select A.UNI_TR_AT, A.TOTAL_GD_MT, B.TOTAL_GD_BT 
+                    from A 
+                    inner join B on a.UNI_TR_AT = b.UNI_TR_AT
+                    ;
+                '''
+        self.summary_penetration = return_query_as_dataframe(query, self.engine)
+
 
 if __name__ == "__main__":
     config = load_config('391')
     engine = create_connection(config)
-    sumario = Summary(engine, sub='CAR', dist='391')
+    sumario = Summary(engine, sub='CJO', dist='391')
     sumario.query_sumario_sub()
     sumario.query_sumario_trafos_at()
+    sumario.query_summary_penetration()
     sumario.query_sumario_ctmt()
 
-    print("--"*30)
+    print("--" * 30)
     print(sumario.summary_sub)
-    print("--"*30)
+    print("--" * 30)
     print(sumario.summary_sub_at)
+    print("--" * 30)
+    print(sumario.summary_penetration)
+    print(pd.merge(sumario.summary_sub_at, sumario.summary_penetration, how='inner', on='UNI_TR_AT'))
+
     print("--" * 30)
     print(sumario.max_demand_mt())
     print("--" * 30)
     print(sumario.max_energy_bt())
-    #print(sumario.summary_ctmt)
-
+    # print(sumario.summary_ctmt)

@@ -793,6 +793,74 @@ def ligacao_gerador(strCodFas, tip_trafo=None):
         return "Delta"
 
 
+def set_coords(dist):
+    config = load_config(dist)
+    engine = create_connection(config)
+    proc_time_ini = time.time()
+    query_ucmt_ponnot = f'''
+              update sde.ucmt set [POINT_Y] = q.Y, [POINT_X] = q.x
+                  FROM (
+                      select  uc.cod_id, pn.[POINT_Y] as Y ,pn.[POINT_X] as X
+                      from sde.ucmt uc
+                      inner join sde.ponnot pn on pn.COD_ID = uc.PN_CON 
+                  ) q
+              where sde.ucmt.cod_id = q.cod_id
+              '''
+    engine.execute(query_ucmt_ponnot)
+    print(f'coords UCMT')
+
+    "Verifica se existem consumidores com coordenadas nulas e utiliza o segmento para associar as cordenadas deles"
+    query_coods_ucmt_ssdmt = f'''  
+            update sde.ucmt set [POINT_Y] = q.Y, [POINT_X] = q.x
+                FROM (
+                    select  uc.cod_id, pn.[POINT_Y1] as Y ,pn.[POINT_X1] as X
+                    from sde.ucmt uc
+                    inner join sde.SSDMT pn on pn.PAC_1 = uc.PAC OR pn.PAC_2=UC.PAC
+                    WHERE UC.POINT_X IS NULL
+                ) q
+            where sde.ucmt.cod_id = q.cod_id
+            '''
+    engine.execute(query_coods_ucmt_ssdmt)
+    print(f'coords UCMT_ssdmt')
+
+    query_coods_ugmt_ponnot = f'''
+             update sde.ugmt set [POINT_Y] = q.Y, [POINT_X] = q.x
+                FROM (
+                    select  ug.cod_id, pn.[POINT_Y] as Y ,pn.[POINT_X] as X
+                    from sde.ugmt ug
+                    inner join sde.ponnot pn on pn.COD_ID = ug.PN_CON 
+                ) q
+                where sde.ugmt.cod_id = q.cod_id
+             '''
+    engine.execute(query_coods_ugmt_ponnot)
+    print(f'coords UGMT')
+
+    query_coods_ugbt_ponnot = f'''
+            update sde.ugbt set [POINT_Y] = q.Y, [POINT_X] = q.x
+                FROM (
+                    select  ugbt.cod_id, pn.[POINT_Y] as Y ,pn.[POINT_X] as X
+                    from sde.ugbt ugbt
+                    inner join sde.ponnot pn on pn.COD_ID = ugbt.PN_CON 
+                ) q
+                where sde.ugbt.cod_id = q.cod_id
+             '''
+    engine.execute(query_coods_ugbt_ponnot)
+    print(f'coords UGBT')
+
+    query_coods_ucbt_ponnot = f'''
+            update sde.ucbt set [POINT_Y] = q.Y, [POINT_X] = q.x
+                FROM (
+                    select  ucbt.cod_id, pn.[POINT_Y] as Y ,pn.[POINT_X] as X
+                    from sde.ucbt ucbt
+                    inner join sde.ponnot pn on pn.COD_ID = ucbt.PN_CON 
+                ) q
+                where sde.ucbt.cod_id = q.cod_id
+             '''
+    engine.execute(query_coods_ucbt_ponnot)
+    print(f'coords UCBT')
+    print(f"Processo concluído em {time.time() - proc_time_ini}")
+
+
 def ajust_eqre_codbanc(dist, engine):
     """
     Obtém os valores de CodBNC a partir da sequencia de dados da UNREMT
@@ -889,3 +957,51 @@ def circuit_by_bus(pac: str, dist):
     if ctmt.empty:
         ctmt["CTMT"] = [pac]
     return ctmt
+
+
+def ta_to_tpv(crv_g=None, crv_ta=None) -> dict:
+    """
+    Converte a curva de temperatura ambiente em curva de temperatura na superficie do painel solar
+    LASNIER, F.; ANG, T. G. Photovoltaic Engineering Handbook, New York, Adam Hilger, pp: 258, 1990.
+    𝑇𝑐 = 30.006 + 0.0175(𝐺 −300)+1.14(𝑇𝑎 −25)
+    Ta = Temperatura ambiente em oC
+    G  = Irradiância total em W/m²
+    :return: dict
+    """
+    if crv_g is None or crv_ta is None:
+        crv_g = [0, 0, 0, 0, 0, 0, 53.84, 186.42, 371.93, 491.11, 634.01, 722.82, 795.12, 736.89, 641.51, 476.68,
+                 252.55, 121.78, 32.7, 0, 0, 0, 0, 0]
+        crv_ta = [21.81, 21.48, 21.24, 20.98, 20.78, 20.62, 20.59, 21.88, 23.21, 24.36, 25.36, 26.17, 26.76, 27.2,
+                  27.61, 28.73, 27.11, 26.03, 25.25, 24.32, 23.6, 23.45, 22.82, 22.22]
+
+    # Verifica se as listas são do mesmo tamanho
+    if len(crv_g) != len(crv_ta):
+        raise ValueError("As listas de temp. ambiente e de irradiação devem ter o mesmo tamanho.")
+
+    data = {'crv_ta': crv_ta,
+            'crv_g': crv_g,
+            'crv_ta_pv': [round(30.006 + 0.0175 * (crv_g[i] - 300) + 1.14 * (crv_ta[i] - 25), 2) for i in
+                          range(len(crv_g))],
+            'crv_g_norm': [round(irrad / max(crv_g), 6) for irrad in crv_g]
+            }
+    return data
+
+
+def fator_autoconsumo(classe):
+    """
+    Fatores tipicos de autoconsumo definido pela EPE
+    :param classe:
+    :return:
+    """
+    if classe == 1:  # residencial
+        return 0.4
+    if classe == 2:  # comercial bt
+        return 0.5
+    if classe == 3:  # comercial at
+        return 0.8
+
+
+if __name__ == "__main__":
+    # ta_to_tpv()
+
+    set_coords('391')

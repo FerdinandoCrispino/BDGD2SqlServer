@@ -3,6 +3,7 @@ import os
 import matplotlib.pyplot as plt
 import matplotlib
 import numpy as np
+import pandas as pd
 import glob
 import calendar
 
@@ -81,6 +82,11 @@ class SimuladorOpendss:
                         tr_kva = f' {self.dss.transformers.kva} kVA'
                         break
 
+            max_p1 = max(self.dss.monitors.channel(1))
+            min_p1 = min(self.dss.monitors.channel(1))
+            max_index1 = pd.Series(self.dss.monitors.channel(1)).idxmax()
+            max_index2 = self.dss.monitors.channel(1).index(max(self.dss.monitors.channel(1)))
+
             xpoints = np.append(xpoints, np.arange(self.dss.monitors.sample_count))
             ypoints1 = self.dss.monitors.channel(1)
             ypoints3 = self.dss.monitors.channel(3)
@@ -119,7 +125,7 @@ class SimuladorOpendss:
                                     config_opendss['master_dist'], self.dss.circuit.name.upper())
             os.makedirs(plt_path, exist_ok=True)
             plt.savefig(f'{plt_path}\\{self.dss.circuit.name.upper()}_M{nun_monit}.png')
-
+            plt.close()
             # mng = plt.get_current_fig_manager()
             # mng.window.state("zoomed")
             # mng.frame.Maximize(True)
@@ -134,8 +140,8 @@ class SimuladorOpendss:
 if __name__ == '__main__':
 
     config_opendss = {"master_folder": os.path.expanduser('~\\dss'),
-                      "master_dist": "391\\ITQ",
-                      "master_file": "DU_1_Master_substation_391_ITQ.dss",
+                      "master_dist": "391\\TAU",
+                      "master_file": "DU_1_Master_substation_391_TAU.dss",
                       "master_type_day": "DU",
                       "master_month": "1",
                       "master_data_base": "2022"}

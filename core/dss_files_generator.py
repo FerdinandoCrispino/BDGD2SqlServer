@@ -315,11 +315,13 @@ class DssFilesGenerator:
                                                           ten_lin_sec,
                                                           pac1,
                                                           pac2) + ']' \
-                        ' conns=[' + conexoes_trafo(lig_fas_p, lig_fas_s, lig_fas_t) + ']' \
-                        ' kvs=(' + kvs_trafo(tipo_trafo, lig_fas_p, lig_fas_s, lig_fas_t, float(kv1),
-                                             float(ten_lin_sec)) + ')' \
-                        ' kvas=(' + kvas_trafo(lig_fas_s, lig_fas_t, float(kva_nom)) + ')' \
-                        ' %loadloss=' + f'{PerdaCobreTrafo_per:.6f}' + \
+                                                                  ' conns=[' + conexoes_trafo(lig_fas_p, lig_fas_s,
+                                                                                              lig_fas_t) + ']' \
+                                                                                                           ' kvs=(' + kvs_trafo(
+                    tipo_trafo, lig_fas_p, lig_fas_s, lig_fas_t, float(kv1),
+                    float(ten_lin_sec)) + ')' \
+                                          ' kvas=(' + kvas_trafo(lig_fas_s, lig_fas_t, float(kva_nom)) + ')' \
+                                                                                                         ' %loadloss=' + f'{PerdaCobreTrafo_per:.6f}' + \
                         ' %noloadloss=' + f'{PerdaFerroTrafo_per:.6f}'
 
                 linhas_trafos_dss.append(linha)
@@ -338,12 +340,15 @@ class DssFilesGenerator:
                                                           ten_lin_sec,
                                                           pac1,
                                                           pac2) + ']' \
-                        ' conns=[' + conexoes_trafo(lig_fas_p, lig_fas_s, lig_fas_t) + ']' \
-                        ' kvs=[' + kvs_trafo(tipo_trafo, lig_fas_p, lig_fas_s, lig_fas_t, float(kv1),
-                                             float(ten_lin_sec)) + ']' \
-                        ' taps=[' + tap_trafo(lig_fas_t, str(tap), codi_tipo_trafo) + ']' \
-                        ' kvas=[' + kvas_trafo(lig_fas_s, lig_fas_t, float(kva_nom)) + ']' \
-                        ' %loadloss=' + f"{PerdaCobreTrafo_per:.6f}" + \
+                                                                  ' conns=[' + conexoes_trafo(lig_fas_p, lig_fas_s,
+                                                                                              lig_fas_t) + ']' \
+                                                                                                           ' kvs=[' + kvs_trafo(
+                    tipo_trafo, lig_fas_p, lig_fas_s, lig_fas_t, float(kv1),
+                    float(ten_lin_sec)) + ']' \
+                                          ' taps=[' + tap_trafo(lig_fas_t, str(tap), codi_tipo_trafo) + ']' \
+                                                                                                        ' kvas=[' + kvas_trafo(
+                    lig_fas_s, lig_fas_t, float(kva_nom)) + ']' \
+                                                            ' %loadloss=' + f"{PerdaCobreTrafo_per:.6f}" + \
                         ' %noloadloss=' + f"{PerdaFerroTrafo_per:.6f}"
                 linhas_trafos_dss.append(linha)
 
@@ -400,6 +405,7 @@ class DssFilesGenerator:
     def get_lines_curvas_carga(self, curvas_carga, multi_ger, linhas_curvas_carga_dss) -> None:
         """
         Transforma os 96 pontos das curvas de carga em 24 pontos e normaliza pelo seu valor máximo.
+        :param multi_ger:
         :param curvas_carga: dados da BDGD
         :param linhas_curvas_carga_dss: Retorno com os dados transformados.
         :return:
@@ -437,7 +443,9 @@ class DssFilesGenerator:
             # print(linha)
             linhas_curvas_carga_dss.append(linha)
 
-            # Curva de carga do consumidor com GD
+            # Curva de carga do consumidor com GD (curva de carga sem GD zerando para os horarios de geração)
+            # Essa curva não sera utilizada no novo modelo de carga + geração independente.
+            # Assim a curva do consumidor se mantem a mesma sendo a demanda acrecida do autoconsumo
             multi_list = multi.split(",")
             for idx, item in enumerate(multi_list):
                 if 8 <= idx < 17:
@@ -539,21 +547,21 @@ class DssFilesGenerator:
                 linhas_cargas_dss.append('New "Load.MT_' + strName + '_M1" bus1="' + strBus + nos(
                     strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
                     strCodFas) + " model=2" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.5f}" +
-                    " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+                                         " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
                 linhas_cargas_dss.append('New "Load.MT_' + strName + '_M2" bus1="' + strBus + nos(
                     strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
                     strCodFas) + " model=3" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.5f}" +
-                    " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+                                         " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
             else:
                 if energy_mes == 0:
                     linhas_cargas_dss.append('!New "Load.MT_' + strName + '_M1" bus1="' + strBus + nos(
                         strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
                         strCodFas) + " model=2" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.5f}" +
-                        " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+                                             " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
                     linhas_cargas_dss.append('!New "Load.MT_' + strName + '_M2" bus1="' + strBus + nos(
                         strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
                         strCodFas) + " model=3" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.5f}" +
-                        " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+                                             " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
                 else:
                     # colocar o numero de dias de cada mes
                     num_dias = calendar.monthrange(ano_base, mes)[1]
@@ -579,21 +587,17 @@ class DssFilesGenerator:
 
         linhas_cargas_dss.clear()
 
-        # Remoção de cargas duplicados.
+        mes = mes
+        tipo_dia = tipo_dia
+        strmes = f'{mes:02}'
+
+        # Remoção de cargas duplicados. Ordernar pelo maior valor de energia e selecionar o primeirio
+        cargas.sort_values(by=f'ENE_{strmes}', ascending=False)
         cargas.drop_duplicates(subset='COD_ID', keep='first', inplace=True)
         cargas.reset_index(drop=True, inplace=True)
 
         cargas_fc['COD_ID'] = cargas_fc['COD_ID'].str.upper()
         cargas['TIP_CC'] = cargas['TIP_CC'].str.upper()
-
-        # Deve-se implementar para 12 meses e os 3 tipos de dia DO DU SA
-        mes = mes
-        tipo_dia = tipo_dia
-
-        if mes < 10:
-            strmes = '0' + str(mes)
-        else:
-            strmes = str(mes)
 
         for index in range(cargas.shape[0]):
             strName = cargas.loc[index]['COD_ID']
@@ -726,7 +730,6 @@ class DssFilesGenerator:
                 else:
                     dblTenSecu_kV = dblTen_carga
 
-
             intTipTrafo = get_tipo_trafo(codi_tipo_trafo)
 
             # num_dias = calendar.monthrange(ano_base, mes)[1]
@@ -851,7 +854,7 @@ class DssFilesGenerator:
                         strCodFas = 'AB'
                     if strCodFas == 'CN':
                         strCodFas = 'CA'
-                    dblTenSecu_kV = pip_dblTen   # possivel problema
+                    dblTenSecu_kV = pip_dblTen  # possivel problema
 
             num_dias = calendar.monthrange(ano_base, mes)[1]
 
@@ -951,6 +954,15 @@ class DssFilesGenerator:
 
             dbconn = ligacao_gerador(strCodFas, codi_tipo_trafo)  # "Wye" ou "Delta"
 
+            # considera-se que o valor obtido da BDGD se refere a potencia do inversor
+            # irrad = 0.7  # deverá ser obtido do maximo valor da curva de irradiação / 1000
+            rel_cc_ca = 1.15  # relação potência do painel pmpp e potência do inversor kva
+            pf = 1.0
+            kva = dblDemMax_kW / pf
+            pmpp = dblDemMax_kW * rel_cc_ca
+            pv_temp_data = ta_to_tpv()  # converte temperatura ambiente em temperatura do painel
+            irrad = round(max(pv_temp_data["crv_g"]) / 1000, 2)
+
             if model_pv_system == 1 and cod_gd[:2].upper() == 'GD':
                 # No início do arquivo uma unica vez para todos os PV.
                 # deverá ser substituido por dados de um banco de dados de irradiancia e temperatura
@@ -961,8 +973,7 @@ class DssFilesGenerator:
                     linha_generators_bt_dss.append(f'New XYCurve.MyEff npts=4 '
                                                    f'xarray=[0.1  0.2  0.4  1.0]  yarray=[0.86  0.9  0.93  0.97] ')
                     linha_generators_bt_dss.append(f'New Tshape.MyTemp npts=24 interval=1 '
-                                                   f'temp=[25, 25, 25, 25, 25, 25, 25, 25, 35, 40, 45, 50, '
-                                                   f'60, 60, 55, 40, 35, 30, 25, 25, 25, 25, 25, 25] \n')
+                                                   f'temp={pv_temp_data["crv_ta_pv"]} \n')
                     set_pv_system = True
 
                 linha_generators_bt_dss.append(f'{srt_comment_dss}New PVsystem.BT_{strName}_M1 '
@@ -970,10 +981,11 @@ class DssFilesGenerator:
                                                f'bus1={strBus + nos_com_neutro(strCodFas)} '
                                                f'conn={dbconn} '
                                                f'kv={kv_carga(strCodFas, dblTensao_kV, intTipTrafo)} '
-                                               f'pf=0.95 '
-                                               f'pmpp={dblDemMax_kW:.3f} '  # potencia do painel
-                                               f'kva={(dblDemMax_kW / 0.95):.3f} '  # potencia do inversor
-                                               f'irradiance=1.0 temperature=25 %cutin=0.1 %cutout=0.1 '
+                                               f'pf={pf} '
+                                               f'pmpp={pmpp:.3f} '  # potencia do painel
+                                               f'kva={kva:.3f} '  # potencia do inversor
+                                               f'%pmpp=100 '
+                                               f'irradiance={irrad} temperature=25 %cutin=0.1 %cutout=0.1 '
                                                f'effcurve=Myeff P-TCurve=MyPvsT Daily={pv_daily} TDaily=MyTemp')
             else:
                 linha_generators_bt_dss.append(srt_comment_dss + 'New Generator.BT_' + strName +
@@ -1045,14 +1057,22 @@ class DssFilesGenerator:
                 # No início do arquivo uma unica vez para todos os PV.
                 # deverá ser substituido por dados de um banco de dados de irradiancia e temperatura
                 # A curva de irradiancia normalizada é inserida no parametro Daily
+                # considera-se que o valor obtido da BDGD se refere a potência do inversor
+                # irrad = 0.7  # deverá ser obtido do máximo valor da curva de irradiação / 1000
+                rel_cc_ca = 1.15  # relação potência do painel pmpp e potência do inversor kva (1.15 residencial 1.25 para comercial)
+                pf = 1.0
+                kva = dblDemMax_kW / pf
+                pmpp = dblDemMax_kW * rel_cc_ca
+                pv_temp_data = ta_to_tpv()  # converte temperatura ambiente em temperatura do painel
+                irrad = round(max(pv_temp_data["crv_g"]) / 1000, 2)
+
                 if not set_pv_system:
                     linha_generators_mt_dss.append(f'New XYCurve.MyPvsT npts=4 '
-                                                   f'xarray=[0  25  75  100]  yarray=[1.2 1.0 0.8  0.6] ')
+                                                   f'xarray=[0  25  75  100]  yarray=[1.2 1.0 0.8 0.6] ')
                     linha_generators_mt_dss.append(f'New XYCurve.MyEff npts=4 '
                                                    f'xarray=[0.1  0.2  0.4  1.0]  yarray=[0.86  0.9  0.93  0.97] ')
                     linha_generators_mt_dss.append(f'New Tshape.MyTemp npts=24 interval=1 '
-                                                   f'temp=[25, 25, 25, 25, 25, 25, 25, 25, 35, 40, 45, 50, '
-                                                   f'60, 60, 55, 40, 35, 30, 25, 25, 25, 25, 25, 25] \n')
+                                                   f'temp={pv_temp_data["crv_ta_pv"]} \n')
                     set_pv_system = True
 
                 linha_generators_mt_dss.append(f'{srt_comment_dss}New PVsystem.MT_{strName}_M1 '
@@ -1060,10 +1080,11 @@ class DssFilesGenerator:
                                                f'bus1={strBus}{nos(strCodFas)} '
                                                f'conn={dbconn} '
                                                f'kv={str(dblTensao_kV)} '
-                                               f'pf=0.95 '
-                                               f'pmpp={dblDemMax_kW:.3f} '  # potencia do painel
-                                               f'kva={(dblDemMax_kW / 0.95):.3f} '  # potencia do inversor
-                                               f'irradiance=1.0 temperature=25 %cutin=0.1 %cutout=0.1 '
+                                               f'pf={pf} '
+                                               f'pmpp={pmpp:.3f} '  # potencia do painel
+                                               f'kva={kva:.3f} '  # potencia do inversor
+                                               f'%pmpp=100 '
+                                               f'irradiance={irrad} temperature=25 %cutin=0.1 %cutout=0.1 '
                                                f'effcurve=Myeff P-TCurve=MyPvsT Daily={pv_daily} TDaily=MyTemp')
             else:
                 linha_generators_mt_dss.append(f'{srt_comment_dss}New Generator.MT_{strName}_M1 '
@@ -1157,7 +1178,7 @@ class DssFilesGenerator:
 
             num_fases = numero_fases(strCodFas)
             if num_fases == 3:
-                vln = (kv_nom*1000) / math.sqrt(3)
+                vln = (kv_nom * 1000) / math.sqrt(3)
             else:
                 vln = kv_nom * 1000
 
