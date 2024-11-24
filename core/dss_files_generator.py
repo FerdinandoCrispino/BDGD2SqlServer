@@ -294,9 +294,12 @@ class DssFilesGenerator:
                     kv1 = 13.8
                 lig_fas_s = lig_fas_eq_s
                 if lig_fas_eq_t != '0':
-                    lig_fas_s = lig_fas_eq_s + lig_fas_eq_t
-                    lig_fas_s = lig_fas_s.replace('N', '')
-                    lig_fas_t = '0'
+                    if mrt == 1:
+                        lig_fas_t = lig_fas_eq_t
+                    else:
+                        lig_fas_s = lig_fas_eq_s + lig_fas_eq_t
+                        lig_fas_s = lig_fas_s.replace('N', '')
+                        lig_fas_t = '0'
 
             if codi_tipo_trafo == 'DF':
                 if round(kv1, 2) == 7.96:
@@ -1182,6 +1185,7 @@ class DssFilesGenerator:
             else:
                 vln = kv_nom * 1000
 
+            # A referência do controle do capacitor é a tensão de fase.
             ptratio = 60
             c_on = vln / ptratio * 0.95  # valor em volts - tensão de fase
             c_off = vln / ptratio

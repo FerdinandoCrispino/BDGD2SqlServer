@@ -41,6 +41,14 @@
             <label for="trafos">Transformers</label>
           </div>
           <div>
+            <input type="checkbox" id="unremt" name="opt[]" value="reguladores" />
+            <label for="unremt">Voltage Regulators</label>
+          </div>
+          <div>
+            <input type="checkbox" id="uncrmt" name="opt[]" value="capacitores" />
+            <label for="uncrmt">Capacitors</label>
+          </div>
+          <div>
             <input type="checkbox" id="ugmt" name="opt[]" value="UGMT" />
             <label for="ugmt">UGMT</label>
           </div>
@@ -242,7 +250,8 @@
                     map.forEachFeatureAtPixel(e.pixel, function (f) {
                         var nome_camada = f.get("tipo")
                         console.log(nome_camada)
-                        if (nome_camada !== "UNTRMT" && nome_camada !== "UCMT" && nome_camada !== "UGMT") {
+                        if (nome_camada !== "UNTRMT" && nome_camada !== "UCMT" && nome_camada !== "UGMT" &&
+                        nome_camada !== "UNREMT"&& nome_camada !== "UNCRMT") {
                             selected = f;
                             return true;
                         }
@@ -289,6 +298,130 @@
         loadSegments(distribuidora, subestacao, circuito);
     });
 
+
+    // Capacitores de Media  =========================================================================================
+    document.getElementById('uncrmt').addEventListener('click', function() {
+        if (document.getElementById('uncrmt').checked  === false) {
+            map.getLayers().forEach(function(layer, i) {
+                console.log(layer.get('name'))
+                if (i > 0 && layer.get('name') === 'UNCRMT') {
+                    map.removeLayer(layer);  // Remove camada
+                }
+            });
+            return;
+        }
+        var distribuidora = document.getElementById('distribuidora').value;
+        var subestacao = document.getElementById('subestacao').value;
+        var circuito = document.getElementById('circuito').value;
+        console.log(subestacao)
+        if (subestacao){
+            loadUNCRMT(distribuidora, subestacao, circuito);
+        }
+    });
+
+    // Função para carregar trafos no mapa com base nos filtros
+    function loadUNCRMT(distribuidora, subestacao, circuito) {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+
+        fetch(`/api/UNCRMT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloUNCRMT(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            color: '#ff8c00',
+                            crossOrigin: 'anonymous',
+                            anchor: [1.0, 1.0],
+                            scale: 0.055,
+                            src: 'static/icon/cap1_1.svg'
+                        }))
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: 'UNCRMT',
+                    source: vectorSource,
+                    style: estiloUNCRMT
+                });
+                map.addLayer(vectorLayer);
+
+                var extent = vectorSource.getExtent();
+                map.getView().fit(extent, { duration: 1000 });
+            });
+        document.body.style.cursor = 'default';  // Cursor normal
+    }
+
+    // Reguladores de Média =====================================================================================
+    document.getElementById('unremt').addEventListener('click', function() {
+        if (document.getElementById('unremt').checked  === false) {
+            map.getLayers().forEach(function(layer, i) {
+                console.log(layer.get('name'))
+                if (i > 0 && layer.get('name') === 'UNREMT') {
+                    map.removeLayer(layer);  // Remove camada
+                }
+            });
+            return;
+        }
+        var distribuidora = document.getElementById('distribuidora').value;
+        var subestacao = document.getElementById('subestacao').value;
+        var circuito = document.getElementById('circuito').value;
+        console.log(subestacao)
+        if (subestacao){
+            loadRegu(distribuidora, subestacao, circuito);
+        }
+    });
+
+    // Função para carregar trafos no mapa com base nos filtros
+    function loadRegu(distribuidora, subestacao, circuito) {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+
+        fetch(`/api/UNREMT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloUNREMT(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            color: '##ff8c00',
+                            crossOrigin: 'anonymous',
+                            anchor: [1.0, 1.0],
+                            scale: 0.11,
+                            src: 'static/icon/regu.svg'
+                        }))
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: 'UNREMT',
+                    source: vectorSource,
+                    style: estiloUNREMT
+                });
+                map.addLayer(vectorLayer);
+
+                var extent = vectorSource.getExtent();
+                map.getView().fit(extent, { duration: 1000 });
+            });
+        document.body.style.cursor = 'default';  // Cursor normal
+    }
+
+
     // UGMT  =========================================================================================
     document.getElementById('ugmt').addEventListener('click', function() {
         if (document.getElementById('ugmt').checked  === false) {
@@ -303,7 +436,9 @@
         var subestacao = document.getElementById('subestacao').value;
         var circuito = document.getElementById('circuito').value;
         console.log(subestacao)
-        loadUGMT(distribuidora, subestacao, circuito);
+        if (subestacao){
+            loadUGMT(distribuidora, subestacao, circuito);
+        }
     });
 
     // Função para carregar trafos no mapa com base nos filtros
@@ -361,7 +496,9 @@
         var subestacao = document.getElementById('subestacao').value;
         var circuito = document.getElementById('circuito').value;
         console.log(subestacao)
-        loadUCMT(distribuidora, subestacao, circuito);
+        if (subestacao) {
+            loadUCMT(distribuidora, subestacao, circuito);
+        }
     });
 
     // Função para carregar trafos no mapa com base nos filtros
@@ -419,7 +556,9 @@
         var subestacao = document.getElementById('subestacao').value;
         var circuito = document.getElementById('circuito').value;
         console.log(subestacao)
-        loadTrafos(distribuidora, subestacao, circuito);
+        if (subestacao) {
+            loadTrafos(distribuidora, subestacao, circuito);
+        }
     });
 
     // Função para carregar trafos no mapa com base nos filtros
@@ -441,10 +580,10 @@
                 function estiloTrafos(feature) {
                     return new ol.style.Style({
                         image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
-                            color: '#ff0000',
+                            //color: '#ff0000',
                             crossOrigin: 'anonymous',
                             anchor: [0.5, 1],
-                            scale: 0.02,
+                            scale: 0.03,
                             src: 'static/icon/tr.png'
                         }))
                     });

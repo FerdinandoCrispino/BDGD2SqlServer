@@ -287,6 +287,32 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/api/UNCRMT')
+def crmt():
+    distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
+    subestacao = request.args.get('subestacao', 'defaultSubestacao')
+    circuito = request.args.get('circuito', 'defaultCircuito')
+    if subestacao == '':
+        print(f"Selecione uma subestação!")
+        return None  # retornar erro!
+    point_cr = get_coords_from_db(subestacao, circuito, "UNCRMT")
+    geojson = create_geojson_from_points_ucmt(point_cr)
+    return geojson, 200, {'Content-Type': 'application/json'}
+
+
+@app.route('/api/UNREMT')
+def regu():
+    distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
+    subestacao = request.args.get('subestacao', 'defaultSubestacao')
+    circuito = request.args.get('circuito', 'defaultCircuito')
+    if subestacao == '':
+        print(f"Selecione uma subestação!")
+        return None  # retornar erro!
+    point_regu = get_coords_from_db(subestacao, circuito, "UNREMT")
+    geojson = create_geojson_from_points_ucmt(point_regu)
+    return geojson, 200, {'Content-Type': 'application/json'}
+
+
 @app.route('/api/UGMT')
 def ugmt():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
@@ -390,7 +416,8 @@ def get_table_data(sumario, id_summary):
     elif id_summary == '1':
         sumario.query_sumario_trafos_at()
         sumario.query_summary_penetration()
-        sub_at = pd.merge(sumario.summary_sub_at, sumario.summary_penetration, how='inner', on='UNI_TR_AT')
+        sub_at = pd.merge(sumario.summary_sub_at, sumario.summary_penetration, how='left', on='UNI_TR_AT')
+        sub_at = sub_at.fillna(0)
         print(sub_at)
         df_summary = sub_at
     elif id_summary == '2':

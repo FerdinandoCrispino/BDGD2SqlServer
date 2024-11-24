@@ -182,9 +182,10 @@ class Summary:
                     from sde.ugbt bt 
                     where sub = '{self.sub}' and dist = '{self.dist}' group by UNI_TR_AT
                     )
-                    select A.UNI_TR_AT, A.TOTAL_GD_MT, B.TOTAL_GD_BT 
+                    select case when A.UNI_TR_AT is null then b.UNI_TR_AT else a.UNI_TR_AT end as UNI_TR_AT, 
+                        A.TOTAL_GD_MT, B.TOTAL_GD_BT 
                     from A 
-                    inner join B on a.UNI_TR_AT = b.UNI_TR_AT
+                    full outer join B on a.UNI_TR_AT = b.UNI_TR_AT
                     ;
                 '''
         self.summary_penetration = return_query_as_dataframe(query, self.engine)
@@ -193,7 +194,7 @@ class Summary:
 if __name__ == "__main__":
     config = load_config('391')
     engine = create_connection(config)
-    sumario = Summary(engine, sub='CJO', dist='391')
+    sumario = Summary(engine, sub='DBE', dist='391')
     sumario.query_sumario_sub()
     sumario.query_sumario_trafos_at()
     sumario.query_summary_penetration()
@@ -205,7 +206,7 @@ if __name__ == "__main__":
     print(sumario.summary_sub_at)
     print("--" * 30)
     print(sumario.summary_penetration)
-    print(pd.merge(sumario.summary_sub_at, sumario.summary_penetration, how='inner', on='UNI_TR_AT'))
+    print(pd.merge(sumario.summary_sub_at, sumario.summary_penetration, how='left', on='UNI_TR_AT'))
 
     print("--" * 30)
     print(sumario.max_demand_mt())

@@ -217,12 +217,17 @@ def process_gdb_files(gdb_file, engine, schema, data_base, data_carga, column_re
                 # df = df[['OBJECTID'] + [col for col in df.columns if col != 'OBJECTID']]
 
                 list_table_coords = ['PONNOT', 'SSDBT', 'SSDMT', 'SSDAT', 'UNTRMT', 'UNTRD',
-                                     'UNTRAT', 'UNTRS', 'UNSEMT', 'UNSEAT']
+                                     'UNTRAT', 'UNTRS', 'UNSEMT', 'UNSEAT', 'UNREMT', 'UNREAT',
+                                     'UNCRMT', 'UNCRAT', 'UNCRBT', 'SUB']
                 # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4326")
                 if table_name_sql in list_table_coords:
                     if df.iloc[0]['geometry'].geom_type == 'Point':
                         df['POINT_Y'] = df['geometry'].y  # lat
                         df['POINT_X'] = df['geometry'].x  # lon
+
+                    if df.iloc[0]['geometry'].geom_type == 'MultiPolygon':
+                        df['POINT_Y'] = df.iloc[0]['geometry'].centroid.y  # lat
+                        df['POINT_X'] = df.iloc[0]['geometry'].centroid.x  # lon
 
                     if df.iloc[0]['geometry'].geom_type == 'MultiLineString':
                         bounds = df.geometry.boundary.explode(index_parts=True).unstack()

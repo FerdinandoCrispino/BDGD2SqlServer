@@ -963,9 +963,10 @@ if __name__ == "__main__":
     # list_sub = ['100']
 
     # EDP_SP = 391
-    #list_sub = ['ITQ', 'VGA', 'JNO', 'CAC', 'SAT', 'PME','CPA','ARA','CAR','BON', 'CMB', 'APA', 'ASP',
-    #            'BIR', 'SJC', 'AVP', 'FER', 'DUT', 'TAU']
-    list_sub = ['BIR']
+    #list_sub = ['ITQ', 'VGA', 'JNO', 'CAC', 'SAT', 'PME', 'CPA', 'ARA', 'CAR', 'BON', 'CMB', 'APA', 'ASP', 'BIR',
+    #            'SJC', 'AVP', 'FER', 'DUT', 'TAU', 'BCU', 'CRU', 'DBE', 'DUT', 'FER', 'GOP', 'GUE', 'GUR', 'INP',
+    #            'JAC', 'JAM', 'JAR', 'JCE', 'JUQ', 'LOR', 'MAP', 'MAS']
+    list_sub = ['MAS']  #'GUL', 'IPO (104)'      #JCE ok dentro dos limites
 
     # Cosern = 40
     # list_sub = [ 'SBN', 'STO', 'MSU', 'JCT', 'CPG', 'AAF' ]
@@ -974,15 +975,13 @@ if __name__ == "__main__":
     print(f'Ajusting CodBNC....')
     ajust_eqre_codbanc(dist, engine)
 
-    mes = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
+    mes_ini = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
-
     # controles de execução para apenas um primeiro mes e um primeiro tipo de dia da lista 'tipo_de_dias'
     control_mes = True
     control_tipo_dia = True
-
     for tipo_dia in tipo_de_dias:
-        for mes in range(1, 13):
+        for mes in range(mes_ini, 13):
             for sub in list_sub:
                 # Gera arquivo com execução do fluxo de potência para toda a subestação
                 write_sub_dss(sub, dist, mes, tipo_dia, engine, dss_files_folder)
