@@ -5,7 +5,7 @@ import geopandas as gpd
 import pandas as pd
 from colour import Color
 
-from flask import Flask, render_template, request, url_for, redirect, jsonify
+from flask import Flask, render_template, request, Response, url_for, redirect, jsonify
 from flask import flash
 
 from shapely.geometry import LineString, Point
@@ -61,6 +61,46 @@ def get_coords_from_db(sub, ctmt, table_name):
     rows["nome"] = table_name
     points = [((row["POINT_X"], row["POINT_Y"]), rows["CTMT"], rows["nome"]) for index, row in rows.iterrows()]
     return points
+
+
+def get_coords_sub_from_db(sub, ctmt):
+    if ctmt == "":
+        query = f'''Select POINT_X, POINT_Y, COD_ID, POS, NOME
+                    from sde.SUB 
+                    where COD_ID= '{sub}' 
+                ;   
+                '''
+    else:
+        query = f'''Select se.POINT_X, se.POINT_Y, se.COD_ID, se.POS, se.NOME, ct.COD_ID as CTMT
+                    from sde.SUB se
+                    inner join sde.CTMT ct on ct.SUB=se.COD_ID
+                    where se.COD_ID= '{sub}' and ct.ctmt = '{ctmt}'
+                ;   
+                '''
+    rows = return_query_as_dataframe(query, engine)
+    rows["TIPO"] = "SUB"
+    points = [((row["POINT_X"], row["POINT_Y"]), rows["COD_ID"], rows["POS"], rows["NOME"], rows["TIPO"])
+              for index, row in rows.iterrows()]
+    return points
+
+
+def create_geojson_from_points_sub(points_sub):
+    # Criar uma lista de geometria de segmentos de linha a partir dos pontos
+    # lines = [LineString([start, end]) for start, end in line_segments]
+    points = []
+    #circ = []
+
+    for pt, COD_ID, pos, nome, tipo in points_sub:
+        points.append(Point([pt]))
+        #circ.append(ctmt)
+
+    # Criar um GeoDataFrame com as geometrias e dados extras
+    gdf = gpd.GeoDataFrame({'geometry': points, 'sub': COD_ID, 'nome': nome, 'tipo': tipo}, crs="EPSG:4326")
+    # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
+
+    # Converter o GeoDataFrame para GeoJSON
+    geojson = gdf.to_json()
+    return geojson
 
 
 def get_coords_ucmt_from_db(sub, ctmt):
@@ -287,6 +327,19 @@ def index():
     return render_template('index.html')
 
 
+@app.route('/api/SUB')
+def sub():
+    distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
+    subestacao = request.args.get('subestacao', 'defaultSubestacao')
+    circuito = request.args.get('circuito', 'defaultCircuito')
+    if subestacao == '':
+        print(f"Selecione uma subestação!")
+        return None  # retornar erro!
+    point_cr = get_coords_sub_from_db(subestacao, circuito)
+    geojson = create_geojson_from_points_sub(point_cr)
+    return geojson, 200, {'Content-Type': 'application/json'}
+
+
 @app.route('/api/UNCRMT')
 def crmt():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
@@ -309,6 +362,8 @@ def regu():
         print(f"Selecione uma subestação!")
         return None  # retornar erro!
     point_regu = get_coords_from_db(subestacao, circuito, "UNREMT")
+    if not point_regu:
+        return Response(status=400)
     geojson = create_geojson_from_points_ucmt(point_regu)
     return geojson, 200, {'Content-Type': 'application/json'}
 

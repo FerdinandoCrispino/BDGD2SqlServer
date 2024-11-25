@@ -37,6 +37,10 @@
             <label for="summary">summary</label>
           </div>
           <div>
+            <input type="checkbox" id="sub" name="opt[]" value="substations" />
+            <label for="sub">Substations</label>
+          </div>
+          <div>
             <input type="checkbox" id="trafos" name="opt[]" value="tranformadores" />
             <label for="trafos">Transformers</label>
           </div>
@@ -251,14 +255,20 @@
                         var nome_camada = f.get("tipo")
                         console.log(nome_camada)
                         if (nome_camada !== "UNTRMT" && nome_camada !== "UCMT" && nome_camada !== "UGMT" &&
-                        nome_camada !== "UNREMT"&& nome_camada !== "UNCRMT") {
+                        nome_camada !== "UNREMT" && nome_camada !== "UNCRMT") {
                             selected = f;
                             return true;
                         }
                     });
                     if (selected) {
-                        var h = selected.get("bus");
-                        popup1.setInfo('Vpu '+ h +' pu' );
+                        //console.log(selected)
+                        if (selected.get("tipo") == 'SUB'){
+                            var h = selected.get("nome");
+                            popup1.setInfo('SE ' + h );
+                        } else{
+                            var h = selected.get("bus");
+                            popup1.setInfo('Vpu '+ h +' pu' );
+                        }
                     } else {
                         popup1.setInfo();
                     }
@@ -297,6 +307,69 @@
 
         loadSegments(distribuidora, subestacao, circuito);
     });
+
+    // Subestações  =========================================================================================
+    document.getElementById('sub').addEventListener('click', function() {
+        if (document.getElementById('sub').checked  === false) {
+            map.getLayers().forEach(function(layer, i) {
+                console.log(layer.get('name'))
+                if (i > 0 && layer.get('name') === 'SUB') {
+                    map.removeLayer(layer);  // Remove camada
+                }
+            });
+            return;
+        }
+        var distribuidora = document.getElementById('distribuidora').value;
+        var subestacao = document.getElementById('subestacao').value;
+        var circuito = document.getElementById('circuito').value;
+        console.log(subestacao)
+        if (subestacao){
+            loadSUB(distribuidora, subestacao, circuito);
+        }
+    });
+
+    // Função para carregar trafos no mapa com base nos filtros
+    function loadSUB(distribuidora, subestacao, circuito) {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+
+        fetch(`/api/SUB?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloSUB(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            color: '#ff8c00',
+                            crossOrigin: 'anonymous',
+                            anchor: [1.0, 1.0],
+                            anchorXUnits: 'fraction',
+                            anchorYUnits: 'pixels',
+                            scale: 0.07,
+                            src: 'static/icon/sub_1.png'
+                        }))
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: 'SUB',
+                    source: vectorSource,
+                    style: estiloSUB
+                });
+                map.addLayer(vectorLayer);
+
+                var extent = vectorSource.getExtent();
+                map.getView().fit(extent, {size:map.getSize(), maxZoom:16, duration: 1000 });
+            });
+        document.body.style.cursor = 'default';  // Cursor normal
+    }
 
 
     // Capacitores de Media  =========================================================================================
@@ -416,7 +489,10 @@
                 map.addLayer(vectorLayer);
 
                 var extent = vectorSource.getExtent();
-                map.getView().fit(extent, { duration: 1000 });
+                map.getView().fit(extent, {size:map.getSize(), maxZoom:16, duration: 1000 });
+            })
+            .catch(error => {
+              console.log('Error:', error);
             });
         document.body.style.cursor = 'default';  // Cursor normal
     }

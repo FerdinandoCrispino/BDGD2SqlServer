@@ -226,8 +226,8 @@ def process_gdb_files(gdb_file, engine, schema, data_base, data_carga, column_re
                         df['POINT_X'] = df['geometry'].x  # lon
 
                     if df.iloc[0]['geometry'].geom_type == 'MultiPolygon':
-                        df['POINT_Y'] = df.iloc[0]['geometry'].centroid.y  # lat
-                        df['POINT_X'] = df.iloc[0]['geometry'].centroid.x  # lon
+                        df['POINT_Y'] = df['geometry'].centroid.y  # lat
+                        df['POINT_X'] = df['geometry'].centroid.x  # lon
 
                     if df.iloc[0]['geometry'].geom_type == 'MultiLineString':
                         bounds = df.geometry.boundary.explode(index_parts=True).unstack()
