@@ -6,27 +6,27 @@
 
 <div style="display: flex;">
     <!-- Menu lateral -->
-    <div id="sidebar" style="width: 300px; padding: 8px; font-size:12px;">
+    <div id="sidebar" style="width: 250px; padding: 8px; font-size:12px;">
 
-        <label for="distribuidora">Distribuidora:</label>
+        <label for="distribuidora">Utility:</label>
         <select id="distribuidora" name="distribuidora" style="float:right;width:100px">
-            <option value="">Selecione</option>
+            <option value="">Select</option>
             <option value="391">EDP-SP</option>
             <option value="404">Energisa MS</option>
             <option value="40">COSERN</option>
         </select><br>
 
-        <label for="subestacao">Subestação:</label>
+        <label for="subestacao">Substation:</label>
         <select id="subestacao" name="subestacao" style="float:right;width:100px">
-            <option value="">Selecione</option>
+            <option value="">Select</option>
         </select><br>
 
-        <label for="circuito">Circuito:</label>
+        <label for="circuito">Circuit:</label>
         <select id="circuito" name="circuito" style="float:right;width:100px">
-            <option value="">Selecione</option>
+            <option value="">Select</option>
         </select>
         <hr>
-        <label for="scenarios">Cenários:</label>
+        <label for="scenarios">Scenarios:</label>
         <select id="scenarios" name="scenarios" style="float:right;width:100px">
             <option value="">Base Case</option>
         </select><br>
@@ -34,7 +34,7 @@
         <fieldset>
           <div>
             <input type="checkbox" id="summary" name="opt[]" value="summary" />
-            <label for="summary">summary</label>
+            <label for="summary">Summary</label>
           </div>
           <div>
             <input type="checkbox" id="sub" name="opt[]" value="substations" />
@@ -46,7 +46,7 @@
           </div>
           <div>
             <input type="checkbox" id="unremt" name="opt[]" value="reguladores" />
-            <label for="unremt">Voltage Regulators</label>
+            <label for="unremt">Regulators</label>
           </div>
           <div>
             <input type="checkbox" id="uncrmt" name="opt[]" value="capacitores" />
@@ -69,8 +69,9 @@
             <label for="ucbt">UCBT</label>
           </div>
         </fieldset>
-
-        <button id="applyFilters">Aplicar Filtros</button>
+        <div style="position:relative">
+            <button id="applyFilters" style="width:50px;position:absolute;left:50%;margin-left:-25px;">Apply</button>
+        </div>
 
 
     </div>
@@ -170,7 +171,7 @@
             .then(response => response.json())
             .then(subestacoes => {
                 var subestacaoSelect = document.getElementById('subestacao');
-                subestacaoSelect.innerHTML = '<option value="">Selecione</option>';
+                subestacaoSelect.innerHTML = '<option value="">Select</option>';
                 subestacoes.forEach(function(subestacao) {
                     subestacaoSelect.innerHTML += `<option value="${subestacao}">${subestacao}</option>`;
                 });
@@ -185,7 +186,7 @@
             .then(response => response.json())
             .then(circuitos => {
                 var circuitoSelect = document.getElementById('circuito');
-                circuitoSelect.innerHTML = '<option value="">Selecione</option>';
+                circuitoSelect.innerHTML = '<option value="">Select</option>';
                 circuitos.forEach(function(circuito) {
                     circuitoSelect.innerHTML += `<option value="${circuito[1]}">${circuito[0]}</option>`;
                 });
@@ -261,13 +262,15 @@
                         }
                     });
                     if (selected) {
-                        //console.log(selected)
+                        console.log(selected)
                         if (selected.get("tipo") == 'SUB'){
                             var h = selected.get("nome");
                             popup1.setInfo('SE ' + h );
                         } else{
-                            var h = selected.get("bus");
-                            popup1.setInfo('Vpu '+ h +' pu' );
+                            var h1 = selected.get("bus1");
+                            var h2 = selected.get("bus2");
+                            var h3 = selected.get("bus3");
+                            popup1.setInfo('Vab '+ h1 +' pu <br> Vbc ' + h2 + ' pu <br> Vca ' + h3+' pu' );
                         }
                     } else {
                         popup1.setInfo();
@@ -414,7 +417,7 @@
                             color: '#ff8c00',
                             crossOrigin: 'anonymous',
                             anchor: [1.0, 1.0],
-                            scale: 0.055,
+                            scale: 0.04,
                             src: 'static/icon/cap1_1.svg'
                         }))
                     });

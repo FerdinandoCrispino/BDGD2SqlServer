@@ -295,24 +295,33 @@ def create_geojson_from_segments(line_segments, json_data):
     # lines = [LineString([start, end]) for start, end in line_segments]
     lines = []
     cores = []
-    bus = []
+    bus1 = []
+    bus2 = []
+    bus3 = []
     circ = []
     for start, end, pac, ctmt, cor, nome in line_segments:
         lines.append(LineString([start, end]))
         if json_data is not None:
-            voltage_bus = json_data.get(f"{pac}.1".lower())  # para testes - somente node=1
+            voltage_bus1 = json_data.get(f"{pac}.1".lower())  # para testes - somente node=1
+            voltage_bus2 = json_data.get(f"{pac}.2".lower())
+            voltage_bus3 = json_data.get(f"{pac}.3".lower())
         else:
-            voltage_bus = ''
+            voltage_bus1 = ''
+            voltage_bus2 = ''
+            voltage_bus3 = ''
         # color_intensity = (voltage_bus - voltage_min) / (voltage_max - voltage_min)
         # cores.append(str(Color(cor, luminance=f'{color_intensity}', equality=RGB_equivalence)))
-        if voltage_bus != '' and voltage_bus is not None:
-            if float(voltage_bus) > 1.05 or float(voltage_bus) < 0.95:
+        if voltage_bus1 != '' and voltage_bus1 is not None:
+            if float(voltage_bus1) > 1.05 or float(voltage_bus1) < 0.95:
                 cor = 'red'
         cores.append(cor)
-        bus.append(voltage_bus)
+        bus1.append(voltage_bus1)
+        bus2.append(voltage_bus2)
+        bus3.append(voltage_bus3)
         circ.append(ctmt)
     # Criar um GeoDataFrame com as geometrias e dados extras
-    gdf = gpd.GeoDataFrame({'geometry': lines, 'color': cores, 'ctmt': ctmt, 'bus': bus, 'tipo': nome}, crs="EPSG:4326")
+    gdf = gpd.GeoDataFrame({'geometry': lines, 'color': cores, 'ctmt': ctmt, 'bus1': bus1, 'bus2': bus2, 'bus3': bus3,
+                            'tipo': nome}, crs="EPSG:4326")
     # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
 
     # Converter o GeoDataFrame para GeoJSON
