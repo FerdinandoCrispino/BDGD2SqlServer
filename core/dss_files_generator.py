@@ -387,6 +387,9 @@ class DssFilesGenerator:
                     fc = cargas_fc.loc[(cargas_fc['COD_ID'] == cargas.loc[index]['TIP_CC']) &
                                        (cargas_fc['TIP_DIA'] == tipo_dia)]
                     dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc.iloc[0]['FC']
+                    #* testar: trafo_kw = float(trafo_kw)
+                    if trafo_kw == None:
+                        trafo_kw = 0
 
                     trafo_kva = float(trafo_kva)
                     if dblDemMax_kW > trafo_kva > 0:
