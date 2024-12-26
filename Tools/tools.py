@@ -971,6 +971,12 @@ def ta_to_tpv(crv_g=None, crv_ta=None) -> dict:
     𝑇𝑐 = 30.006 + 0.0175(𝐺 −300)+1.14(𝑇𝑎 −25)
     Ta = Temperatura ambiente em oC
     G  = Irradiância total em W/m²
+
+    Schott, T., 1985. Operation temperatures of PV 78: 163-176.
+    modules. Proceedings of the sixth E.C. photovoltaic 24. Mondol, J.D., Y.G. Yohanis and B. Norton, 2007a.
+    solar energy conference, London, UK, pp: 392-396.
+    Tc = Ta + (0.028 × G) – 1
+
     :return: dict
     """
     if crv_g is None or crv_ta is None:
@@ -985,8 +991,9 @@ def ta_to_tpv(crv_g=None, crv_ta=None) -> dict:
 
     data = {'crv_ta': crv_ta,
             'crv_g': crv_g,
-            'crv_ta_pv': [round(30.006 + 0.0175 * (crv_g[i] - 300) + 1.14 * (crv_ta[i] - 25), 2) for i in
-                          range(len(crv_g))],
+            'crv_t_pv_1': [round(30.006 + 0.0175 * (crv_g[i] - 300) + 1.14 * (crv_ta[i] - 25), 2)
+                           for i in range(len(crv_g))],
+            'crv_t_pv_2': [round(crv_ta[i] + (0.028 * crv_g[i]) - 1, 2) for i in range(len(crv_g))],
             'crv_g_norm': [round(irrad / max(crv_g), 6) for irrad in crv_g]
             }
     return data
@@ -1007,6 +1014,8 @@ def fator_autoconsumo(classe):
 
 
 if __name__ == "__main__":
-    # ta_to_tpv()
+    test = ta_to_tpv()  # teste temperatura ambiente para temperatura do pv.
+    print(test['crv_t_pv_1'])
+    print(test['crv_t_pv_2'])
 
-    set_coords('391')
+    set_coords('404')

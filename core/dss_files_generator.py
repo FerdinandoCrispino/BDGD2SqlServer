@@ -3,6 +3,7 @@ import math
 
 import numpy as np
 from Tools.tools import *
+import connected_segments as cs
 import calendar
 
 """
@@ -180,7 +181,7 @@ class DssFilesGenerator:
             strNome = reatores.loc[index]['COD_ID']
             strBus1 = reatores.loc[index]['PAC_1']
             strBus2 = reatores.loc[index]['PAC_2']
-            intTipRegul = reatores.loc[index]['TIP_REGU']
+            strTipRegul = reatores.loc[index]['TIP_REGU']
             intBanc = reatores.loc[index]['BANC']
             intCodBnc = reatores.loc[index]['CODBNC']
             strCodFasPrim = reatores.loc[index]['LIG_FAS_P']
@@ -192,7 +193,13 @@ class DssFilesGenerator:
             dblPerdVz_per = reatores.loc[index]['PER_FER']
             dblPerdTtl_per = reatores.loc[index]['PER_TOT']
 
+            # obtido da relação do tp -> será sempre tensão de fase
             dblkvREG = round(tens_regulador(dblTensaoPrimTrafo_kV), 4)
+
+            if strTipRegul in ('DF', 'DA'):
+                dblkvREG = vll = round(tens_regulador(dblTensaoPrimTrafo_kV) * np.sqrt(3), 4)  # 'tensão de linha'
+            else:
+                vln = round(tens_regulador(dblTensaoPrimTrafo_kV), 4)  # 'tensão de fase'
 
             PerdaFerroTrafo_per = (dblPerdVz_per / (float(PotNom_kVA) * 1000)) * 100
             PerdaCobreTrafo_per = ((dblPerdTtl_per - dblPerdVz_per) / (float(PotNom_kVA) * 1000)) * 100
@@ -699,11 +706,6 @@ class DssFilesGenerator:
             dblDemMaxTrafo_kW = cargas_bt.loc[index]['POT_NOM'] * 0.92  # kVA
             ano_base = cargas_bt.loc[index]['ANO_BASE']
 
-            # comparação entre a fase de conecção do medidor e da carga,
-            # sera adotado o valor declarado no medidor de energia
-            if strCodFas != strCodFas_medidor and strCodFas_medidor is not None:
-                strCodFas = strCodFas_medidor
-
             ceg_gd = ''
             # Caso a carga possua geração alterar a curva típica para a curva com final _GD ?
             # if cargas_bt.loc[index]['CEG_GD'].strip() != '':
@@ -725,6 +727,14 @@ class DssFilesGenerator:
                     strCodFas == 'AB' or strCodFas == 'BC' or strCodFas == 'CA' or
                     strCodFas == 'ABC'):
                 strCodFas += 'N'
+
+            # comparação entre a fase de conecção do medidor e da carga, (melhora o desequilibrio)
+            # check_meter_phases = True, será adotado as fases declaradas no medidor de energia
+            check_meter_phases = True
+            if check_meter_phases:
+                if strCodFas != strCodFas_medidor and strCodFas_medidor is not None:
+                    if len(strCodFas) == len(strCodFas_medidor):  # mesmo numero de fases
+                        strCodFas = strCodFas_medidor
 
             # casos onde a tensão do secundario vem zerada, então utilizar a tensão da carga
             if dblTenSecu_kV == 0:
@@ -963,7 +973,7 @@ class DssFilesGenerator:
             pf = 1.0
             kva = dblDemMax_kW / pf
             pmpp = dblDemMax_kW * rel_cc_ca
-            pv_temp_data = ta_to_tpv()  # converte temperatura ambiente em temperatura do painel
+            pv_temp_data = ta_to_tpv()  # converte temperatura ambiente em temperatura do painel solar
             irrad = round(max(pv_temp_data["crv_g"]) / 1000, 2)
 
             if model_pv_system == 1 and cod_gd[:2].upper() == 'GD':
@@ -976,7 +986,7 @@ class DssFilesGenerator:
                     linha_generators_bt_dss.append(f'New XYCurve.MyEff npts=4 '
                                                    f'xarray=[0.1  0.2  0.4  1.0]  yarray=[0.86  0.9  0.93  0.97] ')
                     linha_generators_bt_dss.append(f'New Tshape.MyTemp npts=24 interval=1 '
-                                                   f'temp={pv_temp_data["crv_ta_pv"]} \n')
+                                                   f'temp={pv_temp_data["crv_t_pv_2"]} \n')
                     set_pv_system = True
 
                 linha_generators_bt_dss.append(f'{srt_comment_dss}New PVsystem.BT_{strName}_M1 '
@@ -1066,7 +1076,7 @@ class DssFilesGenerator:
                 pf = 1.0
                 kva = dblDemMax_kW / pf
                 pmpp = dblDemMax_kW * rel_cc_ca
-                pv_temp_data = ta_to_tpv()  # converte temperatura ambiente em temperatura do painel
+                pv_temp_data = ta_to_tpv()  # converte temperatura ambiente em temperatura do painel solar
                 irrad = round(max(pv_temp_data["crv_g"]) / 1000, 2)
 
                 if not set_pv_system:
@@ -1075,7 +1085,7 @@ class DssFilesGenerator:
                     linha_generators_mt_dss.append(f'New XYCurve.MyEff npts=4 '
                                                    f'xarray=[0.1  0.2  0.4  1.0]  yarray=[0.86  0.9  0.93  0.97] ')
                     linha_generators_mt_dss.append(f'New Tshape.MyTemp npts=24 interval=1 '
-                                                   f'temp={pv_temp_data["crv_ta_pv"]} \n')
+                                                   f'temp={pv_temp_data["crv_t_pv_2"]} \n')
                     set_pv_system = True
 
                 linha_generators_mt_dss.append(f'{srt_comment_dss}New PVsystem.MT_{strName}_M1 '
@@ -1159,7 +1169,7 @@ class DssFilesGenerator:
                 str(dblTensao_kV) + ' model=3 kw=' + f'{dblDemMax_kW:.4f}' + ' pf=0.92 daily="' +
                 dbdaily + '" status=variable vmaxpu=1.5 vminpu=0.93')
 
-    def get_line_capacitor(self, capacitores, linha_capacitores_dss):
+    def get_line_capacitor(self, capacitores, trafos_mt_mt, trafos_mt_mt_seg, linha_capacitores_dss):
         """
         Montagem do arquivo DSS para capacitores de média tensão.
         :param capacitores:
@@ -1178,17 +1188,30 @@ class DssFilesGenerator:
             dbl_pot = capacitores.loc[index]['POT']
             line_cod = capacitores.loc[index]['LINE_COD']
             kv_nom = capacitores.loc[index]['TEN'] / 1000
+            ctmt = capacitores.loc[index]['CTMT']
+
+            # A tensão do capacitor pode não ser a tensão do circuito (kv_nom) quando existir um
+            # transformador MT-MT no circito. Neste caso deve-se verificar se o capacitor está
+            # instalado a jusante ou a montante do transformador MT-MT.
+            if trafos_mt_mt_seg:
+                find_cap = list(filter(lambda x: str_pac in x, trafos_mt_mt_seg))
+                if not find_cap:
+                    # tensão do capacitor é o do secundario do trafo MTMT
+                    tr_mt_mt = trafos_mt_mt.loc[trafos_mt_mt['ctmt'] == ctmt]
+                    kv_nom = tr_mt_mt['TEN_SEC'].values[0]/1000
+
 
             num_fases = numero_fases(strCodFas)
-            if num_fases == 3:
-                vln = (kv_nom * 1000) / math.sqrt(3)
-            else:
-                vln = kv_nom * 1000
 
-            # A referência do controle do capacitor é a tensão de fase.
+            # A referência do controle do capacitor é tensão de fase para capacitor em wye e tensão de linha para conn delta.
+            if ligacao_trafo(strCodFas) == "Delta":
+                v_ref = kv_nom * 1000
+            else:
+                v_ref = (kv_nom * 1000) / math.sqrt(3)
+
             ptratio = 60
-            c_on = vln / ptratio * 0.95  # valor em volts - tensão de fase
-            c_off = vln / ptratio
+            c_on = round((v_ref / ptratio * 0.95), 4)  # valor em volts - tensão de fase
+            c_off = round((v_ref / ptratio), 4)
 
             linha_capacitores_dss.append(
                 f'New "Capacitor.CAP_{str_name}" bus1="{str_pac}{nos(strCodFas)}" kvar={dbl_pot} kv={kv_nom} '
