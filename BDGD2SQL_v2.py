@@ -3,7 +3,7 @@ from datetime import datetime
 import time
 import os
 import logging
-from Tools.tools import load_config, create_connection, process_gdb_files
+from Tools.tools import load_config, create_connection, process_gdb_files, set_coords
 
 # Configuração do logger
 logging.basicConfig(filename='processamento_dados.log', level=logging.INFO,
@@ -38,3 +38,8 @@ if __name__ == "__main__":
     engine.dispose() # type: ignore
     logging.info(f"Processo concluído em {time.time() - proc_time_ini} ")
     print(f"Processo concluído em {time.time() - proc_time_ini}")
+
+    # preenche as coordenadas para UGMT, UCMT, UGBT, UCBT
+    print(f"Preenchendo coordenadas para UGMT, UCMT, UGBT, UCBT")
+    set_coords(config_bdgd['dist'])
+    print(f"Processo concluído!")

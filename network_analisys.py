@@ -2,7 +2,7 @@
 
 import pandas as pd
 import connected_segments as cs
-from Tools.tools import create_connection
+from Tools.tools import create_connection, load_config
 
 """
 # @Date    : 20/062024
@@ -28,15 +28,15 @@ def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
             sql = f"SELECT PAC_1, PAC_2, PN_CON_1, PN_CON_2, ctmt FROM SDE.SSDMT Where sub='{sub}' and PAC_1='{pac_ini}'"
             ssdmt_ini = pd.read_sql_query(sql, conn)
 
-            if len(ssdmt_ini) == 1:
-                if type_connected.upper() == 'PN_CON':
-                    pn_ini = ssdmt_ini.iloc[0, 2]
-                    start = 'PN_CON_1'
-                    end = 'PN_CON_2'
-                else:
-                    pn_ini = ssdmt_ini.iloc[0, 0]
-                    start = 'PAC_1'
-                    end = 'PAC_2'
+            # if len(ssdmt_ini) == 1:
+            if type_connected.upper() == 'PN_CON':
+                pn_ini = ssdmt_ini.iloc[0, 2]
+                start = 'PN_CON_1'
+                end = 'PN_CON_2'
+            else:
+                pn_ini = ssdmt_ini.iloc[0, 0]
+                start = 'PAC_1'
+                end = 'PAC_2'
 
             # Trechos MT
             sql = f"SELECT PAC_1, PAC_2, PN_CON_1, PN_CON_2, COD_ID, ctmt FROM SDE.SSDMT Where ctmt='{ctmt}' "
@@ -71,11 +71,13 @@ def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
 
 
 if __name__ == "__main__":
+
+    config = load_config('391')
     # Conectando ao banco de dados sqlserver using sqlalchemy
     try:
-        engine = create_connection()
+        engine = create_connection(config)
     except Exception as e:
         print(f"Erro ao conectar ao banco de dados: {e}")
         exit(1)
 
-    check_connect_ssdmt(engine, 'JNO', 'PAC')  # PAC or PN_CON
+    check_connect_ssdmt(engine, 'CSO', 'PAC')  # PAC or PN_CON

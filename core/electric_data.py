@@ -2,7 +2,8 @@ import time
 from Tools.tools import return_query_as_dataframe, write_to_dss, ajust_eqre_codbanc, \
     create_connection, load_config
 import dss_files_generator as dss_g
-
+import pandas as pd
+import connected_segments as cs
 
 """
 # @Date    : 20/06/2024
@@ -32,6 +33,8 @@ class ElectricDataPort:
         self.reatores = []
         self.trafos = []
         self.trafos_at = []
+        self.trafo_mtmt_connected_segments = []
+        self.trafo_mtmt = []
         self.trechos_mt = []
         self.cargas_mt = []
         self.cargas_mt_ssdmt = []
@@ -45,6 +48,65 @@ class ElectricDataPort:
         self.monitors = []
         self.voltage_tr_sec = []
         self.propor = 0
+
+    def query_trafo_mt_mt(self, engine, ctmt=None):
+        """
+        Verifica se existe transformador MT-MT no circuito e retorna os valores desse.
+        Tip_unid = 54 -> transformador MT MT
+        :return:
+        """
+        if ctmt is None:
+            query = f'''         
+                    SELECT t.sub, t.ctmt, t.cod_id, t.PAC_1, t.PAC_2, v1.TEN as TEN_PRI, v2.TEN as TEN_SEC
+                    FROM sde.untrmt t
+                        inner join  sde.eqtrmt e on t.cod_id = e.UNI_TR_MT  
+                        INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN v1 on v1.COD_ID = e.TEN_PRI
+                        INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN v2 on v2.COD_ID = e.TEN_SEC
+                    WHERE t.dist = '{self.dist}' and t.sub = '{self.sub}' and t.TIP_UNID = 54       
+                 ;
+            '''
+        else:
+            query = f'''         
+                    SELECT t.sub, t.ctmt, t.cod_id, t.PAC_1, t.PAC_2, v1.TEN as TEN_PRI, v2.TEN as TEN_SEC
+                     FROM sde.untrmt t
+                        inner join  sde.eqtrmt e on t.cod_id = e.UNI_TR_MT  
+                        INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN v1 on v1.COD_ID = e.TEN_PRI
+                        INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN v2 on v2.COD_ID = e.TEN_SEC
+                    WHERE t.dist =' {self.dist}' and t.sub = '{self.sub}' and t.CTMT='{ctmt}' and t.TIP_UNID = 54       
+                 ;
+            '''
+        self.trafo_mtmt = return_query_as_dataframe(query, engine)
+
+    def trafo_mtmt_find_capacitor(self, engine, ctmt):
+
+        # leitura de trafos mt-mt.
+        trafos_mt_mt = self.trafo_mtmt
+        connected_segments = []
+        if not trafos_mt_mt.empty:
+            tr_mt_mt = trafos_mt_mt.loc[trafos_mt_mt['ctmt'] == ctmt]
+            pn_ini = trafos_mt_mt['PAC_2'][0]
+
+            # Trechos MT
+            sql = f"SELECT PAC_1, PAC_2, COD_ID, ctmt FROM SDE.SSDMT Where ctmt='{ctmt}' "
+            ssdmt_pacs = pd.read_sql_query(sql, engine)
+
+            # Chaves MT
+            sql = f"SELECT PAC_1, PAC_2, COD_ID, ctmt FROM SDE.UNSEMT Where ctmt='{ctmt}' and P_N_OPE='F' "
+            unsemt_pacs = pd.read_sql_query(sql, engine)
+
+            # Transformadores MT
+            sql = f"SELECT PAC_1, PAC_2, COD_ID, ctmt FROM SDE.UNTRMT Where ctmt='{ctmt}' and SIT_ATIV='AT' "
+            untrmt_pacs = pd.read_sql_query(sql, engine)
+
+            print(f"Total Trechos: {len(ssdmt_pacs)}, Chaves: {len(unsemt_pacs)}, Trafos: {len(untrmt_pacs)}")
+
+            total_seg = pd.concat([ssdmt_pacs, unsemt_pacs, untrmt_pacs], sort=False)
+            # Construir o grafo
+            graph = cs.build_graph(total_seg, 'PAC_1', 'PAC_2')
+            # Encontrar e ordenar segmentos conectados usando DFS
+            connected_segments = cs.dfs(graph, pn_ini)
+
+        self.trafo_mtmt_connected_segments = connected_segments
 
     def query_circuitos(self, engine) -> bool:
         """
@@ -81,7 +143,10 @@ class ElectricDataPort:
               ;
         '''
         self.trafos_at = return_query_as_dataframe(query, engine)
-        return True
+        if self.trafos_at.empty:
+            return False
+        else:
+            return True
 
     def query_reatores_mt(self, ctmt, engine) -> bool:
         """
@@ -647,7 +712,7 @@ class ElectricDataPort:
 
     def query_capacitor(self, ctmt, engine):
         query = f'''                       
-                SELECT A.COD_ID, A.POT_NOM, A.PAC_1, A.FAS_CON, B.POT, S.COD_ID as LINE_COD, V.TEN
+                SELECT A.CTMT, A.COD_ID, A.POT_NOM, A.PAC_1, A.FAS_CON, B.POT, S.COD_ID as LINE_COD, V.TEN
                 FROM SDE.UNCRMT A 
                 INNER JOIN sde.ctmt C
                     on A.CTMT = C.COD_ID 
@@ -705,7 +770,7 @@ class ElectricDataPort:
 
     def voltage_bases(self, circ, df_voltage) -> list:
         # Valor da tensão do circuito para os casos de circuitos sem transformadores
-        voltagebases = [self.circuitos.loc[self.circuitos.index[0], ["TEN"]][0]/1000]
+        voltagebases = [self.circuitos.loc[self.circuitos.index[0], ["TEN"]][0] / 1000]
 
         vbase = df_voltage[['TEN_PRI', 'TEN_SEC', 'TEN_TER']].copy()
 
@@ -766,11 +831,14 @@ def write_sub_dss(cod_sub, cod_dist, mes, tipo_dia, engine, dss_files_folder):
         exit()
 
     # Leitura de dados de Trasformadores AT
-    bdgd_read.query_trafos_at(engine)
-    bdgd_read.query_voltagebases_trafos_mt(engine)
-    dss_adapter.get_lines_substation(bdgd_read.trafos_at, bdgd_read.circuitos, linhas_substation_dss,
-                                     mes, tipo_dia, bdgd_read.voltage_tr_sec)
-    write_to_dss(dist, sub, '', linhas_substation_dss, nome_arquivo_sub, dss_files_folder)
+    trafo_at_ok = bdgd_read.query_trafos_at(engine)
+    if trafo_at_ok:
+        bdgd_read.query_voltagebases_trafos_mt(engine)
+        dss_adapter.get_lines_substation(bdgd_read.trafos_at, bdgd_read.circuitos, linhas_substation_dss,
+                                         mes, tipo_dia, bdgd_read.voltage_tr_sec)
+        write_to_dss(dist, sub, '', linhas_substation_dss, nome_arquivo_sub, dss_files_folder)
+    else:
+        print(f'Sem informações de Transformadores de Alta tensão para a SE: {sub}')
 
 
 def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, engine, model_type=1):
@@ -791,7 +859,7 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
     ano = ano
     tipo_modelo = model_type
 
-    print(f"Tratamento para empresa: {dist} subestação: {sub}, mes: {mes} e tipo dia: {tipo_dia}")
+    print(f"Tratamento para empresa: {dist}, subestação: {sub}, mes: {mes} e tipo dia: {tipo_dia}")
     nome_arquivo_crv = f'{tipo_dia}_{mes}_CurvaCarga_{dist}_{sub}'
     nome_arquivo_sup = f'{tipo_dia}_{mes}_Circuito_{dist}_{sub}'
     nome_arquivo_cnd = f'{tipo_dia}_{mes}_CodCondutores_{dist}_{sub}'
@@ -919,7 +987,10 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
 
         # Grava arquivo DSS para capacitors
         bdgd_read.query_capacitor(cod_circuito, engine=engine)
-        dss_adapter.get_line_capacitor(bdgd_read.capacitors, linhas_capacitors_dss)
+        bdgd_read.query_trafo_mt_mt(engine, cod_circuito)
+        bdgd_read.trafo_mtmt_find_capacitor(engine, cod_circuito)
+        dss_adapter.get_line_capacitor(bdgd_read.capacitors, bdgd_read.trafo_mtmt,
+                                       bdgd_read.trafo_mtmt_connected_segments, linhas_capacitors_dss)
         write_to_dss(dist, sub, cod_circuito, linhas_capacitors_dss, nome_arquivo_capacitors, dss_files_folder)
 
         # Grava arquivo DSS para cargas BT
@@ -936,12 +1007,14 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
         bdgd_read.query_generators_mt_ssdmt(cod_circuito, engine=engine)
         dss_adapter.get_lines_generators_mt_ssdmt(bdgd_read.gerador_mt_ssdmt, multi_ger, linhas_generators_mt_dss,
                                                   mes, tipo_modelo)
-        write_to_dss(dist, sub, cod_circuito, linhas_generators_mt_dss, nome_arquivo_generators_mt_dss, dss_files_folder)
+        write_to_dss(dist, sub, cod_circuito, linhas_generators_mt_dss, nome_arquivo_generators_mt_dss,
+                     dss_files_folder)
 
         # Grava arquivo DSS para o Gerador BT
         bdgd_read.query_generators_bt(cod_circuito, engine=engine)
         dss_adapter.get_lines_generators_bt(bdgd_read.gerador_bt, multi_ger, linhas_generators_bt_dss, mes, tipo_modelo)
-        write_to_dss(dist, sub, cod_circuito, linhas_generators_bt_dss, nome_arquivo_generators_bt_dss, dss_files_folder)
+        write_to_dss(dist, sub, cod_circuito, linhas_generators_bt_dss, nome_arquivo_generators_bt_dss,
+                     dss_files_folder)
 
         # Grava arquivo DSS para o master
         voltagebases = bdgd_read.voltage_bases(cod_circuito, bdgd_read.trafos)
@@ -963,14 +1036,17 @@ if __name__ == "__main__":
     # list_sub = ['100']
 
     # EDP_SP = 391
-    #list_sub = ['ITQ', 'VGA', 'JNO', 'CAC', 'SAT', 'PME', 'CPA', 'ARA', 'CAR', 'BON', 'CMB', 'APA', 'ASP', 'BIR',
-    #            'SJC', 'AVP', 'FER', 'DUT', 'TAU', 'BCU', 'CRU', 'DBE', 'DUT', 'FER', 'GOP', 'GUE', 'GUR', 'INP',
-    #            'JAC', 'JAM', 'JAR', 'JCE', 'JUQ', 'LOR', 'MAP', 'MAS']
-    list_sub = ['MAS']  #'GUL', 'IPO (104)'      #JCE ok dentro dos limites
+    list_sub = ['ITQ', 'VGA', 'JNO', 'CAC', 'SAT', 'PME', 'CPA', 'ARA', 'CAR', 'BON', 'CMB', 'APA', 'ASP', 'BIR', 'SJC',
+                'AVP', 'FER', 'DUT', 'TAU', 'BCU', 'CRU', 'DBE', 'DUT', 'FER', 'GOP', 'GUE', 'GUR', 'INP', 'JAC', 'JAM',
+                'JAR', 'JCE', 'JUQ', 'LOR', 'MAP', 'MAS', 'MCI', 'MRE', 'MTQ', 'OLR', 'PED', 'PID', 'PIL', 'PNO', 'POA',
+                'PRT', 'PTE', 'ROS', 'SBR', 'SKO', 'SLU', 'SSC', 'SUZ', 'UNA', 'URB', 'VHE', 'VJS']
+    list_sub = ['ITQ']
+    # 'UBA' sem circuitos e transformadores
+    # 'GUL', 'IPO (104)'  CSO e USS Trafos 34,5 kv  SSC Sem info de TRAFO_AT  #JCE, PED ok dentro dos limites
 
     # Cosern = 40
     # list_sub = [ 'SBN', 'STO', 'MSU', 'JCT', 'CPG', 'AAF' ]
-    #list_sub = ['NCR']
+    # list_sub = ['MSU']
 
     print(f'Ajusting CodBNC....')
     ajust_eqre_codbanc(dist, engine)
@@ -986,7 +1062,8 @@ if __name__ == "__main__":
                 # Gera arquivo com execução do fluxo de potência para toda a subestação
                 write_sub_dss(sub, dist, mes, tipo_dia, engine, dss_files_folder)
                 # Gera arquivos do openDSS para cada circuito de uma subestação
-                write_files_dss(sub, dist, ano, mes, tipo_dia, dss_files_folder, model_type=1, engine=engine)  # model_type=1 PVSystem else Generator
+                write_files_dss(sub, dist, ano, mes, tipo_dia, dss_files_folder, model_type=1,
+                                engine=engine)  # model_type=1 PVSystem else Generator
             if control_mes:
                 break
         if control_tipo_dia:
