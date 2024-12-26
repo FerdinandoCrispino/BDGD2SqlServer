@@ -9,7 +9,9 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.2.1/ol.css">
     <link rel="stylesheet" href="https://rawcdn.githack.com/Viglino/ol-ext/v3.1.7/dist/ol-ext.css">
     <!-- FontAwesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css"
+          integrity="sha512-Evv84Mr4kqVGRNSgIGL/F/aIDqQb7xQ2vcrdIwxfjThSH8CSR7PBEakCr51Ck+w+/U6swU2Im1vVX0SVk9ABhg=="
+          crossorigin="anonymous" referrerpolicy="no-referrer" />
 
 <style>
     html {
@@ -31,6 +33,58 @@
     nav, footer {
         height: 50px; /* Exemplo de altura fixa para nav e footer */
     }
+
+    .tr_icon {
+        background: url('static/icon/tr1.jpg') no-repeat;
+        padding: 0 18px;
+        height: 15px;
+        width: 15px;
+        display: inline-block;
+        cursor: pointer;
+        /* Other styles here */
+    }
+    .reg_icon {
+        background: url('static/icon/regu2.png') no-repeat;
+        padding: 0 18px;
+        height: 15px;
+        width: 15px;
+        display: inline-block;
+        cursor: pointer;
+        /* Other styles here */
+    }
+    .cap_icon {
+        background: url('static/icon/cap1.jpg') no-repeat;
+        padding: 0 18px;
+        height: 15px;
+        width: 15px;
+        display: inline-block;
+        cursor: pointer;
+        /* Other styles here */
+    }
+    .sec_icon {
+        background: url('static/icon/switch_1.png') no-repeat;
+        padding: 0 18px;
+        height: 15px;
+        width: 15px;
+        display: inline-block;
+        cursor: pointer;
+        /* Other styles here */
+    }
+    .ugbt_font_awesome{
+        color: green;
+    }
+    .ugmt_font_awesome{
+        color: blue;
+    }
+    .ucmt_font_awesome{
+        color: gray;
+    }
+    .ucbt_font_awesome{
+        color: red;
+    }
+    input[type=checkbox] + label {
+        cursor: pointer;
+    }
 </style>
 
 </head>
@@ -50,14 +104,25 @@
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Map</a>
                     <div class="dropdown-menu" aria-labelledby="navbarDropdown">
-                        <a class="dropdown-item" href="#">Map color by Vln </a>
-                        <a class="dropdown-item" href="#">Map color by Vll </a>
+                        <a class="dropdown-item" id="map_vl" href="#">Map color by Voltage </a>
+                        <a class="dropdown-item" id="map_ic" href="#">Map color by Current </a>
                         <div class="dropdown-divider"></div>
-                        <a class="dropdown-item" href="#">Map color by Circuit</a>
+                        <a class="dropdown-item" id="map_circuito" href="#">Map color by Circuit</a>
+                    </div>
+                </li>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarScenarios" role="button"
+                       data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Scenarios</a>
+                    <div class="dropdown-menu" aria-labelledby="navbarScenarios">
+                        <a class="dropdown-item" href="#">New </a>
+                        <a class="dropdown-item" href="#">Edit</a>
+                        <div class="dropdown-divider"></div>
+                        <a class="dropdown-item" href="#">propreties</a>
                     </div>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link" href="/sobre">About</a>
+                    <a class="nav-link disabled" href="/sobre">About</a>
                 </li>
             </ul>
         </div>
