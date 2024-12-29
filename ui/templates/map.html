@@ -334,7 +334,7 @@
                         //if (nome_camada !== "UNTRMT" && nome_camada !== "UCMT" && nome_camada !== "UGMT" &&
                         //nome_camada !== "UNREMT" && nome_camada !== "UNCRMT") {
                         if (nome_camada == "segmentos" || nome_camada == "SUB" || nome_camada == "UNTRMT" ||
-                            nome_camada == "UNSEMT" || nome_camada == "UGBT") {
+                            nome_camada == "UNSEMT" || nome_camada == "UGBT" || nome_camada == "UCBT") {
                             selected = f;
                             return true;
                         }
@@ -400,9 +400,10 @@
                                 var t2 = selected.get("v_lin_se");
                                 var t3 = selected.get("tip");
                                 var t4 = selected.get("v_prim");
+                                var t5 = selected.get("cod_id");
                                 //console.log ('-------------' + t1)
-                                popup1.setInfo('Potência: '+ t1 + ' kW <br> V_pri: ' + t4 + ' kV <br> V_sec: ' + t2 +
-                                                ' kV <br> Tipo: ' + t3 );
+                                popup1.setInfo('TR: ' + t5 + '<br> Power: '+ t1 + ' kW <br> V<sub>p</sub>: ' + t4 +
+                                                ' kV <br> V<sub>s</sub>: ' + t2 + ' kV <br> Tipo: ' + t3 );
                                 break;
                             case 'UNSEMT':
                                 var s1 = selected.get("ctmt");
@@ -420,6 +421,18 @@
                                 //console.log ('----++++++---------' + selected.length )
                                 popup1.setInfo(gbt1 + '<br> CEG: ' + gbt2 + '<br> Power:: ' + gbt3 +
                                                 ' kW <br> Voltage: ' + gbt4 + ' V');
+                                break;
+                                case 'UCBT':
+                                var cbt1 = selected.get("ctmt");
+                                var cbt2 = selected.get("ceg");
+                                var cbt3 = selected.get("tip_cc");
+                                var cbt4 = selected.get("voltage");
+                                var cbt5 = selected.get("uni_tr_mt");
+                                var cbt6 = selected.get("car_inst");
+                                //console.log ('----++++++---------' + selected.length )
+                                popup1.setInfo(cbt1 + '<br> CEG: ' + cbt2 + '<br> Power: ' + cbt6 +
+                                                ' kW <br> Voltage: ' + cbt4 + ' V <br> TR: ' + cbt5 +
+                                                '<br> CRV: ' + cbt3);
                                 break;
                         }
                     } else {
@@ -896,6 +909,67 @@
                     name: 'UCMT',
                     source: vectorSource,
                     style: estiloUCMT
+                });
+                map.addLayer(vectorLayer);
+
+                var extent = vectorSource.getExtent();
+                map.getView().fit(extent, { duration: 1000 });
+            });
+        document.body.style.cursor = 'default';  // Cursor normal
+    }
+
+
+    // UCBT  =========================================================================================
+    document.getElementById('ucbt').addEventListener('click', function() {
+        if (document.getElementById('ucbt').checked  === false) {
+            map.getLayers().forEach(function(layer, i) {
+                if (i > 0 && layer.get('name') === 'UCBT') {
+                    map.removeLayer(layer);  // Remove camada
+                }
+            });
+            return;
+        }
+        var distribuidora = document.getElementById('distribuidora').value;
+        var subestacao = document.getElementById('subestacao').value;
+        var circuito = document.getElementById('circuito').value;
+        console.log(subestacao)
+        if (subestacao) {
+            loadUCBT(distribuidora, subestacao, circuito);
+        }
+    });
+
+    // Função para carregar consumidores de baixA tensão no mapa com base nos filtros
+    function loadUCBT(distribuidora, subestacao, circuito) {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+
+        fetch(`/api/UCBT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloUCBT(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+
+                            crossOrigin: 'anonymous',
+                            anchor: [0, 0],
+                            scale: 0.30,
+                            src: 'static/icon/resid.jpg'
+                        }))
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: 'UCBT',
+                    source: vectorSource,
+                    style: estiloUCBT
                 });
                 map.addLayer(vectorLayer);
 

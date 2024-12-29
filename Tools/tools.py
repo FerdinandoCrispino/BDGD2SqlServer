@@ -863,6 +863,69 @@ def set_coords(dist):
              '''
     engine.execute(query_coods_ucbt_ponnot)
     print(f'coords UCBT')
+
+    # coordenadas a aprtir dos dados dos geradores na mesma instalação do consumidor bt
+    query_coods_ucbt_ugbt = f'''
+        update sde.ucbt set [POINT_Y] = q.Y, [POINT_X] = q.x
+            FROM (
+                select g.POINT_X as x, g.POINT_Y as y, c.sub, c.COD_ID from sde.ucbt c
+                inner join sde.ugbt g on c.CEG=g.CEG
+                where c.POINT_X is null
+            ) as q
+        WHERE sde.ucbt.cod_id = q.cod_id 
+    '''
+    x = engine.execute(query_coods_ucbt_ugbt)
+    print(f'coords UCBT_UGBT: {x.rowcount} - {time.time() - proc_time_ini}')
+
+    "Verifica se existem consumidores BT com coordenadas nulas e utiliza o segmento BT para associar suas cordenadas"
+    subs = return_query_as_dataframe("select cod_id from sde.sub where pos='PD' order by cod_id", engine)
+    for sub in subs['cod_id']:
+        query_coods_ucbt_ssdmt = f'''  
+            WITH CTE_UCBT AS (
+                SELECT
+                    cod_id,
+                    PAC
+                FROM
+                    sde.ucbt
+                WHERE
+                    POINT_X IS NULL and sub='{sub}'
+            ),
+            CTE_RAMLIG AS (
+                SELECT
+                    PAC_1,
+                    PAC_2
+                FROM
+                    sde.ramlig where sub='{sub}'
+            ),
+            CTE_SSDBT AS (
+                SELECT
+                    PAC_1,
+                    PAC_2,
+                    POINT_Y1,
+                    POINT_X1
+                FROM
+                    sde.SSDBT  where sub='{sub}'
+            )
+            update sde.ucbt set [POINT_Y] = q.Y, [POINT_X] = q.x
+               FROM (
+            SELECT
+                uc.cod_id,
+                pn.POINT_Y1 as y,
+                pn.POINT_X1 as x
+            FROM
+                CTE_UCBT uc
+            INNER JOIN
+                CTE_RAMLIG rm
+                ON rm.PAC_1 = uc.PAC OR rm.PAC_2 = uc.PAC
+            INNER JOIN
+                CTE_SSDBT pn
+                ON pn.PAC_1 IN (rm.PAC_1, rm.PAC_2) OR pn.PAC_2 IN (rm.PAC_1, rm.PAC_2)
+            ) q
+            where sde.ucbt.cod_id = q.cod_id
+            '''
+        x = engine.execute(query_coods_ucbt_ssdmt)
+        print(f'coords UCBT_SSDBT: {sub} - {x.rowcount} - {time.time() - proc_time_ini}')
+
     print(f"Processo concluído em {time.time() - proc_time_ini}")
 
 
@@ -1018,4 +1081,4 @@ if __name__ == "__main__":
     print(test['crv_t_pv_1'])
     print(test['crv_t_pv_2'])
 
-    set_coords('404')
+    set_coords('391')
