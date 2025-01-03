@@ -135,12 +135,13 @@
     'November', 'December'];
     //Months are always the same
     (function populateMonths(){
-        for(let i = 0; i < months.length; i++){
+        for(let i = 1; i <= months.length; i++){
             const option = document.createElement('option');
-            option.textContent = months[i];
+            option.textContent = months[i-1];
+            option.value = i;
             monthSelect.appendChild(option);
         }
-        monthSelect.value = "January";
+        monthSelect.value = "1";
     })();
     monthSelect.onchange = function() {
         //populateDays(monthSelect.value);
@@ -266,10 +267,11 @@
     });
 
     // Função para carregar segmentos de reta no mapa com base nos filtros
-    function loadSegments(distribuidora, subestacao, circuito, mapatipo) {
+    function loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes) {
         document.body.style.cursor = 'wait';  // Cursor de espera
 
-        fetch(`/api/segments?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
+        fetch(`/api/segments?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}
+                                            &scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}`)
             .then(response => response.json())
             .then(data => {
                 var format = new ol.format.GeoJSON();
@@ -334,7 +336,8 @@
                         //if (nome_camada !== "UNTRMT" && nome_camada !== "UCMT" && nome_camada !== "UGMT" &&
                         //nome_camada !== "UNREMT" && nome_camada !== "UNCRMT") {
                         if (nome_camada == "segmentos" || nome_camada == "SUB" || nome_camada == "UNTRMT" ||
-                            nome_camada == "UNSEMT" || nome_camada == "UGBT" || nome_camada == "UCBT") {
+                            nome_camada == "UNSEMT" || nome_camada == "UGBT" || nome_camada == "UCBT" ||
+                            nome_camada == "UNCRMT" || nome_camada == "UNREMT" || nome_camada == "UGMT") {
                             selected = f;
                             return true;
                         }
@@ -413,16 +416,26 @@
                                 //console.log ('----++++++---------' + selected.length )
                                 popup1.setInfo(s1 + '<br> Switch: ' + s2 + '<br> Cor_nom: ' + s3 + ' A <br> Cap_Elo: ' + s4);
                                 break;
-                             case 'UGBT':
+                            case 'UGMT':
+                                var gmt1 = selected.get("ctmt");
+                                var gmt2 = selected.get("ceg");
+                                var gmt3 = selected.get("pot_inst");
+                                var gmt4 = selected.get("voltage");
+                                var gmt5 = selected.get("demanda");
+                                //console.log ('----++++++---------' + selected.length )
+                                popup1.setInfo(gmt1 + '<br> CEG: ' + gmt2 + '<br> Power: ' + gmt3 +
+                                                ' kW <br> Voltage: ' + gmt4 + ' V <br> Demand: ' + gmt5 + ' kW');
+                                break;
+                            case 'UGBT':
                                 var gbt1 = selected.get("ctmt");
                                 var gbt2 = selected.get("ceg");
                                 var gbt3 = selected.get("pot_inst");
                                 var gbt4 = selected.get("voltage");
                                 //console.log ('----++++++---------' + selected.length )
-                                popup1.setInfo(gbt1 + '<br> CEG: ' + gbt2 + '<br> Power:: ' + gbt3 +
+                                popup1.setInfo(gbt1 + '<br> CEG: ' + gbt2 + '<br> Power: ' + gbt3 +
                                                 ' kW <br> Voltage: ' + gbt4 + ' V');
                                 break;
-                                case 'UCBT':
+                            case 'UCBT':
                                 var cbt1 = selected.get("ctmt");
                                 var cbt2 = selected.get("ceg");
                                 var cbt3 = selected.get("tip_cc");
@@ -431,8 +444,23 @@
                                 var cbt6 = selected.get("car_inst");
                                 //console.log ('----++++++---------' + selected.length )
                                 popup1.setInfo(cbt1 + '<br> CEG: ' + cbt2 + '<br> Power: ' + cbt6 +
-                                                ' kW <br> Voltage: ' + cbt4 + ' V <br> TR: ' + cbt5 +
-                                                '<br> CRV: ' + cbt3);
+                                               ' kW <br> Voltage: ' + cbt4 + ' V <br> TR: ' + cbt5 +
+                                               '<br> CRV: ' + cbt3);
+                                break;
+                            case 'UNCRMT':
+                                var cr1 = selected.get("ctmt");
+                                var cr2 = selected.get("banc");
+                                var cr3 = selected.get("pot");
+                                //console.log ('----++++++---------' + selected.length )
+                                popup1.setInfo(cr1 + '<br> Power: ' + cr3 + ' kW <br> Bank: ' + cr2  );
+                                break;
+                            case 'UNREMT':
+                                var re1 = selected.get("ctmt");
+                                var re2 = selected.get("fas_con");
+                                var re3 = selected.get("tip_regu");
+                                var re4 = selected.get("banc");
+                                //console.log ('----++++++---------' + selected.length )
+                                popup1.setInfo(re1 + '<br> Phases: ' + re2 + '<br> Type: ' + re3 + '<br> Bank: ' + re4 );
                                 break;
                         }
                     } else {
@@ -445,12 +473,19 @@
                 select.getFeatures().on(['add'], function(e) {
                     var feature = e.element;
                     var nome_camada = feature.get("tipo")
+                    var dist = document.getElementById("distribuidora");
+                    var select_dist = dist.options[dist.selectedIndex].text;
+                    var ano = select_dist.split(" ")[1]
                     console.log(nome_camada)
                     if (nome_camada === "segmentos") {
                         var content = "";
                         var path_gr = "static/scenarios/base/" +  document.getElementById('distribuidora').value +
                                       "/" + document.getElementById('subestacao').value + "/" + feature.get("ctmt") +
+                                      "/" + document.getElementById('tipo_dia').value +
+                                      "/" + ano +
+                                      "/" + document.getElementById('meses').value +
                                       "/" + feature.get("ctmt") + "_Balance_m1.png"
+                        console.log (path_gr);
                         if (fileExists(path_gr)) {
                             content += "<img src=" + path_gr + " style='width:750px; height:300px;'/>";
                             popup.show(feature.getGeometry().getFirstCoordinate(), content);
@@ -481,8 +516,14 @@
         var distribuidora = document.getElementById('distribuidora').value;
         var subestacao = document.getElementById('subestacao').value;
         var circuito = document.getElementById('circuito').value;
+        var scenario = document.getElementById('scenarios').value;
+        var tipo_dia = document.getElementById('tipo_dia').value;
+        var mes = document.getElementById('meses').value;
+        var dist = document.getElementById("distribuidora");
+        var select_dist = dist.options[dist.selectedIndex].text;
+        var ano = select_dist.split(" ")[1]
 
-        loadSegments(distribuidora, subestacao, circuito, mapatipo);
+        loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes);
     });
 
     // Subestações  =========================================================================================
@@ -507,7 +548,7 @@
 
     // Função para carregar subestações no mapa com base nos filtros
     function loadSUB(distribuidora, subestacao, circuito) {
-        document.body.style.cursor = 'wait';  // Cursor de espera
+        document.body.style.cursor = 'progress';  // Cursor de espera
 
         fetch(`/api/SUB?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
             .then(response => response.json())
@@ -605,8 +646,10 @@
 
                 var extent = vectorSource.getExtent();
                 map.getView().fit(extent, { duration: 1000 });
+
             });
         document.body.style.cursor = 'default';  // Cursor normal
+
     }
 
 
@@ -789,11 +832,12 @@
 
                 var extent = vectorSource.getExtent();
                 map.getView().fit(extent, {size:map.getSize(), maxZoom:16, duration: 1000 });
+                document.body.style.cursor = 'default';  // Cursor normal
             })
             .catch(error => {
               console.log('Error:', error);
+              document.body.style.cursor = 'default';  // Cursor normal
             });
-        document.body.style.cursor = 'default';  // Cursor normal
     }
 
 
@@ -854,8 +898,12 @@
 
                 var extent = vectorSource.getExtent();
                 map.getView().fit(extent, { duration: 1000 });
+                document.body.style.cursor = 'default';  // Cursor normal
+            })
+            .catch(error => {
+              console.log('Error:', error);
+              document.body.style.cursor = 'default';  // Cursor normal
             });
-        document.body.style.cursor = 'default';  // Cursor normal
     }
 
     // UCMT  =========================================================================================
@@ -914,8 +962,12 @@
 
                 var extent = vectorSource.getExtent();
                 map.getView().fit(extent, { duration: 1000 });
+                document.body.style.cursor = 'default';  // Cursor normal
+            })
+            .catch(error => {
+              console.log('Error:', error);
+              document.body.style.cursor = 'default';  // Cursor normal
             });
-        document.body.style.cursor = 'default';  // Cursor normal
     }
 
 
@@ -975,8 +1027,12 @@
 
                 var extent = vectorSource.getExtent();
                 map.getView().fit(extent, { duration: 1000 });
+                document.body.style.cursor = 'default';  // Cursor normal
+            })
+            .catch(error => {
+              console.log('Error:', error);
+              document.body.style.cursor = 'default';  // Cursor normal
             });
-        document.body.style.cursor = 'default';  // Cursor normal
     }
 
     // trafos  =========================================================================================
@@ -995,11 +1051,8 @@
         var circuito = document.getElementById('circuito').value;
         console.log(subestacao)
         if (subestacao) {
-            document.body.style.cursor = 'inherit';  // Cursor de espera
             loadTrafos(distribuidora, subestacao, circuito);
-            document.body.style.cursor = '';  // Cursor normal
         }
-
     });
 
     // Função para carregar trafos no mapa com base nos filtros
@@ -1043,8 +1096,12 @@
 
                 var extent = vectorSource.getExtent();
                 map.getView().fit(extent, { duration: 1000 });
+                document.body.style.cursor = 'default';  // Cursor normal
+            })
+            .catch(error => {
+              console.log('Error:', error);
+              document.body.style.cursor = 'default';  // Cursor normal
             });
-        document.body.style.cursor = 'default';  // Cursor normal
     }
 
     // summary

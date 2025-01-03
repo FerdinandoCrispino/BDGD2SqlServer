@@ -1,4 +1,5 @@
 pyodbc==4.0.32
+py-dss-interface==2.0.4
 pandas==1.5.3
 PyYAML==6.0
 simpledbf==0.2.6
