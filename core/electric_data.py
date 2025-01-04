@@ -1036,11 +1036,12 @@ if __name__ == "__main__":
     # list_sub = ['100']
 
     # EDP_SP = 391
-    list_sub = ['ITQ', 'VGA', 'JNO', 'CAC', 'SAT', 'PME', 'CPA', 'ARA', 'CAR', 'BON', 'CMB', 'APA', 'ASP', 'BIR', 'SJC',
-                'AVP', 'FER', 'DUT', 'TAU', 'BCU', 'CRU', 'DBE', 'DUT', 'FER', 'GOP', 'GUE', 'GUR', 'INP', 'JAC', 'JAM',
-                'JAR', 'JCE', 'JUQ', 'LOR', 'MAP', 'MAS', 'MCI', 'MRE', 'MTQ', 'OLR', 'PED', 'PID', 'PIL', 'PNO', 'POA',
-                'PRT', 'PTE', 'ROS', 'SBR', 'SKO', 'SLU', 'SSC', 'SUZ', 'UNA', 'URB', 'VHE', 'VJS']
-    list_sub = ['ITQ']
+    list_sub = ['APA', 'ARA', 'ASP', 'AVP', 'BCU', 'BIR', 'BON', 'CAC', 'CAR', 'CMB', 'COL', 'CPA', 'CRU', 'CSO', 'DBE',
+                'DUT', 'FER', 'GOP', 'GUE', 'GUL', 'GUR', 'INP', 'IPO', 'ITQ', 'JAC', 'JNO', 'JAM', 'JAR', 'JCE', 'JUQ',
+                'KMA', 'LOR', 'MAP', 'MAS', 'MCI', 'MRE', 'MTQ', 'OLR', 'PED', 'PID', 'PIL', 'PME', 'PNO', 'POA', 'PRT',
+                'PTE', 'ROS', 'SAT', 'SBR', 'SJC', 'SKO', 'SLU', 'SLZ', 'SSC', 'SUZ', 'TAU', 'UNA', 'URB', 'USS', 'VGA',
+                'VHE', 'VJS', 'VSL']
+    #list_sub = ['ITQ']
     # 'UBA' sem circuitos e transformadores
     # 'GUL', 'IPO (104)'  CSO e USS Trafos 34,5 kv  SSC Sem info de TRAFO_AT  #JCE, PED ok dentro dos limites
 
@@ -1051,8 +1052,8 @@ if __name__ == "__main__":
     print(f'Ajusting CodBNC....')
     ajust_eqre_codbanc(dist, engine)
 
-    mes_ini = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
-    tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
+    mes_ini = 12  # [1 12] mes do ano de referência para os dados de cargas e geração
+    tipo_de_dias = ['DO', 'DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
     # controles de execução para apenas um primeiro mes e um primeiro tipo de dia da lista 'tipo_de_dias'
     control_mes = True
     control_tipo_dia = True

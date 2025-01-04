@@ -25,7 +25,7 @@ class Summary:
                 FROM [sde].[CTMT] c  
                 inner join sde.SUB S on c.sub  = s.COD_ID
                 where c.sub = '{self.sub}' and c.dist = '{self.dist}'
-                group by c. dist, c.SUB, s.NOME  
+                group by c.dist, c.SUB, s.NOME  
             ;
         '''
         self.summary_sub = return_query_as_dataframe(query, self.engine)

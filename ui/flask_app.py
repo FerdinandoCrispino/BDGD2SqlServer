@@ -366,23 +366,20 @@ def create_geojson_from_points_UCBT(points_ucbt):
     return geojson
 
 
-def get_coords_sub_from_db(sub, ctmt):
-    if ctmt == "":
-        query = f'''Select POINT_X, POINT_Y, COD_ID, POS, NOME
-                    from sde.SUB 
-                    where COD_ID= '{sub}' 
-                ;   
-                '''
-    else:
-        query = f'''Select se.POINT_X, se.POINT_Y, se.COD_ID, se.POS, se.NOME, ct.COD_ID as CTMT
-                    from sde.SUB se
-                    inner join sde.CTMT ct on ct.SUB=se.COD_ID
-                    where se.COD_ID= '{sub}' and ct.cod_id = '{ctmt}'
-                ;   
-                '''
+def get_coords_sub_from_db(sub):
+
+    query = f'''SELECT s.POINT_X, s.POINT_Y, s.COD_ID, s.NOME, s.POS          
+                  ,count( distinct c.UNI_TR_AT) as TR_AT, count(c.NOME) as CTMT
+                FROM [sde].[CTMT] c  
+                inner join sde.SUB S on c.sub = s.COD_ID
+                where c.sub = '{sub}' 
+                group by s.COD_ID, s.NOME, s.POINT_X, s.POINT_Y, s.POS
+            ;   
+            '''
+
     rows = return_query_as_dataframe(query, engine)
     rows["TIPO"] = "SUB"
-    points = [((row["POINT_X"], row["POINT_Y"]), rows["COD_ID"], rows["POS"], rows["NOME"], rows["TIPO"])
+    points = [((row["POINT_X"], row["POINT_Y"]), rows["COD_ID"], rows["POS"], rows["NOME"], rows["TR_AT"], rows["TIPO"])
               for index, row in rows.iterrows()]
     return points
 
@@ -393,12 +390,13 @@ def create_geojson_from_points_sub(points_sub):
     points = []
     # circ = []
 
-    for pt, COD_ID, pos, nome, tipo in points_sub:
+    for pt, COD_ID, pos, nome, tr_at, tipo in points_sub:
         points.append(Point([pt]))
         # circ.append(ctmt)
 
     # Criar um GeoDataFrame com as geometrias e dados extras
-    gdf = gpd.GeoDataFrame({'geometry': points, 'sub': COD_ID, 'nome': nome, 'tipo': tipo}, crs="EPSG:4326")
+    gdf = gpd.GeoDataFrame({'geometry': points, 'sub': COD_ID, 'nome': nome, 'num_trafos': tr_at,
+                            'tipo': tipo}, crs="EPSG:4326")
     # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
 
     # Converter o GeoDataFrame para GeoJSON
@@ -659,11 +657,11 @@ def index():
 def sub():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
-    circuito = request.args.get('circuito', 'defaultCircuito')
+    # circuito = request.args.get('circuito', 'defaultCircuito')
     if subestacao == '':
         print(f"Selecione uma subestação!")
         return None  # retornar erro!
-    point_cr = get_coords_sub_from_db(subestacao, circuito)
+    point_cr = get_coords_sub_from_db(subestacao)
     geojson = create_geojson_from_points_sub(point_cr)
     return geojson, 200, {'Content-Type': 'application/json'}
 

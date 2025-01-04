@@ -7,7 +7,7 @@ from Tools.tools import load_config, create_connection, process_gdb_files, set_c
 
 # Configuração do logger
 logging.basicConfig(filename='processamento_dados.log', level=logging.INFO,
-                    format='%(asctime)s - %(levelname)s - %(message)s')
+                    format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d,%H:%M:%S')
 
 # Mapeamento de renomeação de colunas: {'nome_antigo': 'nome_novo'}
 columns_rename = {'Shape_Leng': 'Shape_STLength__',

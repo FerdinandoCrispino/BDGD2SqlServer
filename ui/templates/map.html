@@ -32,7 +32,7 @@
         </select><br>
         <label for="tipo_dia">Types of Day:</label>
         <select id="tipo_dia" name="tipo_dia" style="float:right;width:110px">
-            <option value="DU">Work days (DU)</option>
+            <option value="DU">Workdays (DU)</option>
             <option value="SA">Saturday (SA)</option>
             <option value="DO">Sunday/Holidays (DO)</option>
         </select><br>
@@ -477,8 +477,8 @@
                     var select_dist = dist.options[dist.selectedIndex].text;
                     var ano = select_dist.split(" ")[1]
                     console.log(nome_camada)
-                    if (nome_camada === "segmentos") {
-                        var content = "";
+                    var content = "";
+                    if (nome_camada == "segmentos") {
                         var path_gr = "static/scenarios/base/" +  document.getElementById('distribuidora').value +
                                       "/" + document.getElementById('subestacao').value + "/" + feature.get("ctmt") +
                                       "/" + document.getElementById('tipo_dia').value +
@@ -490,7 +490,31 @@
                             content += "<img src=" + path_gr + " style='width:750px; height:300px;'/>";
                             popup.show(feature.getGeometry().getFirstCoordinate(), content);
                         } else {
-                            console.log('não existe!!!!!!!!!!!!!!' );
+                            console.log('arquivo não existe!!!!' );
+                        }
+                    } else if (nome_camada == "SUB") {
+                        var num_trafos = feature.get("num_trafos");
+                        //console.log (num_trafos);
+                        var path_sub_gr = [];
+                        for (let i = 1; i <= num_trafos; i++) {
+                            path_sub_gr[i] = "static/scenarios/base/" +
+                                document.getElementById('distribuidora').value +
+                                "/" + document.getElementById('subestacao').value +
+                                "/SUB_" + document.getElementById('subestacao').value +
+                                "/" + document.getElementById('tipo_dia').value +
+                                "/" + ano +
+                                "/" + document.getElementById('meses').value +
+                                "/SUB_" + document.getElementById('subestacao').value + "_Balance_m" + i + ".png"
+
+                                //console.log (path_sub_gr);
+                                if (fileExists(path_sub_gr[i])) {
+                                    content += "<img src=" + path_sub_gr[i] + " style='width:500px; height:230px;'/><p>";
+                                } else {
+                                    console.log('arquivo não existe!!!!' );
+                                }
+                        }
+                        if (content != "") {
+                            popup.show(feature.getGeometry().getFirstCoordinate(), content);
                         }
                     } else {
                         nome_camada == "undefined";
