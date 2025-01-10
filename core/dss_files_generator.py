@@ -53,7 +53,7 @@ class DssFilesGenerator:
         linhas_substation_dss.append('clear')
         linhas_substation_dss.append('')
         linhas_substation_dss.append(f'New Circuit.Sub_{self.sub} bus1=Sourcebus basekv={base_kv[0]} '
-                                     f'phases=3 pu=1 r1=0.0 x1=0.0001')
+                                     f'phases=3 pu=1.0 r1=0.0 x1=0.0001')
 
         # Create dummy switch and transformer
         for index in range(transfomers.shape[0]):
@@ -81,19 +81,21 @@ class DssFilesGenerator:
             PerdaFerroTrafo_per = PerdaFerroTrafo
             PerdaCobreTrafo_per = PerdaTotalTrafo - PerdaFerroTrafo
             # todos os circuits de um transformador AT deveriam ter a mesma tensão de operação!!!!
-            # NA BDGD foram obtidos valores diferentes assim será adota o menor valor de operação.
+            # NA BDGD foram obtidos valores diferentes para cada circuito assim será adota o menor valor de operação.
             # Pode existir um TR_AT sem circuitos associados (TR RESERVA) adotar ten_ope_pu = 1.0
             if tr_name in set(circuits['UNI_TR_AT']):
                 ten_ope_pu = min(circuits[circuits['UNI_TR_AT'] == tr_name]['TEN_OPE'])
             else:
                 ten_ope_pu = '1.0'
 
+            # com acrescimo do regulador a tensão de operação do transformador AT deve ser 1.0 pu
             linhas_substation_dss.append(f'New Transformer.{tr_name} phases={numero_fases_transformador(lig_fas_p)} '
                                          f'windings={quantidade_enrolamentos(lig_fas_t, lig_fas_s)} '
                                          f'buses=[{nos_com_neutro_trafo(lig_fas_p, lig_fas_s, lig_fas_t, ten_lin_sec, tr_pac_1, tr_pac_2)}] '
                                          f'conns=[Wye {lig_trafo(tr_lig)}] kvs=({ten_lin_pri} {ten_lin_sec} ) '
                                          f'kvas=({kvas_trafo(lig_fas_s, lig_fas_t, float(kva_nom))}) '
-                                         f'taps=[1.0 {ten_ope_pu}] '
+                                         #f'taps=[1.0 {ten_ope_pu}] '
+                                         f'taps=[1.0 1.0] '
                                          f'%loadloss={PerdaCobreTrafo_per} %noloadloss={PerdaFerroTrafo_per}')
 
             # Add monitor to transformer AT
@@ -105,9 +107,23 @@ class DssFilesGenerator:
             cir_name = substation.loc[index]['COD_ID_x']
             tr_pac_2 = substation.loc[index]['PAC_2']
             cir_pac_ini = substation.loc[index]['PAC_INI']
+            tensao_operacao = substation.loc[index]['TEN_OPE']
+            kv_sec = substation.loc[index]['TEN_SEC']/1000
+            pot_nom = substation.loc[index]['POT']
+
+            # Create dummy regulator
+            # Add regulator to control operation voltage
+            linhas_substation_dss.append(f'New "Transformer.REG_busA_{cir_name}" phases=3 windings=2 '
+                                         f'buses=[{tr_pac_2} "busa_{cir_name}"] '
+                                         f'conns=[Wye Wye] kvs=[{kv_sec} {kv_sec}] '
+                                         f'kvas=[{pot_nom:.1f} {pot_nom:.1f}] '
+                                         f'%loadloss=0.0001 %noloadloss=0.0001 \n'
+                                         f'New "Regcontrol.CREG_busA_{cir_name}" '
+                                         f'transformer="REG_busA_{cir_name}" winding=2 '
+                                         f'vreg={(100 * tensao_operacao):.0f} band=2 ptratio={(10 * kv_sec):.0f} \n')
 
             # Create dummy switch Transformer
-            linhas_substation_dss.append(f'New Line.SW_{cir_name} phases=3 bus1={tr_pac_2} bus2={cir_pac_ini} '
+            linhas_substation_dss.append(f'New Line.SW_{cir_name} phases=3 bus1="busa_{cir_name}" bus2={cir_pac_ini} '
                                          f'r1=0.001 r0=0.001 x1=0 x0=0 c1=0 c0=0 length=0.001 units=km switch=T')
 
             # Add monitor in start of circuit
@@ -147,13 +163,28 @@ class DssFilesGenerator:
         cod_barra_ini = circuito['PAC_INI']
         base_kv = round(circuito['TEN'] / 1000, 2)
         tensao_operacao = circuito['TEN_OPE']
+        pot_trafo_at = circuito['POT']
 
+        if pot_trafo_at is None:
+            pot_trafo_at = 20000
         if tensao_operacao is None:
             tensao_operacao = '1.00'
 
-        comando = f'new "circuit.{codigo}" pu={tensao_operacao} basekv={str(base_kv)} bus1="{cod_barra_ini}"'
-        # comando = comando + f" mvasc3=600 mvasc1=400"
-        comando = comando + f' r1=0 x1=0.0001'
+        # sem controle de tensão no inicio do circuito, não converge em alguns casos
+        if f'{tensao_operacao:.2f}' == '1.00':
+            comando = f'new "circuit.{codigo}" pu={tensao_operacao} basekv={str(base_kv)} bus1="{cod_barra_ini}"'
+            # comando = comando + f" mvasc3=600 mvasc1=400"
+            comando = comando + f' r1=0 x1=0.0001'
+        else:
+            # Add regulator to control operation voltage insted of using in circuit definition
+            comando = f'New "circuit.{codigo}" basekv={str(base_kv)} bus1="busA" r1=0 x1=0.0001 \n'
+            comando = comando + f'New "Transformer.REG_busA" phases=3 windings=2 buses=["busA" "{cod_barra_ini}"] ' \
+                                f'conns=[Wye Wye] kvs=[{str(base_kv)} {base_kv}] ' \
+                                f'kvas=[{pot_trafo_at:.1f} {pot_trafo_at:.1f}] ' \
+                                f'%loadloss=0.0001 %noloadloss=0.0001 \n' \
+                                f'New "Regcontrol.CREG_busA" transformer="REG_busA" winding=2 ' \
+                                f'vreg={(100 * tensao_operacao):.0f} band=2 ptratio={(10 * base_kv):.0f} \n'
+
         linhas_suprimento_dss.append(comando)
 
     def get_lines_chaves_mt(self, chaves, linhas_chaves_dss) -> None:
@@ -587,11 +618,11 @@ class DssFilesGenerator:
                     linhas_cargas_dss.append('New "Load.MT_' + strName + '_M1" bus1="' + strBus + nos(
                         strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
                         strCodFas) + " model=2" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.7f}" +
-                        " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+                                             " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
                     linhas_cargas_dss.append('New "Load.MT_' + strName + '_M2" bus1="' + strBus + nos(
                         strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
                         strCodFas) + " model=3" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.7f}" +
-                        " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+                                             " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
 
     def get_lines_cargas_mt_ssdmt(self, curvas_carga, cargas, cargas_fc, linhas_cargas_dss, mes, tipo_dia):
 
@@ -1198,8 +1229,7 @@ class DssFilesGenerator:
                 if not find_cap:
                     # tensão do capacitor é o do secundario do trafo MTMT
                     tr_mt_mt = trafos_mt_mt.loc[trafos_mt_mt['ctmt'] == ctmt]
-                    kv_nom = tr_mt_mt['TEN_SEC'].values[0]/1000
-
+                    kv_nom = tr_mt_mt['TEN_SEC'].values[0] / 1000
 
             num_fases = numero_fases(strCodFas)
 

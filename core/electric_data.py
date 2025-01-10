@@ -4,6 +4,7 @@ from Tools.tools import return_query_as_dataframe, write_to_dss, ajust_eqre_codb
 import dss_files_generator as dss_g
 import pandas as pd
 import connected_segments as cs
+from multiprocessing import Pool, cpu_count
 
 """
 # @Date    : 20/06/2024
@@ -14,6 +15,35 @@ Implemeta funcionalidades de leitua dos dados da BDGD para escrita dos arquivos 
 # @Date     :
 
 """
+
+
+# rum multiprocessing for substations
+def run_multi(subs, config, mes_ini, tipo_de_dias, control_mes, control_tipo_dia):
+    proc_time_ini = time.time()
+
+    ano = config['data_base'].split('-')[0]
+    dist = config['dist']
+    engine = create_connection(config)
+    dss_files_folder = config['dss_files_folder']
+
+    print(f'Ajusting CodBNC....')
+    ajust_eqre_codbanc(dist, engine)
+
+    # controles de execução para apenas um primeiro mes e um primeiro tipo de dia da lista 'tipo_de_dias'
+    for tipo_dia in tipo_de_dias:
+        for mes in range(mes_ini, 13):
+            for sub in subs:
+                print(sub)
+                # Gera arquivo com execução do fluxo de potência para toda a subestação
+                write_sub_dss(sub, dist, mes, tipo_dia, engine, dss_files_folder)
+                # Gera arquivos do openDSS para cada circuito de uma subestação
+                write_files_dss(sub, dist, ano, mes, tipo_dia, dss_files_folder, model_type=1,
+                                engine=engine)  # model_type=1 PVSystem else Generator
+            if control_mes:
+                break
+        if control_tipo_dia:
+            break
+    print(f"Processo concluído em {time.time() - proc_time_ini}")
 
 
 class ElectricDataPort:
@@ -114,9 +144,12 @@ class ElectricDataPort:
         :return:
         """
         query = f'''
-            SELECT c.[COD_ID], c.PAC_INI, c.UNI_TR_AT, c.TEN_OPE, t.TEN 
-            FROM SDE.CTMT as c, [GEO_SIGR_DDAD_M10].SDE.TTEN as T 
-            WHERE sub='{self.sub}' and c.TEN_NOM = t.COD_ID Order by UNI_TR_AT
+            SELECT c.COD_ID, c.PAC_INI, c.UNI_TR_AT, c.TEN_OPE, t.TEN, p.POT
+            FROM SDE.CTMT as c
+            left join [GEO_SIGR_DDAD_M10].SDE.TTEN as T  on c.TEN_NOM = t.COD_ID			
+            left join sde.EQTRAT e on c.UNI_TR_AT = e.UNI_TR_AT
+            left join GEO_SIGR_DDAD_M10.sde.TPOTAPRT p on e.POT_NOM = p.COD_ID
+            WHERE sub='{self.sub}' Order by COD_ID
             ;
         '''
         self.circuitos = return_query_as_dataframe(query, engine)
@@ -828,7 +861,7 @@ def write_sub_dss(cod_sub, cod_dist, mes, tipo_dia, engine, dss_files_folder):
     bdgd_read.query_circuitos(engine)
     if bdgd_read.circuitos.empty:
         print(f"{sub} - Subestação inexistente!!!")
-        exit()
+        return
 
     # Leitura de dados de Trasformadores AT
     trafo_at_ok = bdgd_read.query_trafos_at(engine)
@@ -915,16 +948,16 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
     bdgd_read = ElectricDataPort(dist, sub)
 
     # Leitura de dados dos circuitos de uma subestação da bdgd
-    print(f'Process Circuit....')
+    print(f'Reading Circuit....')
     bdgd_read.query_circuitos(engine)
 
     # leitura de dados de condutores
-    print(f'Process LineCode....')
+    print(f'Reading LineCode....')
     bdgd_read.query_segcon(engine)
     dss_adapter.get_lines_condutores(bdgd_read.condutores, linhas_condutores_dss)
 
     # leitura de dados de curvas de carga da bdgd
-    print(f'Process LoadShape....')
+    print(f'Reading LoadShape....')
     bdgd_read.query_crvcrg(engine)
     dss_adapter.get_lines_curvas_carga(bdgd_read.curvas_cargas, multi_ger, linhas_curvas_carga_dss)
 
@@ -954,7 +987,7 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
         # Grava arquivo DSS Chaves_MT
         write_to_dss(dist, sub, cod_circuito, linhas_chaves_mt_dss, nome_arquivo_chv_mt, dss_files_folder)
 
-        # Grava arquivo DSS para o reatores
+        # Grava arquivo DSS para o reguladores
         bdgd_read.query_reatores_mt(cod_circuito, engine=engine)
         dss_adapter.get_lines_reguladores(bdgd_read.reatores, linhas_reatores_mt_dss)
         write_to_dss(dist, sub, cod_circuito, linhas_reatores_mt_dss, nome_arquivo_re_mt, dss_files_folder)
@@ -1025,49 +1058,83 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
 if __name__ == "__main__":
     proc_time_ini = time.time()
     config = load_config('391')
-    ano = config['data_base'].split('-')[0]
-    dist = config['dist']
-    engine = create_connection(config)
-    dss_files_folder = config['dss_files_folder']
-
-    # Definir código da subestação (sub) e da distribuidora (dist)
-    # dist = '404'  # Energisa MS
-    list_sub = ['40', '100', '58', '95', '96', '97']
-    # list_sub = ['100']
-
-    # EDP_SP = 391
-    list_sub = ['APA', 'ARA', 'ASP', 'AVP', 'BCU', 'BIR', 'BON', 'CAC', 'CAR', 'CMB', 'COL', 'CPA', 'CRU', 'CSO', 'DBE',
-                'DUT', 'FER', 'GOP', 'GUE', 'GUL', 'GUR', 'INP', 'IPO', 'ITQ', 'JAC', 'JNO', 'JAM', 'JAR', 'JCE', 'JUQ',
-                'KMA', 'LOR', 'MAP', 'MAS', 'MCI', 'MRE', 'MTQ', 'OLR', 'PED', 'PID', 'PIL', 'PME', 'PNO', 'POA', 'PRT',
-                'PTE', 'ROS', 'SAT', 'SBR', 'SJC', 'SKO', 'SLU', 'SLZ', 'SSC', 'SUZ', 'TAU', 'UNA', 'URB', 'USS', 'VGA',
-                'VHE', 'VJS', 'VSL']
-    #list_sub = ['ITQ']
-    # 'UBA' sem circuitos e transformadores
-    # 'GUL', 'IPO (104)'  CSO e USS Trafos 34,5 kv  SSC Sem info de TRAFO_AT  #JCE, PED ok dentro dos limites
-
-    # Cosern = 40
-    # list_sub = [ 'SBN', 'STO', 'MSU', 'JCT', 'CPG', 'AAF' ]
-    # list_sub = ['MSU']
-
-    print(f'Ajusting CodBNC....')
-    ajust_eqre_codbanc(dist, engine)
-
-    mes_ini = 12  # [1 12] mes do ano de referência para os dados de cargas e geração
-    tipo_de_dias = ['DO', 'DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
     # controles de execução para apenas um primeiro mes e um primeiro tipo de dia da lista 'tipo_de_dias'
     control_mes = True
     control_tipo_dia = True
-    for tipo_dia in tipo_de_dias:
-        for mes in range(mes_ini, 13):
-            for sub in list_sub:
-                # Gera arquivo com execução do fluxo de potência para toda a subestação
-                write_sub_dss(sub, dist, mes, tipo_dia, engine, dss_files_folder)
-                # Gera arquivos do openDSS para cada circuito de uma subestação
-                write_files_dss(sub, dist, ano, mes, tipo_dia, dss_files_folder, model_type=1,
-                                engine=engine)  # model_type=1 PVSystem else Generator
-            if control_mes:
-                break
-        if control_tipo_dia:
-            break
+    # set if multiprocessing will be used
+    tip_process = 1
 
-    print(f"Processo concluído em {time.time() - proc_time_ini}")
+    mes_ini = 7  # [1 12] mes do ano de referência para os dados de cargas e geração
+    tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
+
+    if tip_process == 0:
+        list_sub = [['APA'], ['ARA'], ['ASP'], ['AVP'], ['BCU'], ['BIR'], ['BON'], ['CAC'], ['CAR'], ['CMB'], ['COL'],
+                    ['CPA'], ['CRU'], ['CSO'], ['DBE'],
+                    ['DUT'], ['FER'], ['GOP'], ['GUE'], ['GUL'], ['GUR'], ['INP'], ['IPO'], ['ITQ'], ['JAC'], ['JNO'],
+                    ['JAM'], ['JAR'], ['JCE'], ['JUQ'],
+                    ['KMA'], ['LOR'], ['MAP'], ['MAS'], ['MCI'], ['MRE'], ['MTQ'], ['OLR'], ['PED'], ['PID'], ['PIL'],
+                    ['PME'], ['PNO'], ['POA'], ['PRT'],
+                    ['PTE'], ['ROS'], ['SAT'], ['SBR'], ['SJC'], ['SKO'], ['SLU'], ['SLZ'], ['SSC'], ['SUZ'], ['TAU'],
+                    ['UNA'], ['URB'], ['USS'], ['VGA'],
+                    ['VHE'], ['VJS'], ['VSL']]
+
+        print(cpu_count())
+        """
+        # utilizando map (multi-args=no order result=yes)
+        with Pool(processes=(cpu_count() - 1)) as p:
+            print(p.map(run_multi, [['AVP'], ['GUE'], ]))
+            #print(p.map(run_multi, list_sub))    
+        """
+
+        # utilizando apply_async (multi-args=yes order result=no)
+        p = Pool(processes=(cpu_count() ))
+        for sub in list_sub:
+            print(sub)
+            print(p.apply_async(run_multi, args=(sub, config, mes_ini, tipo_de_dias, control_mes, control_tipo_dia)))
+        p.close()
+        p.join()
+        print(f"Elapsed time: {time.time() - proc_time_ini}")
+
+    else:
+        ano = config['data_base'].split('-')[0]
+        dist = config['dist']
+        engine = create_connection(config)
+        dss_files_folder = config['dss_files_folder']
+
+        # Definir código da subestação (sub) e da distribuidora (dist)
+        # dist = '404'  # Energisa MS
+        list_sub = ['40', '100', '58', '95', '96', '97']
+        # list_sub = ['100']
+
+        # EDP_SP = 391
+        list_sub = ['APA', 'ARA', 'ASP', 'AVP', 'BCU', 'BIR', 'BON', 'CAC', 'CAR', 'CMB', 'COL', 'CPA', 'CRU', 'CSO', 'DBE',
+                    'DUT', 'FER', 'GOP', 'GUE', 'GUL', 'GUR', 'INP', 'IPO', 'ITQ', 'JAC', 'JNO', 'JAM', 'JAR', 'JCE', 'JUQ',
+                    'KMA', 'LOR', 'MAP', 'MAS', 'MCI', 'MRE', 'MTQ', 'OLR', 'PED', 'PID', 'PIL', 'PME', 'PNO', 'POA', 'PRT',
+                    'PTE', 'ROS', 'SAT', 'SBR', 'SJC', 'SKO', 'SLU', 'SLZ', 'SSC', 'SUZ', 'TAU', 'UNA', 'URB', 'USS', 'VGA',
+                    'VHE', 'VJS', 'VSL']
+
+        #list_sub = ['APA']
+        # 'UBA' sem circuitos e transformadores
+        # 'GUL', 'IPO (104)'  CSO e USS Trafos 34,5 kv  SSC Sem info de TRAFO_AT  #JCE, PED ok dentro dos limites
+
+        # Cosern = 40
+        # list_sub = [ 'SBN', 'STO', 'MSU', 'JCT', 'CPG', 'AAF' ]
+        # list_sub = ['MSU']
+
+        print(f'Ajusting CodBNC....')
+        ajust_eqre_codbanc(dist, engine)
+
+        for tipo_dia in tipo_de_dias:
+            for mes in range(mes_ini, 13):
+                for sub in list_sub:
+                    # Gera arquivo com execução do fluxo de potência para toda a subestação
+                    write_sub_dss(sub, dist, mes, tipo_dia, engine, dss_files_folder)
+                    # Gera arquivos do openDSS para cada circuito de uma subestação
+                    write_files_dss(sub, dist, ano, mes, tipo_dia, dss_files_folder, model_type=1,
+                                    engine=engine)  # model_type=1 PVSystem else Generator
+                if control_mes:
+                    break
+            if control_tipo_dia:
+                break
+        print(f"Processo concluído em {time.time() - proc_time_ini}")
+
