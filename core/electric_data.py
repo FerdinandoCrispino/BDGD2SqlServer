@@ -188,27 +188,37 @@ class ElectricDataPort:
         """
         if ctmt is None:
             query = f'''
-                 SELECT c.COD_ID, c.PAC_1, c.PAC_2, c.Sub, c.TIP_REGU, c.BANC, c.FAS_CON, c.CTMT,
-                        p.[POT], e.[TEN_REG], e.[LIG_FAS_P], e.[LIG_FAS_S], e.[COR_NOM], 
-                        e.[REL_TP], e.[REL_TC], e.[PER_FER], e.[PER_TOT], e.[R], e.[XHL], e.[CODBNC], e.[GRU_TEN]
-                 FROM SDE.UNREMT as c, SDE.EQRE as e 
-                 inner join [GEO_SIGR_DDAD_M10].sde.TPOTAPRT p			
-                    on  p.cod_id = e.POT_NOM
-                 WHERE c.dist = '{self.dist}' and c.sub='{self.sub}' and c.SIT_ATIV = 'AT' and 
-                 (c.pac_1 = e.pac_1 or c.pac_2 = e.pac_2 or c.pac_1 = e.pac_2 or c.pac_2 = e.pac_1)
-                 ;
+                    SELECT g.*, cr.TEN_NOM, t.TEN
+                    FROM (
+                        SELECT c.COD_ID, c.PAC_1, c.PAC_2, c.Sub, c.TIP_REGU, c.BANC, c.FAS_CON, c.CTMT, 
+                            p.POT, e.TEN_REG, e.LIG_FAS_P, e.LIG_FAS_S,  e.COR_NOM, e.REL_TP, e.REL_TC, 
+                            e.PER_FER, e.PER_TOT, e.R, e.XHL, e.CODBNC, e.GRU_TEN, e.COD_ID AS EQRE_COD_ID
+                        FROM SDE.UNREMT AS c
+                        INNER JOIN SDE.EQRE AS e 
+                            ON (c.PAC_1 = e.PAC_1 OR c.PAC_2 = e.PAC_2 OR c.PAC_1 = e.PAC_2 OR c.PAC_2 = e.PAC_1)
+                        INNER JOIN [GEO_SIGR_DDAD_M10].sde.TPOTAPRT AS p ON p.COD_ID = e.POT_NOM
+                        WHERE c.DIST = '{self.dist}' and c.sub='{self.sub}'  AND c.SIT_ATIV = 'AT'
+                    ) AS g
+                    INNER JOIN sde.CTMT AS cr ON cr.COD_ID = g.CTMT
+                    INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN AS t ON t.COD_ID = cr.TEN_NOM
+                    ;
             '''
         else:
             query = f'''
-                 SELECT c.COD_ID, c.PAC_1, c.PAC_2, c.Sub, c.TIP_REGU, c.BANC, c.FAS_CON, c.CTMT,
-                        p.[POT], e.[TEN_REG], e.[LIG_FAS_P], e.[LIG_FAS_S], e.[COR_NOM], 
-                        e.[REL_TP], e.[PER_FER], e.[PER_TOT], e.[R], e.[XHL], e.[CODBNC], e.[GRU_TEN]
-                 FROM SDE.UNREMT as c, SDE.EQRE as e 
-                 inner join [GEO_SIGR_DDAD_M10].sde.TPOTAPRT p			
-                    on  p.cod_id = e.POT_NOM
-                 WHERE c.dist = '{self.dist}' and c.sub='{self.sub}' and c.ctmt='{ctmt}' and c.SIT_ATIV = 'AT' and 
-                 (c.pac_1 = e.pac_1 or c.pac_2 = e.pac_2 or c.pac_1 = e.pac_2 or c.pac_2 = e.pac_1)
-                 ;
+                    SELECT g.*, cr.TEN_NOM, t.TEN
+                    FROM (
+                        SELECT c.COD_ID, c.PAC_1, c.PAC_2, c.Sub, c.TIP_REGU, c.BANC, c.FAS_CON, c.CTMT, 
+                            p.POT, e.TEN_REG, e.LIG_FAS_P, e.LIG_FAS_S,  e.COR_NOM, e.REL_TP, e.REL_TC, 
+                            e.PER_FER, e.PER_TOT, e.R, e.XHL, e.CODBNC, e.GRU_TEN, e.COD_ID AS EQRE_COD_ID
+                        FROM SDE.UNREMT AS c
+                        INNER JOIN SDE.EQRE AS e 
+                            ON (c.PAC_1 = e.PAC_1 OR c.PAC_2 = e.PAC_2 OR c.PAC_1 = e.PAC_2 OR c.PAC_2 = e.PAC_1)
+                        INNER JOIN [GEO_SIGR_DDAD_M10].sde.TPOTAPRT AS p ON p.COD_ID = e.POT_NOM
+                        WHERE c.DIST = '{self.dist}' and c.sub='{self.sub}' and c.ctmt='{ctmt}' AND c.SIT_ATIV = 'AT'
+                    ) AS g
+                    INNER JOIN sde.CTMT AS cr ON cr.COD_ID = g.CTMT
+                    INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN AS t ON t.COD_ID = cr.TEN_NOM
+                    ;
             '''
         self.reatores = return_query_as_dataframe(query, engine)
         return True
@@ -1062,9 +1072,9 @@ if __name__ == "__main__":
     control_mes = True
     control_tipo_dia = True
     # set if multiprocessing will be used
-    tip_process = 1
+    tip_process = 0
 
-    mes_ini = 7  # [1 12] mes do ano de referência para os dados de cargas e geração
+    mes_ini = 12  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
 
     if tip_process == 0:
@@ -1077,6 +1087,9 @@ if __name__ == "__main__":
                     ['PTE'], ['ROS'], ['SAT'], ['SBR'], ['SJC'], ['SKO'], ['SLU'], ['SLZ'], ['SSC'], ['SUZ'], ['TAU'],
                     ['UNA'], ['URB'], ['USS'], ['VGA'],
                     ['VHE'], ['VJS'], ['VSL']]
+        # Obter os primeiros elementos
+        # primeiros_elementos = [sublista[0] for sublista in list_sub]
+        # print(primeiros_elementos)
 
         print(cpu_count())
         """
@@ -1103,7 +1116,7 @@ if __name__ == "__main__":
 
         # Definir código da subestação (sub) e da distribuidora (dist)
         # dist = '404'  # Energisa MS
-        list_sub = ['40', '100', '58', '95', '96', '97']
+        # list_sub = ['40', '100', '58', '95', '96', '97']
         # list_sub = ['100']
 
         # EDP_SP = 391
@@ -1113,7 +1126,7 @@ if __name__ == "__main__":
                     'PTE', 'ROS', 'SAT', 'SBR', 'SJC', 'SKO', 'SLU', 'SLZ', 'SSC', 'SUZ', 'TAU', 'UNA', 'URB', 'USS', 'VGA',
                     'VHE', 'VJS', 'VSL']
 
-        #list_sub = ['APA']
+        list_sub = ['APA']
         # 'UBA' sem circuitos e transformadores
         # 'GUL', 'IPO (104)'  CSO e USS Trafos 34,5 kv  SSC Sem info de TRAFO_AT  #JCE, PED ok dentro dos limites
 

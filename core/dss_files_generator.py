@@ -100,7 +100,7 @@ class DssFilesGenerator:
 
             # Add monitor to transformer AT
             linhas_substation_dss.append(f'New monitor.{tr_name}_m1  element=Transformer.{tr_name} '
-                                         f'terminal=1 mode=1 ppolar=no')
+                                         f'terminal=2 mode=1 ppolar=no')
 
         # Create dummy switch for each circuit
         for index in range(substation.shape[0]):
@@ -120,7 +120,8 @@ class DssFilesGenerator:
                                          f'%loadloss=0.0001 %noloadloss=0.0001 \n'
                                          f'New "Regcontrol.CREG_busA_{cir_name}" '
                                          f'transformer="REG_busA_{cir_name}" winding=2 '
-                                         f'vreg={(100 * tensao_operacao):.0f} band=2 ptratio={(10 * kv_sec):.0f} \n')
+                                         f'vreg={(100 * tensao_operacao):.0f} band=2 '
+                                         f'ptratio={(10 * kv_sec / np.sqrt(3)):.2f} \n')
 
             # Create dummy switch Transformer
             linhas_substation_dss.append(f'New Line.SW_{cir_name} phases=3 bus1="busa_{cir_name}" bus2={cir_pac_ini} '
@@ -150,8 +151,8 @@ class DssFilesGenerator:
         linhas_substation_dss.append(f"set tolerance=0.0001")
         linhas_substation_dss.append(f"set maxcontroliter=100")
         linhas_substation_dss.append(f"set maxiterations=100")
-        linhas_substation_dss.append(f"set stepsize=1h ! duracao de cada step")
-        linhas_substation_dss.append(f"set number=24 ! cada solve executa 24 steps")
+        linhas_substation_dss.append(f"set stepsize=1h")
+        linhas_substation_dss.append(f"set number=24")
         linhas_substation_dss.append(f"solve")
         linhas_substation_dss.append('')
 
@@ -183,7 +184,7 @@ class DssFilesGenerator:
                                 f'kvas=[{pot_trafo_at:.1f} {pot_trafo_at:.1f}] ' \
                                 f'%loadloss=0.0001 %noloadloss=0.0001 \n' \
                                 f'New "Regcontrol.CREG_busA" transformer="REG_busA" winding=2 ' \
-                                f'vreg={(100 * tensao_operacao):.0f} band=2 ptratio={(10 * base_kv):.0f} \n'
+                                f'vreg={(100 * tensao_operacao):.0f} band=2 ptratio={(10 * base_kv / np.sqrt(3)):.2f}\n'
 
         linhas_suprimento_dss.append(comando)
 
@@ -218,6 +219,7 @@ class DssFilesGenerator:
             strCodFasPrim = reatores.loc[index]['LIG_FAS_P']
             strCodFasSecu = reatores.loc[index]['LIG_FAS_S']
             dblTensaoPrimTrafo_kV = reatores.loc[index]['REL_TP']
+            ctmt_vll = reatores.loc[index]['TEN']/1000
             PotNom_kVA = reatores.loc[index]['POT']
             dblTenRgl_pu = reatores.loc[index]['TEN_REG']
             ReatHL_per = reatores.loc[index]['XHL']
@@ -226,11 +228,29 @@ class DssFilesGenerator:
 
             # obtido da relação do tp -> será sempre tensão de fase
             dblkvREG = round(tens_regulador(dblTensaoPrimTrafo_kV), 4)
+            if dblkvREG != round(ctmt_vll/np.sqrt(3), 4):
+                dblkvREG = round(ctmt_vll/np.sqrt(3), 4)
 
-            if strTipRegul in ('DF', 'DA'):
+            if strTipRegul == 'T' and numero_fases_transformador(strCodFasPrim) == 3:
                 dblkvREG = vll = round(tens_regulador(dblTensaoPrimTrafo_kV) * np.sqrt(3), 4)  # 'tensão de linha'
-            else:
-                vln = round(tens_regulador(dblTensaoPrimTrafo_kV), 4)  # 'tensão de fase'
+
+            # análise de dados conflitantes
+            if strTipRegul in ('DF', 'DA') and intBanc == 1:  # considera indormação do DF ou DA sobre a codFas
+                # Usar tensão de linha
+                dblkvREG = ctmt_vll
+
+                if strCodFasPrim in ('AN', 'A'):
+                    strCodFasPrim = 'AB'
+                if strCodFasPrim in ('BN', 'B'):
+                    strCodFasPrim = 'BC'
+                if strCodFasPrim in ('CN', 'C'):
+                    strCodFasPrim = 'CA'
+                if strCodFasSecu in ('AN', 'A'):
+                    strCodFasSecu = 'AB'
+                if strCodFasSecu in ('BN', 'B'):
+                    strCodFasSecu = 'BC'
+                if strCodFasSecu in ('CN', 'C'):
+                    strCodFasSecu = 'CA'
 
             PerdaFerroTrafo_per = (dblPerdVz_per / (float(PotNom_kVA) * 1000)) * 100
             PerdaCobreTrafo_per = ((dblPerdTtl_per - dblPerdVz_per) / (float(PotNom_kVA) * 1000)) * 100

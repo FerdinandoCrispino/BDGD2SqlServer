@@ -234,25 +234,75 @@ def create_geojson_from_points_UGMT(points_ugmt):
     return geojson
 
 
+def get_coords_ucmt_from_db(sub, ctmt):
+    if ctmt == "":
+        query = f'''Select POINT_X, POINT_Y, c.COD_ID, c.CEG_GD, c.CTMT, c.CAR_INST, c.GRU_TAR, c.LIV, 
+                        c.TIP_CC, c.CALSS_SUB, c.FAS_CON, c.TEN_FORN, c.TEN_CON, t.TEN
+                    from sde.UCMT C
+                    inner join GEO_SIGR_DDAD_M10.SDE.TTEN  t on t.COD_ID = c.TEN_CON
+                    where sub='{sub}' 
+                ;   
+                '''
+    else:
+        query = f'''Select POINT_X, POINT_Y, c.COD_ID, c.CEG_GD, c.CTMT, c.CAR_INST, c.GRU_TAR, c.LIV, 
+                        c.TIP_CC, c.CALSS_SUB, c.FAS_CON, c.TEN_FORN, c.TEN_CON, t.TEN
+                    from sde.UCMT C
+                    inner join GEO_SIGR_DDAD_M10.SDE.TTEN  t on t.COD_ID = c.TEN_CON                
+                    where sub='{sub}' and ctmt='{ctmt}'
+                ;   
+                '''
+    rows = return_query_as_dataframe(query, engine)
+    rows["TIPO"] = "UCMT"
+    points = [((row["POINT_X"], row["POINT_Y"]), rows["COD_ID"], rows["CEG_GD"], rows["CAR_INST"], rows["GRU_TAR"],
+               rows["TEN"], rows["CTMT"], rows["FAS_CON"], rows["LIV"], rows["GRU_TAR"], rows["TIPO"])
+              for index, row in rows.iterrows()]
+    return points
+
+
+def create_geojson_from_points_UCMT(points_ucmt):
+    # Criar uma lista de geometria de segmentos de linha a partir dos pontos
+    # lines = [LineString([start, end]) for start, end in line_segments]
+    points = []
+    # circ = []
+
+    for pt, COD_ID, CEG, CAR_INST, GRU_TAR, TEN, CTMT, FAS_CON, LIV, GRU_TAR, TIPO in points_ucmt:
+        points.append(Point([pt]))
+        # circ.append(ctmt)
+
+    # Criar um GeoDataFrame com as geometrias e dados extras
+    gdf = gpd.GeoDataFrame({'geometry': points, 'ctmt': CTMT, 'ceg': CEG, 'pot_inst': CAR_INST,
+                            'voltage': TEN, 'tipo': TIPO, 'fas_con': FAS_CON, 'cod_id': COD_ID,
+                            'livre': LIV, 'gru_tar': GRU_TAR}, crs="EPSG:4326")
+    # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
+
+    # Converter o GeoDataFrame para GeoJSON
+    geojson = gdf.to_json()
+    return geojson
+
+
 def get_coords_unremt_from_db(sub, ctmt):
     if ctmt == "":
-        query = f'''Select POINT_X, POINT_Y, CTMT, SUB, BANC, p.DESCR, TIP_REGU, FAS_CON
-                    from sde.UNREMT r
-                    inner join GEO_SIGR_DDAD_M10.SDE.TREGU p on p.COD_ID = r.TIP_REGU 
+        query = f'''Select POINT_X, POINT_Y, CTMT, SUB, BANC, p.DESCR, c.TIP_REGU, FAS_CON, Format(TEN_REG, 'N', 'en-us') as TEN_REG
+                    from sde.UNREMT c
+                    INNER JOIN SDE.EQRE AS e 
+                            ON (c.PAC_1 = e.PAC_1 OR c.PAC_2 = e.PAC_2 OR c.PAC_1 = e.PAC_2 OR c.PAC_2 = e.PAC_1)
+                    inner join GEO_SIGR_DDAD_M10.SDE.TREGU p on p.COD_ID = c.TIP_REGU 
                     where SUB= '{sub}' 
                 ;   
                 '''
     else:
-        query = f'''Select POINT_X, POINT_Y, CTMT, SUB, BANC, p.DESCR, TIP_REGU, FAS_CON
-                    from sde.UNREMT r
-                    inner join GEO_SIGR_DDAD_M10.SDE.TREGU p on p.COD_ID = r.TIP_REGU 
+        query = f'''Select POINT_X, POINT_Y, CTMT, SUB, BANC, p.DESCR, c.TIP_REGU, FAS_CON, Format(TEN_REG, 'N', 'en-us') as TEN_REG
+                    from sde.UNREMT c
+                    INNER JOIN SDE.EQRE AS e 
+                            ON (c.PAC_1 = e.PAC_1 OR c.PAC_2 = e.PAC_2 OR c.PAC_1 = e.PAC_2 OR c.PAC_2 = e.PAC_1)
+                    inner join GEO_SIGR_DDAD_M10.SDE.TREGU p on p.COD_ID = c.TIP_REGU 
                     where SUB= '{sub}' and ctmt = '{ctmt}'
                 ;   
                 '''
     rows = return_query_as_dataframe(query, engine)
     rows["nome"] = "UNREMT"
     points = [((row["POINT_X"], row["POINT_Y"]), rows["CTMT"], rows["nome"], rows["SUB"], rows["BANC"],
-               rows["FAS_CON"], rows["DESCR"]) for index, row in rows.iterrows()]
+               rows["FAS_CON"], rows["DESCR"], rows["TIP_REGU"], rows["TEN_REG"]) for index, row in rows.iterrows()]
 
     return points
 
@@ -263,13 +313,13 @@ def create_geojson_from_points_unremt(points_unremt):
     points = []
     circ = []
 
-    for pt, ctmt, nome, sub, banc, fas_con, descr in points_unremt:
+    for pt, ctmt, nome, sub, banc, fas_con, descr, tip_reg, ten_reg in points_unremt:
         points.append(Point([pt]))
         circ.append(ctmt)
 
     # Criar um GeoDataFrame com as geometrias e dados extras
     gdf = gpd.GeoDataFrame({'geometry': points, 'ctmt': ctmt, 'tipo': nome, 'sub': sub, 'banc': banc,
-                            'fas_con': fas_con, 'tip_regu': descr}, crs="EPSG:4326")
+                            'fas_con': fas_con, 'tip_regu': descr, 'ten_reg': ten_reg}, crs="EPSG:4326")
     # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
 
     # Converter o GeoDataFrame para GeoJSON
@@ -367,7 +417,6 @@ def create_geojson_from_points_UCBT(points_ucbt):
 
 
 def get_coords_sub_from_db(sub):
-
     query = f'''SELECT s.POINT_X, s.POINT_Y, s.COD_ID, s.NOME, s.POS          
                   ,count( distinct c.UNI_TR_AT) as TR_AT, count(c.NOME) as CTMT
                 FROM [sde].[CTMT] c  
@@ -505,10 +554,9 @@ def get_coords_SSDMT_from_db(sub, ctmt):
     rows = return_query_as_dataframe(query, engine)
     # coordinates = [(row["longitude"], row["latitude"]) for index, row in rows.iterrows()]
     # color "red" utilizado para indicar problemas na rede como sobre tensões subtensões ou sobrecorrentes
-    colour = ["blue", "green", "purple", "orange", "DarkOliveGreen", "Brown", "DarkCyan", "pink", "DarkKhaki",
-              "SlateGray", "teal", "goldenrod", "chocolate", "darkred", "olivedrab", "aqua", "skyblue", "tan", "cyan"
-                                                                                                               "violet",
-              "silver", "indigo", "black"]
+    colour = ["blue", "green", "purple", "orange", "DarkOliveGreen", "Brown", "DarkCyan", "DarkKhaki",
+              "SlateGray", "teal", "goldenrod", "chocolate", "darkred", "olivedrab", "aqua", "skyblue", "tan", "cyan",
+              "violet", "silver", "indigo", "pink", "black"]
 
     # rows["cor"] = [np.random.choice(colour) for i in range(rows.shape[0])]
     # rows['cor'] = rows['CTMT'].groupby(rows['CTMT']).transform(lambda x: np.random.choice(colour))
@@ -556,7 +604,7 @@ def get_line_segments_from_db():
 """
 
 
-def read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_dia, ano, mes):
+def read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_dia, ano, mes, hora=12):
     import json
     path_flask_static = 'ui/static/scenarios/'
 
@@ -576,7 +624,7 @@ def read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_di
         for index, js in enumerate(json_files):
             print(js)
             with open(os.path.join(path_json_file, js), 'r') as json_file:
-                json_text = json.load(json_file)[12]
+                json_text = json.load(json_file)[hora]
                 dados_combinados.update(json_text)
         return dados_combinados
     else:
@@ -587,9 +635,9 @@ def read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_di
         print(path_json_file)
         try:
             f = open(path_json_file, 'r')
-            result = json.load(f)[12]
+            result = json.load(f)[hora]
             # returns JSON object as a list
-            return result  # para testes será utilizado a hora 12
+            return result  # para testes será utilizado a hora default 12
         except Exception as e:
             print(f"File not found: {path_json_file}. {e}")
             return None
@@ -624,7 +672,8 @@ def create_geojson_from_segments(line_segments, json_data):
         # color_intensity = (voltage_bus - voltage_min) / (voltage_max - voltage_min)
         # cores.append(str(Color(cor, luminance=f'{color_intensity}', equality=RGB_equivalence)))
 
-        voltage_list = [item for item in [voltage_bus1, voltage_bus2, voltage_bus3] if (item != '' and item is not None)]
+        voltage_list = [item for item in [voltage_bus1, voltage_bus2, voltage_bus3] if
+                        (item != '' and item is not None)]
         voltage_list_a = [float(item) for item in voltage_list]
         if any(overvoltage > 1.05 for overvoltage in voltage_list_a) or \
                 any(undervoltage < 0.95 for undervoltage in voltage_list_a):
@@ -792,13 +841,13 @@ def segments():
     tipo_dia = request.args.get('tipo_dia', 'DU')
     ano = request.args.get('ano', 'defaultano')
     mes = request.args.get('mes', 'defaultmes')
-
+    hora = 12  # TODO hora do dia para apresentadar na tela os valores de tensão. Parametrizar utilizando elementos na tela
     if subestacao == '':
         print(f"Selecione uma subestação!")
         return None  # retornar erro!
     line_segments = get_coords_SSDMT_from_db(subestacao, circuito)
     # Leitura do arquiso de resultados do fluxo de potencia
-    json_data = read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_dia, ano, mes)
+    json_data = read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_dia, ano, mes, hora)
     geojson = create_geojson_from_segments(line_segments, json_data)
     return geojson, 200, {'Content-Type': 'application/json'}
 
