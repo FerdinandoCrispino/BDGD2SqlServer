@@ -39,3 +39,10 @@ databases:
         cod_BDGD: '1651'
         dist: '40'
         dss_files_folder: '~\dss' # diretório dos arquivos do openDSS (user folder)
+    'Irradiance':
+        server: 'localhost'
+        database: 'IRRADIANCIA'
+        username: 'usr_GeoPerdas'
+        password: '123456'
+        schema: 'SDE'
+        irrad_directory: 'C:\BDGD2SqlServer\Irradiance_SP'
