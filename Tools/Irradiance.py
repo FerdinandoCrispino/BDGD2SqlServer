@@ -12,6 +12,7 @@
 import os
 import pandas as pd
 from Tools.tools import create_connection, load_config
+import openpyxl
 
 # Lê a configuração do arquivo yml
 config = load_config('Irradiance')
@@ -84,10 +85,22 @@ try:
                 try:
                     # Lendo o arquivo Excel (.xls)
                     df = pd.read_excel(caminho_arquivo, engine='xlrd', skiprows=6)
+                    # substituir aspas simples por duas aspas simples para inserir no sql
+                    df['NOME_MUNICIPIO'] = df['NOME_MUNICIPIO'].str.replace("'", "")
+                    with engine.connect() as con:
+                        #con.execution_options(autocommit=True).execute(
+                        #    f'ALTER TABLE {schema}.{IRRAD_sql} DROP CONSTRAINT FK_IRRAD_MUNICIPIO')
+
+                        con.execution_options(autocommit=True).execute(f"TRUNCATE TABLE {schema}.{MUNICIPIO_sql}")
+
+                        #con.execution_options(autocommit=True).execute(
+                        #    f'ALTER TABLE {schema}.{IRRAD_sql} ADD CONSTRAINT FK_IRRAD_MUNICIPIO FOREIGNKEY('
+                        #    f'COD_MUNICIPIO) REFERENCES {schema}.{MUNICIPIO_sql}(COD_MUNICIPIO)')
 
                     # Se o df for igual a tabela do banco de dados então será preenchida
+                    #  if_exists="replace" altera a definição das colunas por isso, utilizar append
                     df.to_sql(MUNICIPIO_sql, engine, schema=schema, index=False,
-                              if_exists="replace", chunksize=None, method=None)
+                              if_exists="append", chunksize=None, method=None)
 
                     print(f"Arquivo processado: {caminho_arquivo}")
 

@@ -26,19 +26,25 @@
             <option value="">Select</option>
         </select>
         <hr>
-        <label for="scenarios">Scenarios:</label>
+        <label for="scenarios">Scenario:</label>
         <select id="scenarios" name="scenarios" style="float:right;width:110px">
             <option value="base">Base Case</option>
         </select><br>
-        <label for="tipo_dia">Types of Day:</label>
+        <label for="tipo_dia">Type of Day:</label>
         <select id="tipo_dia" name="tipo_dia" style="float:right;width:110px">
             <option value="DU">Workdays (DU)</option>
             <option value="SA">Saturday (SA)</option>
             <option value="DO">Sunday/Holidays (DO)</option>
         </select><br>
-        <label for="meses">Months:</label>
+        <label for="meses">Month:</label>
         <select id="meses" name="meses" style="float:right;width:110px">
         </select><br>
+
+        <div class="slidecontainer">
+          <input type="range" min="1" max="24" value="1" class="slider" id="myRange">
+            <p>Hour: <span id="hour"></span></p>
+        </div>
+
         <hr>
         <fieldset>
           <div>
@@ -129,6 +135,20 @@
 <script src="https://cdn.jsdelivr.net/npm/ol-geocoder/dist/ol-geocoder.js"></script>
 
 <script>
+    var slider = document.getElementById("myRange");
+    var hour = document.getElementById("hour");
+    hour.innerHTML = slider.value;
+
+    slider.oninput = function() {
+        hour.innerHTML = this.value;
+        var distribuidora = document.getElementById('distribuidora').value;
+        var subestacao = document.getElementById('subestacao').value;
+        var circuito = document.getElementById('circuito').value;
+        if (subestacao){
+            var link = document.getElementById('applyFilters');
+            link.click();
+        }
+    }
 
     const monthSelect = document.getElementById("meses");
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October',
@@ -267,11 +287,11 @@
     });
 
     // Função para carregar segmentos de reta no mapa com base nos filtros
-    function loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes) {
+    function loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes, hora) {
         document.body.style.cursor = 'wait';  // Cursor de espera
 
         fetch(`/api/segments?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}
-                                            &scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}`)
+                                            &scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}&hora=${hora}`)
             .then(response => response.json())
             .then(data => {
                 var format = new ol.format.GeoJSON();
@@ -352,12 +372,13 @@
                                 //console.log('===================' + h)
                                 break;
                             case 'segmentos':
+                                var h5 = selected.get("pac")
                                 var h1 = selected.get("bus1")
                                 if (h1) {
                                     h1 = (selected.get("bus1")).toLocaleString(
                                           undefined, // leave undefined to use the visitor's browser
                                                      // locale or a string like 'en-US' to override it.
-                                          { minimumFractionDigits: 3 }
+                                          { minimumFractionDigits: 5 }
                                         );
                                     };
                                 var h2 = selected.get("bus2")
@@ -365,7 +386,7 @@
                                     h2 = (selected.get("bus2")).toLocaleString(
                                           undefined, // leave undefined to use the visitor's browser
                                                      // locale or a string like 'en-US' to override it.
-                                          { minimumFractionDigits: 3 }
+                                          { minimumFractionDigits: 5 }
                                         );
                                     };
                                 var h3 = selected.get("bus3")
@@ -373,30 +394,30 @@
                                     h3 = (selected.get("bus3")).toLocaleString(
                                           undefined, // leave undefined to use the visitor's browser
                                                      // locale or a string like 'en-US' to override it.
-                                          { minimumFractionDigits: 3 }
+                                          { minimumFractionDigits: 5 }
                                         );
                                     };
                                 var h4 = (selected.get("ctmt")).toLocaleString(
                                           undefined, // leave undefined to use the visitor's browser
                                                      // locale or a string like 'en-US' to override it.
-                                          { minimumFractionDigits: 3 }
+                                          { minimumFractionDigits: 5 }
                                         );
                                 console.log('++++++++++++++' + h4)
                                 //const result = h1 || h2 || h3;  //seleciona o primeiro valido (nao nulo ou vazio)
                                 if (h1 && h2 && h3) {
-                                    popup1.setInfo(h4 +'<br>Vab: '+ h1 +' pu <br> Vbc: ' + h2 + ' pu <br> Vca: ' + h3 +' pu' );
+                                    popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>Va: '+ h1 +' pu <br> Vb: ' + h2 + ' pu <br> Vc: ' + h3 +' pu' );
                                 } else if (h1 && h2 && !h3) {
-                                    popup1.setInfo(h4 +'<br>Vab: '+ h1 +' pu');
+                                    popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>Va: '+ h1 +' pu');
                                 } else if (!h1 && h2 && h3) {
-                                    popup1.setInfo(h4 +'<br>Vbc: '+ h2 +' pu');
+                                    popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>Vb: '+ h2 +' pu');
                                 } else if (h1 && !h2 && h3) {
-                                    popup1.setInfo(h4 +'<br>Vca: '+ h3 +' pu');
+                                    popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>Vc: '+ h3 +' pu');
                                 } else if (h1) {
-                                    popup1.setInfo(h4 +'<br>Va: '+ h1 +' pu');
+                                    popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>Va: '+ h1 +' pu');
                                 } else if (h2) {
-                                    popup1.setInfo(h4 +'<br>Vb: '+ h2 +' pu');
+                                    popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>Vb: '+ h2 +' pu');
                                 } else if (h3) {
-                                    popup1.setInfo(h4 +'<br>Vc: '+ h3 +' pu');
+                                    popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>Vc: '+ h3 +' pu');
                                 }
                                 break;
                             case 'UNTRMT':
@@ -405,9 +426,10 @@
                                 var t3 = selected.get("tip");
                                 var t4 = selected.get("v_prim");
                                 var t5 = selected.get("cod_id");
+                                var t6 = selected.get("tip_tr");
                                 //console.log ('-------------' + t1)
                                 popup1.setInfo('TR: ' + t5 + '<br> Power: '+ t1 + ' kW <br> V<sub>p</sub>: ' + t4 +
-                                               ' kV <br> V<sub>s</sub>: ' + t2 + ' kV <br> Tipo: ' + t3 );
+                                               ' kV <br> V<sub>s</sub>: ' + t2 + ' kV <br> Type: ' + t6 );
                                 break;
                             case 'UNSEMT':
                                 var s1 = selected.get("ctmt");
@@ -466,7 +488,7 @@
                                 popup1.setInfo(re1 + '<br> Phases: ' + re2 + '<br> Type: ' + re3 + '<br> Bank: ' + re4 +
                                                '<br> Regul: ' + re5 + ' pu');
                                 break;
-                            case 'UNCMT':
+                            case 'UCMT':
                                 var ucm1 = selected.get("ctmt");
                                 var ucm2 = selected.get("pot_inst");
                                 var ucm3 = selected.get("gru_tar");
@@ -561,8 +583,9 @@
         var dist = document.getElementById("distribuidora");
         var select_dist = dist.options[dist.selectedIndex].text;
         var ano = select_dist.split(" ")[1]
+        var hora = document.getElementById("myRange").value;
 
-        loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes);
+        loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes, hora);
     });
 
     // Subestações  =========================================================================================
