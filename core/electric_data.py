@@ -554,7 +554,7 @@ class ElectricDataPort:
                      u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
                      u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
                      t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, 
-                     u.TEN_CON, 
+                     u.TEN_CON, u.MUN,
                      t.TIP_TRAFO, t.PAC_2 as PAC_TRAFO, T.FAS_CON_P, T.FAS_CON_S, T.FAS_CON_T,
                      t.TEN_LIN_SE
                 FROM sde.UGBT u
@@ -571,7 +571,7 @@ class ElectricDataPort:
                      u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
                      u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
                      t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, 
-                     u.TEN_CON, 
+                     u.TEN_CON, u.MUN,
                      t.TIP_TRAFO, t.PAC_2 as PAC_TRAFO, T.FAS_CON_P, T.FAS_CON_S, T.FAS_CON_T,
                      t.TEN_LIN_SE
                 FROM sde.UGBT u
@@ -951,9 +951,11 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
 
     multi_ger.append(['PVIrrad_diaria', [0, 0, 0, 0, 0, 0, 0.1, 0.2, 0.3, 0.5, 0.8, 0.9, 1.0, 1.0, 0.99, 0.9, 0.7,
                                          0.4, 0.1, 0, 0, 0, 0, 0]])
+    # obtem curva de irradiação solar na base de dados de irradiação
+
 
     # inicializa classes de manipulação dos dados da bdgd
-    dss_adapter = dss_g.DssFilesGenerator()
+    dss_adapter = dss_g.DssFilesGenerator(dist, sub)
     # bdgd_read = ElectricDataPort(dist, sub, mes, tipo_dia)
     bdgd_read = ElectricDataPort(dist, sub)
 
@@ -1072,9 +1074,9 @@ if __name__ == "__main__":
     control_mes = True
     control_tipo_dia = True
     # set if multiprocessing will be used
-    tip_process = 0
+    tip_process = 1
 
-    mes_ini = 12  # [1 12] mes do ano de referência para os dados de cargas e geração
+    mes_ini = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
 
     if tip_process == 0:

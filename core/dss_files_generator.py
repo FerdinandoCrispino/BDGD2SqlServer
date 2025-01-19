@@ -969,6 +969,8 @@ class DssFilesGenerator:
 
         for index in range(generators.shape[0]):
             strName = generators.loc[index]['COD_ID']
+            circuit = generators.loc[index]['CTMT']
+            cod_mun = generators.loc[index]['MUN']
             cod_gd = generators.loc[index]['CEG_GD']
             # strCodCrvCrg = generators.loc[index]['TIP_CC'] + '_' + tipo_dia
             strCodFas = generators.loc[index]['FAS_CON']
@@ -1000,7 +1002,7 @@ class DssFilesGenerator:
                 strCodFas += 'N'
 
             dbdaily = 'GeradorBT-Tipo1'
-            pv_daily = 'PVIrrad_diaria'
+            # pv_daily = 'PVIrrad_diaria'     # definido no loadshape
             srt_comment_dss = ''
 
             for crv in crv_ger:
@@ -1024,7 +1026,17 @@ class DssFilesGenerator:
             pf = 1.0
             kva = dblDemMax_kW / pf
             pmpp = dblDemMax_kW * rel_cc_ca
-            pv_temp_data = ta_to_tpv()  # converte temperatura ambiente em temperatura do painel solar
+
+            # obtem a curva de temperatura ambiente da base de dados de irradiação
+            temp_amb = temp_amb_by_municipio(cod_mun, mes, self.dist)
+
+            # obtem curva de irradiação solar na base de dados de irradiação
+            irradiacao = irrad_by_municipio(cod_mun, mes, self.dist)
+
+            # converte temperatura ambiente e irradiação solar em temperatura do painel solar
+            pv_temp_data = temp_amb_to_temp_pv(irradiacao, temp_amb)
+
+            # máxima irradiação solar em relação a uma irradiação de 1000 W/m2
             irrad = round(max(pv_temp_data["crv_g"]) / 1000, 2)
 
             if model_pv_system == 1 and cod_gd[:2].upper() == 'GD':
@@ -1033,11 +1045,13 @@ class DssFilesGenerator:
                 # A curva de irradiancia normalizada é inserida no parametro Daily
                 if not set_pv_system:
                     linha_generators_bt_dss.append(f'New XYCurve.MyPvsT npts=4 '
-                                                   f'xarray=[0  25  75  100]  yarray=[1.2 1.0 0.8  0.6] ')
+                                                   f'xarray=[0  25  75  100]  yarray=[1.2  1.0  0.8  0.6] ')
                     linha_generators_bt_dss.append(f'New XYCurve.MyEff npts=4 '
                                                    f'xarray=[0.1  0.2  0.4  1.0]  yarray=[0.86  0.9  0.93  0.97] ')
                     linha_generators_bt_dss.append(f'New Tshape.MyTemp npts=24 interval=1 '
-                                                   f'temp={pv_temp_data["crv_t_pv_2"]} \n')
+                                                   f'temp={pv_temp_data["crv_t_pv_2"]}')
+                    linha_generators_bt_dss.append(f'New Loadshape.PVIrrad_{circuit} 24 1.0 '
+                                                   f'mult=({pv_temp_data["crv_g_norm"]})\n')
                     set_pv_system = True
 
                 linha_generators_bt_dss.append(f'{srt_comment_dss}New PVsystem.BT_{strName}_M1 '
@@ -1050,7 +1064,7 @@ class DssFilesGenerator:
                                                f'kva={kva:.3f} '  # potencia do inversor
                                                f'%pmpp=100 '
                                                f'irradiance={irrad} temperature=25 %cutin=0.1 %cutout=0.1 '
-                                               f'effcurve=Myeff P-TCurve=MyPvsT Daily={pv_daily} TDaily=MyTemp')
+                                               f'effcurve=Myeff P-TCurve=MyPvsT Daily=PVIrrad_{circuit} TDaily=MyTemp')
             else:
                 linha_generators_bt_dss.append(srt_comment_dss + 'New Generator.BT_' + strName +
                                                '_M1 bus1=' + strBus + nos_com_neutro(strCodFas) +
@@ -1127,7 +1141,7 @@ class DssFilesGenerator:
                 pf = 1.0
                 kva = dblDemMax_kW / pf
                 pmpp = dblDemMax_kW * rel_cc_ca
-                pv_temp_data = ta_to_tpv()  # converte temperatura ambiente em temperatura do painel solar
+                pv_temp_data = temp_amb_to_temp_pv()  # converte temperatura ambiente em temperatura do painel solar
                 irrad = round(max(pv_temp_data["crv_g"]) / 1000, 2)
 
                 if not set_pv_system:

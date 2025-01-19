@@ -1027,7 +1027,37 @@ def circuit_by_bus(pac: str, dist):
     return ctmt
 
 
-def ta_to_tpv(crv_g=None, crv_ta=None) -> dict:
+def irrad_by_municipio(cod_municipio, mes,  dist):
+    config = load_config(dist)
+    engine = create_connection(config)
+    query = f'''
+                SELECT avg([GT(I)_MEAN]) as irrad, avg([GT(I)_STD]) as irrad_std, hora
+                FROM [IRRADIANCIA].SDE.IRRAD 
+                WHERE cod_municipio = '{cod_municipio}' and mes = '{mes}'
+                group by COD_MUNICIPIO, hora
+                order by hora
+                ;
+            '''
+    irrad = return_query_as_dataframe(query, engine)
+    return irrad['irrad'].tolist()
+
+
+def temp_amb_by_municipio(cod_municipio, mes,  dist):
+    config = load_config(dist)
+    engine = create_connection(config)
+    query = f'''
+            SELECT avg(T2M_MEAN) as temperatura, avg(T2M_STD) as temp_std, hora
+            FROM [IRRADIANCIA].SDE.IRRAD 
+            WHERE cod_municipio = '{cod_municipio}' and mes = '{mes}'
+            group by COD_MUNICIPIO, hora
+            order by hora
+            ;
+        '''
+    temp_ta = return_query_as_dataframe(query, engine)
+    return temp_ta['temperatura'].tolist()
+
+
+def temp_amb_to_temp_pv(crv_g=None, crv_ta=None) -> dict:
     """
     Converte a curva de temperatura ambiente em curva de temperatura na superficie do painel solar
     LASNIER, F.; ANG, T. G. Photovoltaic Engineering Handbook, New York, Adam Hilger, pp: 258, 1990.
@@ -1042,9 +1072,10 @@ def ta_to_tpv(crv_g=None, crv_ta=None) -> dict:
 
     :return: dict
     """
-    if crv_g is None or crv_ta is None:
+    if crv_g is None:
         crv_g = [0, 0, 0, 0, 0, 0, 53.84, 186.42, 371.93, 491.11, 634.01, 722.82, 795.12, 736.89, 641.51, 476.68,
                  252.55, 121.78, 32.7, 0, 0, 0, 0, 0]
+    if crv_ta is None:
         crv_ta = [21.81, 21.48, 21.24, 20.98, 20.78, 20.62, 20.59, 21.88, 23.21, 24.36, 25.36, 26.17, 26.76, 27.2,
                   27.61, 28.73, 27.11, 26.03, 25.25, 24.32, 23.6, 23.45, 22.82, 22.22]
 
@@ -1054,10 +1085,10 @@ def ta_to_tpv(crv_g=None, crv_ta=None) -> dict:
 
     data = {'crv_ta': crv_ta,
             'crv_g': crv_g,
+            'crv_g_norm': [round(irrad / max(crv_g), 6) for irrad in crv_g],
             'crv_t_pv_1': [round(30.006 + 0.0175 * (crv_g[i] - 300) + 1.14 * (crv_ta[i] - 25), 2)
                            for i in range(len(crv_g))],
-            'crv_t_pv_2': [round(crv_ta[i] + (0.028 * crv_g[i]) - 1, 2) for i in range(len(crv_g))],
-            'crv_g_norm': [round(irrad / max(crv_g), 6) for irrad in crv_g]
+            'crv_t_pv_2': [round(crv_ta[i] + (0.028 * crv_g[i]) - 1, 2) for i in range(len(crv_g))]
             }
     return data
 
@@ -1077,8 +1108,25 @@ def fator_autoconsumo(classe):
 
 
 if __name__ == "__main__":
-    test = ta_to_tpv()  # teste temperatura ambiente para temperatura do pv.
+
+    import matplotlib.pyplot as plt
+    import matplotlib
+    matplotlib.use('TKAgg')
+    t = temp_amb_by_municipio('3539806', 7, '391')
+    print(t)
+
+    ir = irrad_by_municipio('3539806', 7, '391')
+    print(ir)
+
+    test = temp_amb_to_temp_pv(ir, t)  # teste temperatura ambiente para temperatura do pv.
     print(test['crv_t_pv_1'])
     print(test['crv_t_pv_2'])
+    print(test['crv_g_norm'])
 
-    set_coords('391')
+    plt.plot(t)
+    plt.plot(test['crv_t_pv_1'])
+    plt.plot(test['crv_t_pv_2'])
+    plt.show()
+
+
+    # set_coords('391')
