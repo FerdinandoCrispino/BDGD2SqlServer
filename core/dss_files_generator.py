@@ -100,7 +100,7 @@ class DssFilesGenerator:
 
             # Add monitor to transformer AT
             linhas_substation_dss.append(f'New monitor.{tr_name}_m1  element=Transformer.{tr_name} '
-                                         f'terminal=2 mode=1 ppolar=no')
+                                         f'terminal=1 mode=1 ppolar=no')
 
         # Create dummy switch for each circuit
         for index in range(substation.shape[0]):
