@@ -22,14 +22,14 @@ logging.basicConfig(filename='base_case.log', level=logging.INFO,
 
 # False para rodar o master com todos os circuitos e os transformadores de alta ou
 # True para rodar um circuito de cada vez
-exec_by_substation = True
+exec_by_circuit = True
 master_folder = os.path.expanduser('~\\dss')
 dist = "391"
 master_type_day = "DU"
 master_month = "1"
 master_data_base = "2022"
 # set run multiprocess
-tip_process = 1
+tip_process = 0
 
 
 def run_multi(subs):
@@ -58,7 +58,7 @@ def run_multi(subs):
 
         simul = SimuladorOpendss(config_opendss)
 
-        if exec_by_substation:
+        if exec_by_circuit:
             for file_dss in (glob.glob(folder + f"/*/{master_type_day}_{master_month}*.dss")):
                 if "Master" in file_dss:
                     simul.list_file_dss.append(file_dss)
@@ -268,6 +268,8 @@ class SimuladorOpendss:
         voltage_bus_dict_1phase = dict()
         vuf_bus_dict = dict()
         voltage_bus_list = []
+        voltage_vln_bus_dict = dict()
+        voltage_vln_bus_list = []
         voltage_bus_violation_list = []
         vuf_bus_list = []
         vuf_bus_violation_list = []
@@ -305,6 +307,7 @@ class SimuladorOpendss:
                 if self.dss.bus.kv_base < 1:  # para desconsiderar a baixa tensão
                     continue
                 vll_pu = []
+                vln_pu = []
                 vll = []
                 # Não funciona! em alguns casos pode haver diferença entre o tamanho o vetor de pu_vll e do vmag_pu
                 # for i in range(self.dss.bus.num_nodes):
@@ -314,6 +317,7 @@ class SimuladorOpendss:
                 if num_nodes > 1:
                     for i in range(num_nodes):
                         # print(active_bus)
+                        # tensões de linha
                         vll_pu.append(
                             round(math.sqrt(self.dss.bus.pu_vll[i * 2] ** 2 + self.dss.bus.pu_vll[(i * 2) + 1] ** 2),
                                   8))
@@ -321,7 +325,12 @@ class SimuladorOpendss:
                             round(math.sqrt(self.dss.bus.vll[i * 2] ** 2 + self.dss.bus.vll[(i * 2) + 1] ** 2), 5))
                         voltage_bus_dict[f"{bus_name.split('.')[0]}.{i + 1}"] = vll_pu[i]
 
-                    if num_nodes == 3:
+                        # tensões de fase
+                        vln_pu.append(
+                            round(math.sqrt(self.dss.bus.pu_voltages[i * 2] ** 2 + self.dss.bus.pu_voltages[(i * 2) + 1] ** 2), 5))
+                        voltage_bus_dict[f"{bus_name.split('.')[0]}.{i + 1}"] = vln_pu[i]
+
+                    if num_nodes == 3 and vll[0] != 0:
                         beta = (vll[0] ** 4 + vll[1] ** 4 + vll[2] ** 4) / (
                                 vll[0] ** 2 + vll[1] ** 2 + vll[2] ** 2) ** 2
                         vuf = round(math.sqrt((abs(1 - math.sqrt(3 - 6 * beta))) / (1 + math.sqrt(3 - 6 * beta))) * 100,
@@ -386,10 +395,10 @@ class SimuladorOpendss:
             # Vuf = sqrt(1-sqrt(3-6*Beta)/(1+sqrt(3-6*Beta))) beta=(Vab**4+Vbc**4+Vca**4)/(Vab**2+Vbc**2+Vca**2)**2
             # IEC
             # FD% = (V2/V1)*100  (sequencia positiva por sequencia negativa)
-
-            beta = (Vab ** 4 + Vbc ** 4 + Vca ** 4) / (Vab ** 2 + Vbc ** 2 + Vca ** 2) ** 2
-            Vuf = round(math.sqrt((abs(1 - math.sqrt(3 - 6 * beta))) / (1 + math.sqrt(3 - 6 * beta))) * 100, 5)
-            print(f' Desequilibrio de Tensão: {Vuf} %')
+            if Vab != 0 and Vbc != 0 and Vca != 0:
+                beta = (Vab ** 4 + Vbc ** 4 + Vca ** 4) / (Vab ** 2 + Vbc ** 2 + Vca ** 2) ** 2
+                Vuf = round(math.sqrt((abs(1 - math.sqrt(3 - 6 * beta))) / (1 + math.sqrt(3 - 6 * beta))) * 100, 5)
+                print(f' Desequilibrio de Tensão: {Vuf} %')
 
             # deve-se fazer a copia caso contrario a referencia é por ponteiro!!
             vuf_bus_list.append(vuf_bus_dict.copy())
@@ -491,7 +500,7 @@ if __name__ == '__main__':
 
             simul = SimuladorOpendss(config_opendss)
 
-            if exec_by_substation:
+            if exec_by_circuit:
                 for file_dss in (glob.glob(folder + f"/*/{master_type_day}_{master_month}_Master_*.dss")):
                     if "Master" in file_dss:
                         simul.list_file_dss.append(file_dss)

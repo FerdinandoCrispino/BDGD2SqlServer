@@ -25,7 +25,13 @@
         <select id="circuito" name="circuito" style="float:right;width:110px">
             <option value="">Select</option>
         </select>
+
+        <div>
+            <input type="checkbox" id="HVC" name="opt[]" value="HVC" />
+            <label for="HVC">High Voltage Circuits</label>
+        </div>
         <hr>
+
         <label for="scenarios">Scenario:</label>
         <select id="scenarios" name="scenarios" style="float:right;width:110px">
             <option value="base">Base Case</option>
@@ -274,8 +280,8 @@
             //if (nome_camada !== "UNTRMT" && nome_camada !== "UCMT" && nome_camada !== "UGMT" &&
             //nome_camada !== "UNREMT" && nome_camada !== "UNCRMT") {
 
-            var list_layers = ["segmentos", "SUB", "UNTRMT", "UNSEMT", "UGBT", "UCBT", "UCMT",
-                                "SIN-Linhas", "SIN-Subs", "SIN-EOL"]
+            var list_layers = ["segmentos", "SUB", "UNTRMT", "UNSEMT", "UNCRMT", "UNREMT", "UGMT", "UGBT", "UCBT", "UCMT",
+                                "SIN-Linhas", "SIN-Subs", "SIN-EOL", "AT_SSD"]
             if (list_layers.includes(nome_camada)){
                 selected = f;
                 return true;
@@ -285,13 +291,13 @@
             console.log(selected)
             switch (selected.get("tipo")) {
                 case 'SUB':
-                    var h = selected.get("nome");
+                    const h = selected.get("nome");
                     popup1.setInfo('SE ' + h );
                     //console.log('===================' + h)
                     break;
                 case 'segmentos':
-                    var h5 = selected.get("pac")
-                    var h1 = selected.get("bus1")
+                    const h5 = selected.get("pac")
+                    let h1 = selected.get("bus1")
                     if (h1) {
                         h1 = (selected.get("bus1")).toLocaleString(
                               undefined, // leave undefined to use the visitor's browser
@@ -299,7 +305,7 @@
                               { minimumFractionDigits: 5 }
                             );
                         };
-                    var h2 = selected.get("bus2")
+                    let h2 = selected.get("bus2")
                     if (h2) {
                         h2 = (selected.get("bus2")).toLocaleString(
                               undefined, // leave undefined to use the visitor's browser
@@ -307,7 +313,7 @@
                               { minimumFractionDigits: 5 }
                             );
                         };
-                    var h3 = selected.get("bus3")
+                    let h3 = selected.get("bus3")
                     if (h3) {
                         h3 = (selected.get("bus3")).toLocaleString(
                               undefined, // leave undefined to use the visitor's browser
@@ -315,7 +321,7 @@
                               { minimumFractionDigits: 5 }
                             );
                         };
-                    var h4 = (selected.get("ctmt")).toLocaleString(
+                    let h4 = (selected.get("ctmt")).toLocaleString(
                               undefined, // leave undefined to use the visitor's browser
                                          // locale or a string like 'en-US' to override it.
                               { minimumFractionDigits: 5 }
@@ -339,109 +345,114 @@
                     }
                     break;
                 case 'UNTRMT':
-                    var t1 = selected.get("pot");
-                    var t2 = selected.get("v_lin_se");
-                    var t3 = selected.get("tip");
-                    var t4 = selected.get("v_prim");
-                    var t5 = selected.get("cod_id");
-                    var t6 = selected.get("tip_tr");
+                    const t1 = selected.get("pot");
+                    const t2 = selected.get("v_lin_se");
+                    const t3 = selected.get("tip");
+                    const t4 = selected.get("v_prim");
+                    const t5 = selected.get("cod_id");
+                    const t6 = selected.get("tip_tr");
                     //console.log ('-------------' + t1)
                     popup1.setInfo('TR: ' + t5 + '<br> Power: '+ t1 + ' kW <br> V<sub>p</sub>: ' + t4 +
                                    ' kV <br> V<sub>s</sub>: ' + t2 + ' kV <br> Type: ' + t6 );
                     break;
                 case 'UNSEMT':
-                    var s1 = selected.get("ctmt");
-                    var s2 = selected.get("ope");
-                    var s3 = selected.get("cor_nom");
-                    var s4 = selected.get("cap_elo");
+                    const s1 = selected.get("ctmt");
+                    const s2 = selected.get("ope");
+                    const s3 = selected.get("cor_nom");
+                    const s4 = selected.get("cap_elo");
                     //console.log ('----++++++---------' + selected.length )
                     popup1.setInfo(s1 + '<br> Switch: ' + s2 + '<br> Cor_nom: ' + s3 +
                                    ' A <br> Cap_Elo: ' + s4);
                     break;
                 case 'UGMT':
-                    var gmt1 = selected.get("ctmt");
-                    var gmt2 = selected.get("ceg");
-                    var gmt3 = selected.get("pot_inst");
-                    var gmt4 = selected.get("voltage");
-                    var gmt5 = selected.get("demanda");
+                    const gmt1 = selected.get("ctmt");
+                    const gmt2 = selected.get("ceg");
+                    const gmt3 = selected.get("pot_inst");
+                    const gmt4 = selected.get("voltage");
+                    const gmt5 = selected.get("demanda");
                     //console.log ('----++++++---------' + selected.length )
                     popup1.setInfo(gmt1 + '<br> CEG: ' + gmt2 + '<br> Power: ' + gmt3 +
                                    ' kW <br> Voltage: ' + gmt4 + ' V <br> Demand: ' + gmt5 + ' kW');
                     break;
                 case 'UGBT':
-                    var gbt1 = selected.get("ctmt");
-                    var gbt2 = selected.get("ceg");
-                    var gbt3 = selected.get("pot_inst");
-                    var gbt4 = selected.get("voltage");
+                    const gbt1 = selected.get("ctmt");
+                    const gbt2 = selected.get("ceg");
+                    const gbt3 = selected.get("pot_inst");
+                    const gbt4 = selected.get("voltage");
                     //console.log ('----++++++---------' + selected.length )
                     popup1.setInfo(gbt1 + '<br> CEG: ' + gbt2 + '<br> Power: ' + gbt3 +
                                     ' kW <br> Voltage: ' + gbt4 + ' V');
                     break;
                 case 'UCBT':
-                    var cbt1 = selected.get("ctmt");
-                    var cbt2 = selected.get("ceg");
-                    var cbt3 = selected.get("tip_cc");
-                    var cbt4 = selected.get("voltage");
-                    var cbt5 = selected.get("uni_tr_mt");
-                    var cbt6 = selected.get("car_inst");
+                    const cbt1 = selected.get("ctmt");
+                    const cbt2 = selected.get("ceg");
+                    const cbt3 = selected.get("tip_cc");
+                    const cbt4 = selected.get("voltage");
+                    const cbt5 = selected.get("uni_tr_mt");
+                    const cbt6 = selected.get("car_inst");
                     //console.log ('----++++++---------' + selected.length )
                     popup1.setInfo(cbt1 + '<br> CEG: ' + cbt2 + '<br> Power: ' + cbt6 +
                                    ' kW <br> Voltage: ' + cbt4 + ' V <br> TR: ' + cbt5 +
                                    '<br> CRV: ' + cbt3);
                     break;
                 case 'UNCRMT':
-                    var cr1 = selected.get("ctmt");
-                    var cr2 = selected.get("banc");
-                    var cr3 = selected.get("pot");
+                    const cr1 = selected.get("ctmt");
+                    const cr2 = selected.get("banc");
+                    const cr3 = selected.get("pot");
                     //console.log ('----++++++---------' + selected.length )
                     popup1.setInfo(cr1 + '<br> Power: ' + cr3 + ' kW <br> Bank: ' + cr2  );
                     break;
                 case 'UNREMT':
-                    var re1 = selected.get("ctmt");
-                    var re2 = selected.get("fas_con");
-                    var re3 = selected.get("tip_regu");
-                    var re4 = selected.get("banc");
-                    var re5 = selected.get("ten_reg");
+                    const re1 = selected.get("ctmt");
+                    const re2 = selected.get("fas_con");
+                    const re3 = selected.get("tip_regu");
+                    const re4 = selected.get("banc");
+                    const re5 = selected.get("ten_reg");
                     //console.log ('----++++++---------' + selected.length )
                     popup1.setInfo(re1 + '<br> Phases: ' + re2 + '<br> Type: ' + re3 + '<br> Bank: ' + re4 +
                                    '<br> Regul: ' + re5 + ' pu');
                     break;
                 case 'UCMT':
-                    var ucm1 = selected.get("ctmt");
-                    var ucm2 = selected.get("pot_inst");
-                    var ucm3 = selected.get("gru_tar");
-                    var ucm4 = selected.get("livre");
-                    var ucm5 = selected.get("fas_con");
-                    var ucm6 = selected.get("ceg");
+                    const ucm1 = selected.get("ctmt");
+                    const ucm2 = selected.get("pot_inst");
+                    const ucm3 = selected.get("gru_tar");
+                    const ucm4 = selected.get("livre");
+                    const ucm5 = selected.get("fas_con");
+                    const ucm6 = selected.get("ceg");
                     //console.log ('----++++++---------' + selected.length )
                     popup1.setInfo(ucm1 + '<br> Power: ' + ucm2 + ' kW<br> Type: ' + ucm3 + '<br> Livre: ' +
                                    ucm4 + '<br> Phases: ' + ucm5 + '<br> CEG: ' + ucm6);
                     break;
                 case 'SIN-Linhas':
-                    var sin1 = selected.get("nome_linha");
-                    var sin2 = selected.get("voltage");
-                    var sin3 = selected.get("concessao");
-                    var sin4 = selected.get("extensao");
+                    const sin1 = selected.get("nome_linha");
+                    const sin2 = selected.get("voltage");
+                    const sin3 = selected.get("concessao");
+                    const sin4 = selected.get("extensao");
                     popup1.setInfo(sin1 + ' <br> Voltage: ' + sin2 + ' kV<br> Concession: ' + sin3 +
                                    '<br> Extension: ' +  sin4 + ' km');
                     break;
                 case 'SIN-Subs':
-                    var sin_s1 = selected.get("nome_sub");
-                    var sin_s2 = selected.get("voltage");
-                    var sin_s3 = selected.get("concessao");
-                    var sin_s4 = selected.get("opera");
+                    const sin_s1 = selected.get("nome_sub");
+                    const sin_s2 = selected.get("voltage");
+                    const sin_s3 = selected.get("concessao");
+                    const sin_s4 = selected.get("opera");
                     popup1.setInfo(sin_s1 + ' <br> Voltage: ' + sin_s2 + ' kV<br> Concession: ' + sin_s3 +
                                     ' <br> Operação: ' +sin_s4);
                     break;
                 case 'SIN-EOL':
-                    var eol1 = selected.get("nome_eol");
-                    var eol2 = selected.get("power");
-                    var eol3 = selected.get("ceg");
-                    var eol4 = selected.get("prop");
-                    var eol5 = selected.get("ini_oper");
+                    const eol1 = selected.get("nome_eol");
+                    const eol2 = selected.get("power");
+                    const eol3 = selected.get("ceg");
+                    const eol4 = selected.get("prop");
+                    const eol5 = selected.get("ini_oper");
 
                     popup1.setInfo(eol1 + ' <br> Power: ' + eol2 + ' kW<br> CEG: ' + eol3 +
                                     ' <br> Owner: ' +eol4 + ' <br> Operação: ' + eol5);
+                    break;
+                case 'AT_SSD':
+                    const at_s1 = selected.get("linha");
+
+                    popup1.setInfo('Linha: '+ at_s1 );
                     break;
             }
         } else {
@@ -498,7 +509,7 @@
                 popup.show(feature.getGeometry().getFirstCoordinate(), content);
             }
         } else {
-            nome_camada == "undefined";
+            nome_camada = "undefined";
             geocoder.getSource().clear();
             console.log('removed')
         }
@@ -508,11 +519,47 @@
         popup.hide();
     })
 
-    // Carrega os dados das subestações e das linhas
-    // TODO Verificar outras informações de geradores conectados no SIN
-    loadSIN('subs');
-    loadSIN('linhas');
-    loadSIN('EOL');
+
+    // hvc: controle de vizualização do sistema AT
+    document.getElementById('HVC').addEventListener('click', function() {
+        const layers = [...map.getLayers().getArray()]
+        console.log(layers)
+        let layerAT = false
+        if (document.getElementById('HVC').checked  === true) {
+            // Carrega os dados das subestações e das linhas do SIN
+            // TODO Verificar outras informações de geradores conectados no SIN
+            layers.forEach(function(layer, i) {
+                if (typeof(layer.get("name")) == "undefined"){
+                    if (layer.get("title").includes("SIN")){
+                        layer.setVisible(true);
+                        layerAT = true;
+                    }
+                } else {
+                    if (layer.get("name").includes("SIN")){
+                        layer.setVisible(true);
+                        layerAT = true;
+                    }
+                }
+            });
+
+            if (layerAT == false && document.getElementById('distribuidora').value != '') {
+                loadSIN('subs');
+                loadSIN('linhas');
+                loadSIN('EOL');
+                loadSIN('UFV');
+                loadSSDAT();
+            }
+        } else {
+            layers.forEach(function(layer, i) {
+                console.log(i, layer.get("name"), layer)
+                if (typeof(layer.get("name")) == "undefined"){
+                    if (layer.get("title").includes("SIN")) layer.setVisible(false);
+                } else {
+                    if (layer.get("name").includes("SIN")) layer.setVisible(false);
+                }
+            });
+        }
+    });
 
 
     // Função carrega dados do SIN Sistema Interligado Nacional (EPE)
@@ -527,7 +574,15 @@
         } else if (tipo == 'subs'){
             req_func = 'get_data_at_sub';
             nome_layer = 'SIN-Subs';
-            ome_stilo = ''
+            meu_estilo = new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 3,
+                    fill: new ol.style.Fill({color: "red"}),
+                    stroke: new ol.style.Stroke({
+                        color: [255,0,0], width: 2
+                    })
+                })
+            });
         } else if (tipo == 'EOL') {
             req_func = '/get_data_at_EOL';
             nome_layer = 'SIN-EOL';
@@ -542,8 +597,20 @@
                         }))
                     });
 
+        } else if (tipo == 'UFV') {
+            req_func = '/get_data_at_UFV';
+            nome_layer = 'SIN-UFV';
+            meu_estilo = new ol.style.Style({
+                    image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+
+                            anchor: [0, 0],
+                            scale: 0.25,
+                            src: 'static/icon/ufv.svg'
+                        }))
+                    });
+
         }
-        //console.log(tipo);
+        //console.log(req_func);
         fetch(req_func)
             .then(response => response.json())
             .then(data => {
@@ -567,7 +634,7 @@
                 });
                 map.addLayer(vectorLayer);
                 var extent = vectorSource.getExtent();
-                map.getView().fit(extent, { duration: 500 });
+                //map.getView().fit(extent, { duration: 500 });
             });
     };
 
@@ -604,12 +671,103 @@
             });
     });
 
+
+    //loadSSDAT
+    function loadSSDAT() {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+        var distribuidora = document.getElementById('distribuidora').value;
+
+        var myGrpoupLayers = new ol.layer.Group({
+            title: 'Hight Voltage',
+            layers: []
+        });
+        map.addLayer(myGrpoupLayers); //this add a new layergroup
+
+        fetch(`/api/ssdat?distribuidora=${distribuidora}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloSSDAT(feature) {
+                    return new ol.style.Style({
+                        stroke: new ol.style.Stroke({
+                            color: "DarkSlateBlue", // Cor da feature do GeoJSON
+                            width: 2
+                        })
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: "SSDAT",
+                    source: vectorSource,
+                    style: estiloSSDAT
+                });
+                myGrpoupLayers.getLayers().push(vectorLayer);
+
+            })
+            .catch(error => {
+                document.body.style.cursor = 'default';  // Cursor normal em caso de erro
+                console.error("Erro ao carregar SSDAT:", error);
+            });
+
+        fetch(`/api/subat?distribuidora=${distribuidora}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+
+                var vectorSource2 = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloSUBAT(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Circle({
+                            radius: 3,
+                            fill: new ol.style.Fill({color: [60,179,113]}),
+                            stroke: new ol.style.Stroke({
+                                color: [60,179,113], width: 2
+                            })
+                        })
+                    });
+                }
+
+                var vectorLayer2 = new ol.layer.Vector({
+                    name: "Substations",
+                    source: vectorSource2,
+                    style: estiloSUBAT
+                });
+                myGrpoupLayers.getLayers().push(vectorLayer2);
+                var extent = vectorSource2.getExtent();
+                map.getView().fit(extent, { duration: 800 });
+
+            document.body.style.cursor = 'default';  // Cursor normal
+
+            })
+            .catch(error => {
+                document.body.style.cursor = 'default';  // Cursor normal em caso de erro
+                console.error("Erro ao carregar SSDAT:", error);
+            });
+    }
+
     // Função para carregar segmentos de reta no mapa com base nos filtros
     function loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes, hora) {
         document.body.style.cursor = 'wait';  // Cursor de espera
 
-        fetch(`/api/segments?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}
-                                            &scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}&hora=${hora}`)
+        const url = `/api/segments?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}&scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}&hora=${hora}`
+        console.log(url)
+        fetch(url)
             .then(response => response.json())
             .then(data => {
                 var format = new ol.format.GeoJSON();
@@ -635,12 +793,6 @@
                     name: subestacao,
                     source: vectorSource,
                     style: estiloSegmento
-                });
-
-                const layers = [...map.getLayers().getArray()]
-                layers.forEach(function(layer, i) {
-                    console.log(i, layer.get("name"), layer)
-                    if (i > 0 & !layer.get("name").includes("SIN")) map.removeLayer(layer);  // Remove camadas anteriores, exceto a base OSM
                 });
 
                 checkboxes = document.getElementsByName('opt[]');
@@ -1255,6 +1407,7 @@
               document.body.style.cursor = 'default';  // Cursor normal
             });
     }
+
 
     // summary
     document.getElementById('summary').addEventListener('click', function() {

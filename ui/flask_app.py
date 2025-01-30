@@ -1,5 +1,7 @@
 import os
 import sys
+import time
+
 import geopandas as gpd
 import fiona
 import pandas as pd
@@ -7,7 +9,12 @@ from colour import Color
 from flask import Flask, render_template, request, Response, url_for, redirect, jsonify
 from flask import flash
 from shapely.geometry import LineString, Point
-from datetime import datetime
+
+import io
+import threading
+
+# execução da geração dos arquivos DSS pelo navegador.
+import core.electric_data as run_dss_files_generators
 
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
@@ -16,28 +23,33 @@ sys.path.append(parent)
 import Tools.summary as resumo
 from Tools.tools import return_query_as_dataframe, create_connection, load_config
 
+task_running = False  # Variável para evitar múltiplas execuções simultâneas -- control_bus
+
 sys.path.append('../')
 # Configuração do Flask
 app = Flask(__name__)
 app.secret_key = "123456"
 # Caminho para o arquivo Geodatabase
-GDB_PATH = os.path.join(os.getcwd(), 'data', 'sin_data.gdb')
+GDB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'sin_data.gdb')
 
 
 # Função para buscar as subestações com base na distribuidora
 @app.route('/api/subestacoes/<distribuidora>', methods=['GET'])
 def get_subestacoes(distribuidora):
-    conf = load_config(distribuidora)
     global engine
-    engine = create_connection(conf)
-    query = f'''SELECT DISTINCT c.SUB, s.nome FROM sde.CTMT c
-                  inner join sde.SUB s on s.COD_ID = c.sub
-                  WHERE s.dist ='{distribuidora}'
-            '''
-    rows = return_query_as_dataframe(query, engine)
-    rows['Combined'] = rows['SUB'].astype(str) + '-' + rows['nome']
-    subestacoes = rows.values.tolist()
-    return jsonify(subestacoes)
+    try:
+        conf = load_config(distribuidora)
+        engine = create_connection(conf)
+        query = f'''SELECT DISTINCT c.SUB, s.nome FROM sde.CTMT c
+                      inner join sde.SUB s on s.COD_ID = c.sub
+                      WHERE s.dist ='{distribuidora}'
+                '''
+        rows = return_query_as_dataframe(query, engine)
+        rows['Combined'] = rows['SUB'].astype(str) + '-' + rows['nome']
+        subestacoes = rows.values.tolist()
+        return jsonify(subestacoes)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # Função para buscar os circuitos com base na subestação
@@ -420,15 +432,58 @@ def create_geojson_from_points_UCBT(points_ucbt):
     return geojson
 
 
-def get_coords_sub_from_db(sub):
-    query = f'''SELECT s.POINT_X, s.POINT_Y, s.COD_ID, s.NOME, s.POS          
-                  ,count( distinct c.UNI_TR_AT) as TR_AT, count(c.NOME) as CTMT
-                FROM [sde].[CTMT] c  
-                inner join sde.SUB S on c.sub = s.COD_ID
-                where c.sub = '{sub}' 
-                group by s.COD_ID, s.NOME, s.POINT_X, s.POINT_Y, s.POS
-            ;   
-            '''
+def get_coords_ssdat_from_db():
+    query = f'''Select  point_x1 as start_longitude, POINT_y1 as start_latitude, 
+                        point_x2 as end_longitude, POINT_y2 as end_latitude,
+                        PAC_1, PAC_2, CT_COD_OP
+                    from sde.SSDAT 
+                ;
+                '''
+    rows = return_query_as_dataframe(query, engine)
+    rows["TIPO"] = "AT_SSD"
+    points = [((row["start_longitude"], row["start_latitude"]), (row["end_longitude"], row["end_latitude"]),
+               row["CT_COD_OP"], rows["TIPO"])
+              for index, row in rows.iterrows()]
+    return points
+
+
+def create_geojson_from_points_SSDAT(points_ssdat):
+    # Criar uma lista de geometria de segmentos de linha a partir dos pontos
+    # lines = [LineString([start, end]) for start, end in line_segments]
+    lines = []
+    ct_cod_at = []
+
+    for start, end, ct_cod, tipo in points_ssdat:
+        lines.append(LineString([start, end]))
+        ct_cod_at.append(ct_cod)
+
+    # Criar um GeoDataFrame com as geometrias e dados extras
+    gdf = gpd.GeoDataFrame({'geometry': lines, 'linha': ct_cod_at, 'tipo': tipo}, crs="EPSG:4326")
+    # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
+
+    # Converter o GeoDataFrame para GeoJSON
+    geojson = gdf.to_json()
+    return geojson
+
+
+def get_coords_sub_from_db(sub=None):
+    if sub is None:
+        query = f'''SELECT s.POINT_X, s.POINT_Y, s.COD_ID, s.NOME, s.POS          
+                      ,count( distinct c.UNI_TR_AT) as TR_AT, count(c.NOME) as CTMT
+                    FROM [sde].[CTMT] c  
+                    inner join sde.SUB S on c.sub = s.COD_ID
+                    group by s.COD_ID, s.NOME, s.POINT_X, s.POINT_Y, s.POS
+                ;   
+                '''
+    else:
+        query = f'''SELECT s.POINT_X, s.POINT_Y, s.COD_ID, s.NOME, s.POS          
+                      ,count( distinct c.UNI_TR_AT) as TR_AT, count(c.NOME) as CTMT
+                    FROM [sde].[CTMT] c  
+                    inner join sde.SUB S on c.sub = s.COD_ID
+                    where c.sub = '{sub}' 
+                    group by s.COD_ID, s.NOME, s.POINT_X, s.POINT_Y, s.POS
+                ;   
+                '''
 
     rows = return_query_as_dataframe(query, engine)
     rows["TIPO"] = "SUB"
@@ -821,7 +876,40 @@ def trafos():
     return geojson, 200, {'Content-Type': 'application/json'}
 
 
-# Função que busca os segmentos de reta filtrados
+# Função que busca os segmentos - circuitos
+@app.route('/api/ssdat')
+def ssdat():
+    distribuidora = request.args.get('distribuidora', '')
+    if distribuidora == '':
+        mens = {'error': 'Select an Utility!'}
+        print(f"{mens}")
+        return mens, 500, {'Content-Type': 'application/json'}
+    try:
+        line_ssdat = get_coords_ssdat_from_db()
+        geojson = create_geojson_from_points_SSDAT(line_ssdat)
+
+        return geojson, 200, {'Content-Type': 'application/json'}
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/subat')
+def subat():
+    distribuidora = request.args.get('distribuidora', '')
+    if distribuidora == '':
+        mens = {'error': 'Select an Utility!'}
+        print(f"{mens}")
+        return mens, 500, {'Content-Type': 'application/json'}
+    try:
+        pt_subs = get_coords_sub_from_db()
+        geojson = create_geojson_from_points_sub(pt_subs)
+
+        return geojson, 200, {'Content-Type': 'application/json'}
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+# Função que busca os segmentos - circuitos
 @app.route('/api/segments')
 def segments():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
@@ -906,6 +994,57 @@ def get_table_data(sumario, id_summary):
 
     table_data = df_summary.to_dict(orient='records')
     return table_data
+
+
+# leitura dos dados do arquivo GDB do SIN
+@app.route('/get_data_at_UFV')
+def get_data_at_UFV():
+    eol = []
+    proprietario = []
+    ini_oper = []
+    ceg = []
+    potencia = []
+    nome_ufv = []
+    nome = []
+
+    # Abrir o arquivo GDB com Fiona e GeoPandas
+    try:
+        # Usando o GeoPandas para ler dados do GDB
+        # gdf = gpd.read_file(fiona.open(GDB_PATH))
+        layerlist = fiona.listlayers(GDB_PATH)
+
+        for table_name in layerlist:
+            print(table_name)
+            if 'UFV___Base_Existente' == table_name:
+                df = gpd.read_file(GDB_PATH, driver="pyogrio", layer=table_name,
+                                   ignore_geometry=False, use_arrow=True)
+                if df.iloc[0]['geometry'].geom_type.upper() == 'POINT':
+                    df['latitude'] = df['geometry'].y  # lat
+                    df['longitude'] = df['geometry'].x
+
+                df["ini_oper"] = pd.to_datetime(df["ini_oper"], errors='coerce').dt.strftime('%d/%m/%Y')
+                eol_data = [
+                    ((row["longitude"], row["latitude"]), row["Potencia"], row["ini_oper"], row["ceg"],
+                     row["propriet"], row["nome"]) for index, row in df.iterrows()]
+                for PT, POT, DT_OPER, CEG, PROP, NOME in eol_data:
+                    eol.append(Point([PT]))
+                    potencia.append(POT)
+                    # ini_oper.append(datetime.strftime(DT_OPER, "%Y-%m-%d"))
+                    ini_oper.append(DT_OPER)
+                    ceg.append(CEG)
+                    proprietario.append(PROP)
+                    nome_ufv.append(NOME)
+                    nome.append('SIN-EOL')
+                # Criar um GeoDataFrame com as geometrias e dados extras
+                gdf = gpd.GeoDataFrame({'geometry': eol, 'power': potencia, 'ini_oper': ini_oper, 'prop': proprietario,
+                                        'ceg': ceg, 'nome_eol': nome_ufv, 'tipo': nome}, crs="EPSG:4326")
+
+                # Converter o GeoDataFrame para GeoJSON
+                geojson = gdf.to_json()
+
+                return geojson
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # leitura dos dados do arquivo GDB do SIN
@@ -1054,6 +1193,52 @@ def get_data_at():
                 return geojson
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+def long_running_task():
+    """Exemplo de método com prints que serão enviados ao cliente."""
+    global task_running
+    task_running = True
+    print("Iniciando a tarefa...")
+    run_dss_files_generators.main()
+
+    print("Tarefa finalizada!")
+    task_running = False
+
+def generate_events():
+    """Captura as mensagens de print e envia como eventos SSE."""
+    buffer = io.StringIO()
+    sys.stdout = buffer
+
+    try:
+        long_running_task()
+    finally:
+        sys.stdout = sys.__stdout__
+
+    for line in buffer.getvalue().splitlines():
+        yield f"data: {line}\n\n"
+    buffer.close()
+
+@app.route('/start-task', methods=['POST'])
+def start_task():
+    """Endpoint para iniciar a tarefa em uma thread separada."""
+    global task_running
+    if task_running:
+        return jsonify({"message": "A tarefa já está em execução."}), 409
+
+    thread = threading.Thread(target=long_running_task)
+    thread.start()
+    return jsonify({"message": "Tarefa iniciada com sucesso."}), 202
+
+@app.route('/progress')
+def progress():
+    """Endpoint SSE que envia o progresso da tarefa."""
+    return Response(generate_events(), content_type='text/event-stream')
+
+# Rota para listar os dados de uma tabela
+@app.route('/control_bus')
+def control_bus():
+    return render_template('control_bus.html')
 
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 import time
 from Tools.tools import return_query_as_dataframe, write_to_dss, ajust_eqre_codbanc, \
     create_connection, load_config
-import dss_files_generator as dss_g
+import core.dss_files_generator as dss_g
 import pandas as pd
 import connected_segments as cs
 from multiprocessing import Pool, cpu_count
@@ -1067,19 +1067,20 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
         write_to_dss(dist, sub, cod_circuito, linhas_master, nome_arquivo_master, dss_files_folder)
 
 
-if __name__ == "__main__":
+def main():
     proc_time_ini = time.time()
     config = load_config('391')
     # controles de execução para apenas um primeiro mes e um primeiro tipo de dia da lista 'tipo_de_dias'
     control_mes = True
-    control_tipo_dia = True
+    control_tipo_dia = False
     # set if multiprocessing will be used
-    tip_process = 1
+    tip_process = 0
 
     mes_ini = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
 
     if tip_process == 0:
+
         list_sub = [['APA'], ['ARA'], ['ASP'], ['AVP'], ['BCU'], ['BIR'], ['BON'], ['CAC'], ['CAR'], ['CMB'], ['COL'],
                     ['CPA'], ['CRU'], ['CSO'], ['DBE'],
                     ['DUT'], ['FER'], ['GOP'], ['GUE'], ['GUL'], ['GUR'], ['INP'], ['IPO'], ['ITQ'], ['JAC'], ['JNO'],
@@ -1092,6 +1093,9 @@ if __name__ == "__main__":
         # Obter os primeiros elementos
         # primeiros_elementos = [sublista[0] for sublista in list_sub]
         # print(primeiros_elementos)
+        # Cosern = 40
+        # list_sub = [['SBN'], ['STO'], ['MSU'], ['NCR'], ['JCT'], ['CPG'], ['AAF']]
+        # list_sub = [['SBN'], ['STO']]
 
         print(cpu_count())
         """
@@ -1128,12 +1132,12 @@ if __name__ == "__main__":
                     'PTE', 'ROS', 'SAT', 'SBR', 'SJC', 'SKO', 'SLU', 'SLZ', 'SSC', 'SUZ', 'TAU', 'UNA', 'URB', 'USS', 'VGA',
                     'VHE', 'VJS', 'VSL']
 
-        list_sub = ['APA']
+        list_sub = ['CAC']
         # 'UBA' sem circuitos e transformadores
         # 'GUL', 'IPO (104)'  CSO e USS Trafos 34,5 kv  SSC Sem info de TRAFO_AT  #JCE, PED ok dentro dos limites
 
         # Cosern = 40
-        # list_sub = [ 'SBN', 'STO', 'MSU', 'JCT', 'CPG', 'AAF' ]
+        # list_sub = [ 'SBN', 'STO', 'MSU', 'NCR', 'JCT', 'CPG', 'AAF' ]
         # list_sub = ['MSU']
 
         print(f'Ajusting CodBNC....')
@@ -1153,3 +1157,6 @@ if __name__ == "__main__":
                 break
         print(f"Processo concluído em {time.time() - proc_time_ini}")
 
+
+if __name__ == "__main__":
+    main()

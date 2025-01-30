@@ -1,5 +1,5 @@
 <!doctype html>
-<html>
+<html lang="en">
    <body>
       <h1>Login</h1>
       {% if error %}
@@ -10,8 +10,10 @@
          <dl>
             <dt>Username:</dt>
             <dd>
-               <input type = text name = username
-                  value = "{{request.form.username }}">
+               <label>
+                  <input type = text name = username
+                     value = "{{request.form.username }}">
+               </label>
             </dd>
             <dt>Password:</dt>
             <dd><input type = password name = password></dd>
