@@ -9,7 +9,8 @@ from colour import Color
 from flask import Flask, render_template, request, Response, url_for, redirect, jsonify
 from flask import flash
 from shapely.geometry import LineString, Point
-
+import connected_segments as cs
+import geo_tools
 import io
 import threading
 
@@ -434,15 +435,38 @@ def create_geojson_from_points_UCBT(points_ucbt):
 
 def get_coords_ssdat_from_db():
     query = f'''Select  point_x1 as start_longitude, POINT_y1 as start_latitude, 
-                        point_x2 as end_longitude, POINT_y2 as end_latitude,
-                        PAC_1, PAC_2, CT_COD_OP
-                    from sde.SSDAT 
+                    point_x2 as end_longitude, POINT_y2 as end_latitude,
+                    PAC_1, PAC_2, CT_COD_OP, COMP,  c.NOME, c.TEN_NOM, t.TEN
+                from sde.SSDAT s
+                left join sde.ctat c on c.PAC_INI = s.pac_1 or c.PAC_INI = s.PAC_2
+                left join [GEO_SIGR_DDAD_M10].sde.TTEN t on c.TEN_NOM = t.COD_ID
+                order by CT_COD_OP
                 ;
                 '''
     rows = return_query_as_dataframe(query, engine)
+    # processo muito demorado para obter a tensão da linha para todos os trechos
+    # TODO Buscar alternativa para a identificação da tensão de todos os trechos de uma linha de alta tensão
+    """
+    ssdat_ini = rows[rows['TEN'] > 0]
+    for index, row in ssdat_ini.iterrows():
+        pn_ini = row['PAC_1']
+        voltage = row['TEN']
+        # Construir o grafo
+        graph = cs.build_graph(rows, 'PAC_1', 'PAC_2')
+        # Encontrar e ordenar segmentos conectados usando DFS
+        connected_segments = cs.dfs(graph, pn_ini)
+    """
+    ssdat_ini = rows[rows['TEN'] > 0]
+    for index, row in ssdat_ini.iterrows():
+        voltage = row['TEN']
+        nome = row['NOME']
+        linha = row['CT_COD_OP']
+        rows.loc[rows['CT_COD_OP'] == linha, 'TEN'] = voltage
+
+
     rows["TIPO"] = "AT_SSD"
     points = [((row["start_longitude"], row["start_latitude"]), (row["end_longitude"], row["end_latitude"]),
-               row["CT_COD_OP"], rows["TIPO"])
+               row["CT_COD_OP"], row["COMP"], row["NOME"], row["TEN"], rows["TIPO"])
               for index, row in rows.iterrows()]
     return points
 
@@ -452,13 +476,20 @@ def create_geojson_from_points_SSDAT(points_ssdat):
     # lines = [LineString([start, end]) for start, end in line_segments]
     lines = []
     ct_cod_at = []
+    comp_linha = []
+    nome_linha = []
+    voltage = []
 
-    for start, end, ct_cod, tipo in points_ssdat:
+    for start, end, ct_cod, comp, nome, ten_nom, tipo in points_ssdat:
         lines.append(LineString([start, end]))
         ct_cod_at.append(ct_cod)
+        comp_linha.append(comp)
+        nome_linha.append(nome)
+        voltage.append(ten_nom/1000)
 
     # Criar um GeoDataFrame com as geometrias e dados extras
-    gdf = gpd.GeoDataFrame({'geometry': lines, 'linha': ct_cod_at, 'tipo': tipo}, crs="EPSG:4326")
+    gdf = gpd.GeoDataFrame({'geometry': lines, 'linha': ct_cod_at, 'nome': nome,  'voltage': voltage, 'tipo': tipo},
+                           crs="EPSG:4326")
     # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
 
     # Converter o GeoDataFrame para GeoJSON
@@ -785,7 +816,7 @@ def regu():
         return None  # retornar erro!
     point_regu = get_coords_unremt_from_db(subestacao, circuito)
     if not point_regu:
-        return Response(status=404)   # HTTP response not found
+        return Response(status=404)  # HTTP response not found
     geojson = create_geojson_from_points_unremt(point_regu)
     return geojson, 200, {'Content-Type': 'application/json'}
 
@@ -999,200 +1030,35 @@ def get_table_data(sumario, id_summary):
 # leitura dos dados do arquivo GDB do SIN
 @app.route('/get_data_at_UFV')
 def get_data_at_UFV():
-    eol = []
-    proprietario = []
-    ini_oper = []
-    ceg = []
-    potencia = []
-    nome_ufv = []
-    nome = []
-
-    # Abrir o arquivo GDB com Fiona e GeoPandas
-    try:
-        # Usando o GeoPandas para ler dados do GDB
-        # gdf = gpd.read_file(fiona.open(GDB_PATH))
-        layerlist = fiona.listlayers(GDB_PATH)
-
-        for table_name in layerlist:
-            print(table_name)
-            if 'UFV___Base_Existente' == table_name:
-                df = gpd.read_file(GDB_PATH, driver="pyogrio", layer=table_name,
-                                   ignore_geometry=False, use_arrow=True)
-                if df.iloc[0]['geometry'].geom_type.upper() == 'POINT':
-                    df['latitude'] = df['geometry'].y  # lat
-                    df['longitude'] = df['geometry'].x
-
-                df["ini_oper"] = pd.to_datetime(df["ini_oper"], errors='coerce').dt.strftime('%d/%m/%Y')
-                eol_data = [
-                    ((row["longitude"], row["latitude"]), row["Potencia"], row["ini_oper"], row["ceg"],
-                     row["propriet"], row["nome"]) for index, row in df.iterrows()]
-                for PT, POT, DT_OPER, CEG, PROP, NOME in eol_data:
-                    eol.append(Point([PT]))
-                    potencia.append(POT)
-                    # ini_oper.append(datetime.strftime(DT_OPER, "%Y-%m-%d"))
-                    ini_oper.append(DT_OPER)
-                    ceg.append(CEG)
-                    proprietario.append(PROP)
-                    nome_ufv.append(NOME)
-                    nome.append('SIN-EOL')
-                # Criar um GeoDataFrame com as geometrias e dados extras
-                gdf = gpd.GeoDataFrame({'geometry': eol, 'power': potencia, 'ini_oper': ini_oper, 'prop': proprietario,
-                                        'ceg': ceg, 'nome_eol': nome_ufv, 'tipo': nome}, crs="EPSG:4326")
-
-                # Converter o GeoDataFrame para GeoJSON
-                geojson = gdf.to_json()
-
-                return geojson
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'UFV___Base_Existente')
+    return my_gdb_sin.read_gdb_ufv_to_json()
 
 
 # leitura dos dados do arquivo GDB do SIN
 @app.route('/get_data_at_EOL')
 def get_data_at_EOL():
-    eol = []
-    proprietario = []
-    ini_oper = []
-    ceg = []
-    potencia = []
-    nome_eol = []
-    nome = []
-
-    # Abrir o arquivo GDB com Fiona e GeoPandas
-    try:
-        # Usando o GeoPandas para ler dados do GDB
-        # gdf = gpd.read_file(fiona.open(GDB_PATH))
-        layerlist = fiona.listlayers(GDB_PATH)
-
-        for table_name in layerlist:
-            print(table_name)
-            if 'EOL___Base_Existente' == table_name:
-                df = gpd.read_file(GDB_PATH, driver="pyogrio", layer=table_name,
-                                   ignore_geometry=False, use_arrow=True)
-                if df.iloc[0]['geometry'].geom_type.upper() == 'POINT':
-                    df['latitude'] = df['geometry'].y  # lat
-                    df['longitude'] = df['geometry'].x
-
-                df["ini_oper"] = pd.to_datetime(df["ini_oper"], errors='coerce').dt.strftime('%d/%m/%Y')
-                eol_data = [
-                    ((row["longitude"], row["latitude"]), row["potencia"], row["ini_oper"], row["ceg"],
-                     row["propriet"], row["Nome"]) for index, row in df.iterrows()]
-                for PT, POT, DT_OPER, CEG, PROP, NOME in eol_data:
-                    eol.append(Point([PT]))
-                    potencia.append(POT)
-                    # ini_oper.append(datetime.strftime(DT_OPER, "%Y-%m-%d"))
-                    ini_oper.append(DT_OPER)
-                    ceg.append(CEG)
-                    proprietario.append(PROP)
-                    nome_eol.append(NOME)
-                    nome.append('SIN-EOL')
-                # Criar um GeoDataFrame com as geometrias e dados extras
-                gdf = gpd.GeoDataFrame({'geometry': eol, 'power': potencia, 'ini_oper': ini_oper, 'prop': proprietario,
-                                        'ceg': ceg, 'nome_eol': nome_eol, 'tipo': nome}, crs="EPSG:4326")
-
-                # Converter o GeoDataFrame para GeoJSON
-                geojson = gdf.to_json()
-
-                return geojson
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'EOL___Base_Existente')
+    return my_gdb_sin.read_gdb_eol_to_json()
 
 
 # leitura dos dados do arquivo GDB do SIN
 @app.route('/get_data_at_sub')
 def get_data_at_sub():
-    subs = []
-    tensao = []
-    concessao = []
-    operacao = []
-    nome_sub = []
-    nome = []
+    my_gdb_sin = geo_tools.GeoDataSIN('subs_SIN.geojson')
+    return my_gdb_sin.read_geojson_subs()
 
-    # Abrir o arquivo GDB com Fiona e GeoPandas
-    try:
-        # Usando o GeoPandas para ler dados do GDB
-        # gdf = gpd.read_file(fiona.open(GDB_PATH))
-        layerlist = fiona.listlayers(GDB_PATH)
-
-        for table_name in layerlist:
-            print(table_name)
-            if 'Subestações___Base_Existente' == table_name:
-                df = gpd.read_file(GDB_PATH, driver="pyogrio", layer=table_name,
-                                   ignore_geometry=False, use_arrow=True)
-                if df.iloc[0]['geometry'].geom_type.upper() == 'POINT':
-                    df['latitude'] = df['geometry'].y  # lat
-                    df['longitude'] = df['geometry'].x
-
-                subs_data = [
-                    ((row["longitude"], row["latitude"]),
-                     row["Tensao"], row["Concession"], row["Ano_Opera"], row["Nome"]) for index, row in df.iterrows()]
-                for pt, voltage, concession, opera, name in subs_data:
-                    subs.append(Point([pt]))
-                    tensao.append(voltage)
-                    concessao.append(concession)
-                    operacao.append(opera)
-                    nome_sub.append(name)
-                    nome.append('SIN-Subs')
-                # Criar um GeoDataFrame com as geometrias e dados extras
-                gdf = gpd.GeoDataFrame({'geometry': subs, 'voltage': tensao, 'concessao': concessao,
-                                        'opera': operacao, 'nome_sub': nome_sub, 'tipo': nome}, crs="EPSG:4326")
-
-                # Converter o GeoDataFrame para GeoJSON
-                geojson = gdf.to_json()
-
-                return geojson
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    #my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'Subestações___Base_Existente')
+    #return my_gdb_sin.read_gdb_sub_to_json()
 
 
 # leitura dos dados do arquivo GDB do SIN
 @app.route('/get_data_at')
 def get_data_at():
-    lines = []
-    tensao = []
-    concessao = []
-    extensao = []
-    nome_linha = []
-    nome = []
+    my_gdb_sin = geo_tools.GeoDataSIN('Linhas_SIN.geojson')
+    return my_gdb_sin.read_geojson_line()
 
-    # Abrir o arquivo GDB com Fiona e GeoPandas
-    try:
-        # Usando o GeoPandas para ler dados do GDB
-        # gdf = gpd.read_file(fiona.open(GDB_PATH))
-        layerlist = fiona.listlayers(GDB_PATH)
-
-        for table_name in layerlist:
-            print(table_name)
-            if 'Linhas_de_Transmissão___Base_Existente' == table_name:
-                df = gpd.read_file(GDB_PATH, driver="pyogrio", layer=table_name,
-                                   ignore_geometry=False, use_arrow=True)
-                if df.iloc[0]['geometry'].geom_type == 'MultiLineString':
-                    bounds = df.geometry.boundary.explode(index_parts=True).unstack()
-                    df['start_latitude'] = bounds[0].y
-                    df['start_longitude'] = bounds[0].x
-                    df['end_latitude'] = bounds[1].y
-                    df['end_longitude'] = bounds[1].x
-
-                line_segments = [
-                    ((row["start_longitude"], row["start_latitude"]), (row["end_longitude"], row["end_latitude"]),
-                     row["Tensao"], row["Concession"], row["Extensao"], row["Nome"]) for index, row in df.iterrows()]
-                for start, end, voltage, concession, ext, name in line_segments:
-                    lines.append(LineString([start, end]))
-                    tensao.append(voltage)
-                    concessao.append(concession)
-                    extensao .append(ext)
-                    nome_linha.append(name)
-                    nome.append('SIN-Linhas')
-                # Criar um GeoDataFrame com as geometrias e dados extras
-                gdf = gpd.GeoDataFrame({'geometry': lines, 'voltage': tensao, 'concessao': concessao,
-                                        'extensao': extensao, 'nome_linha': nome_linha, 'tipo': nome}, crs="EPSG:4326")
-
-                # Converter o GeoDataFrame para GeoJSON
-                geojson = gdf.to_json()
-
-                return geojson
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    #my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'Linhas_de_Transmissão___Base_Existente')
+    #return my_gdb_sin.read_gdb_line_to_json()
 
 
 def long_running_task():
@@ -1204,6 +1070,7 @@ def long_running_task():
 
     print("Tarefa finalizada!")
     task_running = False
+
 
 def generate_events():
     """Captura as mensagens de print e envia como eventos SSE."""
@@ -1219,6 +1086,7 @@ def generate_events():
         yield f"data: {line}\n\n"
     buffer.close()
 
+
 @app.route('/start-task', methods=['POST'])
 def start_task():
     """Endpoint para iniciar a tarefa em uma thread separada."""
@@ -1230,10 +1098,12 @@ def start_task():
     thread.start()
     return jsonify({"message": "Tarefa iniciada com sucesso."}), 202
 
+
 @app.route('/progress')
 def progress():
     """Endpoint SSE que envia o progresso da tarefa."""
     return Response(generate_events(), content_type='text/event-stream')
+
 
 # Rota para listar os dados de uma tabela
 @app.route('/control_bus')

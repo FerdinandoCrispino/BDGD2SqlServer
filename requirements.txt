@@ -3,7 +3,8 @@ py-dss-interface==2.0.4
 pandas==1.5.3
 PyYAML==6.0
 simpledbf==0.2.6
-geopandas==0.12.2
+geopandas~=1.0.1
+pyarrow==19.0.0
 Fiona==1.9.2
 SQLAlchemy==1.4.29
 numpy~=1.26.4
@@ -14,3 +15,5 @@ matplotlib~=3.9.0
 networkx~=3.2.1
 flask~=3.0.3
 colour~=0.1.5
+geojson~=3.2.0
+openpyxl~=3.1.5

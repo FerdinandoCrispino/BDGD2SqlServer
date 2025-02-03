@@ -424,10 +424,10 @@
                                    ucm4 + '<br> Phases: ' + ucm5 + '<br> CEG: ' + ucm6);
                     break;
                 case 'SIN-Linhas':
-                    const sin1 = selected.get("nome_linha");
-                    const sin2 = selected.get("voltage");
-                    const sin3 = selected.get("concessao");
-                    const sin4 = selected.get("extensao");
+                    const sin1 = selected.get("NOMELONGO");
+                    const sin2 = selected.get("VN");
+                    const sin3 = selected.get("AGE_NOME");
+                    const sin4 = selected.get("EXT");
                     popup1.setInfo(sin1 + ' <br> Voltage: ' + sin2 + ' kV<br> Concession: ' + sin3 +
                                    '<br> Extension: ' +  sin4 + ' km');
                     break;
@@ -451,8 +451,10 @@
                     break;
                 case 'AT_SSD':
                     const at_s1 = selected.get("linha");
+                    //const at_s2 = selected.get("nome");
+                    const at_s3 = selected.get("voltage");
 
-                    popup1.setInfo('Linha: '+ at_s1 );
+                    popup1.setInfo('Linha: '+ at_s1 + '<br>'+ at_s3 + ' kV' );
                     break;
             }
         } else {
@@ -543,11 +545,12 @@
             });
 
             if (layerAT == false && document.getElementById('distribuidora').value != '') {
+                loadSSDAT();
                 loadSIN('subs');
                 loadSIN('linhas');
                 loadSIN('EOL');
                 loadSIN('UFV');
-                loadSSDAT();
+
             }
         } else {
             layers.forEach(function(layer, i) {
@@ -570,7 +573,7 @@
         if (tipo == 'linhas'){
             req_func = 'get_data_at';  // nome do metodo no flask
             nome_layer = 'SIN-Linhas';
-            ome_stilo = ''
+            meu_estilo = ''
         } else if (tipo == 'subs'){
             req_func = 'get_data_at_sub';
             nome_layer = 'SIN-Subs';
@@ -627,11 +630,30 @@
                     features: features
                 });
 
-                var vectorLayer = new ol.layer.Vector({
-                    name: nome_layer,
-                    source: vectorSource,
-                    style: meu_estilo
-                });
+
+                if (tipo == 'linhas') {
+                    // Função para adicionar estilos baseados na cor de cada feature
+                    function linha_estilo(feature) {
+                        return new ol.style.Style({
+                            stroke: new ol.style.Stroke({
+                                color: feature.get('cor'), // Cor da feature do GeoJSON
+                                width: 1
+                            })
+                        });
+                    }
+                    var vectorLayer = new ol.layer.Vector({
+                        name: nome_layer,
+                        source: vectorSource,
+                        style: linha_estilo
+                    });
+                } else {
+                    var vectorLayer = new ol.layer.Vector({
+                        name: nome_layer,
+                        source: vectorSource,
+                        style: meu_estilo
+                    });
+                }
+
                 map.addLayer(vectorLayer);
                 var extent = vectorSource.getExtent();
                 //map.getView().fit(extent, { duration: 500 });

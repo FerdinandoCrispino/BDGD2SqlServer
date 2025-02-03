@@ -9,7 +9,7 @@ from multiprocessing import Pool, cpu_count
 """
 # @Date    : 20/06/2024
 # @Author  : Ferdinano Crispino
-Implemeta funcionalidades de leitua dos dados da BDGD para escrita dos arquivos do openDSS
+Implementa funcionalidades de leitua dos dados da BDGD para escrita dos arquivos do OpenDSS
 
 # @Edited by: 
 # @Date     :
@@ -26,8 +26,8 @@ def run_multi(subs, config, mes_ini, tipo_de_dias, control_mes, control_tipo_dia
     engine = create_connection(config)
     dss_files_folder = config['dss_files_folder']
 
-    print(f'Ajusting CodBNC....')
-    ajust_eqre_codbanc(dist, engine)
+    #print(f'Ajusting CodBNC....')
+    #ajust_eqre_codbanc(dist, engine)
 
     # controles de execução para apenas um primeiro mes e um primeiro tipo de dia da lista 'tipo_de_dias'
     for tipo_dia in tipo_de_dias:
@@ -44,6 +44,17 @@ def run_multi(subs, config, mes_ini, tipo_de_dias, control_mes, control_tipo_dia
         if control_tipo_dia:
             break
     print(f"Processo concluído em {time.time() - proc_time_ini}")
+
+
+# busca lista de subestações que possem curcuitos
+def get_substations_list(engine):
+    query = f'''         
+                SELECT DISTINCT c.SUB FROM sde.CTMT c
+                      inner join sde.SUB s on s.COD_ID = c.sub
+             ;
+        '''
+    df_subs = return_query_as_dataframe(query, engine)
+    return df_subs.values.tolist()
 
 
 class ElectricDataPort:
@@ -1069,18 +1080,28 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
 
 def main():
     proc_time_ini = time.time()
-    config = load_config('391')
+    config = load_config('40')
     # controles de execução para apenas um primeiro mes e um primeiro tipo de dia da lista 'tipo_de_dias'
     control_mes = True
     control_tipo_dia = False
-    # set if multiprocessing will be used
+
+    ano = config['data_base'].split('-')[0]
+    dist = config['dist']
+    engine = create_connection(config)
+    dss_files_folder = config['dss_files_folder']
+
+    # Lista com os codigos das subestações
+    list_sub = get_substations_list(engine)
+    print(list_sub)
+
+    # set 0 to multiprocessing
     tip_process = 0
 
     mes_ini = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
 
     if tip_process == 0:
-
+        """
         list_sub = [['APA'], ['ARA'], ['ASP'], ['AVP'], ['BCU'], ['BIR'], ['BON'], ['CAC'], ['CAR'], ['CMB'], ['COL'],
                     ['CPA'], ['CRU'], ['CSO'], ['DBE'],
                     ['DUT'], ['FER'], ['GOP'], ['GUE'], ['GUL'], ['GUR'], ['INP'], ['IPO'], ['ITQ'], ['JAC'], ['JNO'],
@@ -1090,6 +1111,7 @@ def main():
                     ['PTE'], ['ROS'], ['SAT'], ['SBR'], ['SJC'], ['SKO'], ['SLU'], ['SLZ'], ['SSC'], ['SUZ'], ['TAU'],
                     ['UNA'], ['URB'], ['USS'], ['VGA'],
                     ['VHE'], ['VJS'], ['VSL']]
+        """
         # Obter os primeiros elementos
         # primeiros_elementos = [sublista[0] for sublista in list_sub]
         # print(primeiros_elementos)
@@ -1115,17 +1137,14 @@ def main():
         print(f"Elapsed time: {time.time() - proc_time_ini}")
 
     else:
-        ano = config['data_base'].split('-')[0]
-        dist = config['dist']
-        engine = create_connection(config)
-        dss_files_folder = config['dss_files_folder']
-
+        list_sub = list(map(lambda sl: sl[0], list_sub))
         # Definir código da subestação (sub) e da distribuidora (dist)
         # dist = '404'  # Energisa MS
         # list_sub = ['40', '100', '58', '95', '96', '97']
         # list_sub = ['100']
 
         # EDP_SP = 391
+        """
         list_sub = ['APA', 'ARA', 'ASP', 'AVP', 'BCU', 'BIR', 'BON', 'CAC', 'CAR', 'CMB', 'COL', 'CPA', 'CRU', 'CSO', 'DBE',
                     'DUT', 'FER', 'GOP', 'GUE', 'GUL', 'GUR', 'INP', 'IPO', 'ITQ', 'JAC', 'JNO', 'JAM', 'JAR', 'JCE', 'JUQ',
                     'KMA', 'LOR', 'MAP', 'MAS', 'MCI', 'MRE', 'MTQ', 'OLR', 'PED', 'PID', 'PIL', 'PME', 'PNO', 'POA', 'PRT',
@@ -1133,6 +1152,7 @@ def main():
                     'VHE', 'VJS', 'VSL']
 
         list_sub = ['CAC']
+        """
         # 'UBA' sem circuitos e transformadores
         # 'GUL', 'IPO (104)'  CSO e USS Trafos 34,5 kv  SSC Sem info de TRAFO_AT  #JCE, PED ok dentro dos limites
 
