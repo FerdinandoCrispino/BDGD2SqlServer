@@ -281,7 +281,7 @@
             //nome_camada !== "UNREMT" && nome_camada !== "UNCRMT") {
 
             var list_layers = ["segmentos", "SUB", "UNTRMT", "UNSEMT", "UNCRMT", "UNREMT", "UGMT", "UGBT", "UCBT", "UCMT",
-                                "SIN-Linhas", "SIN-Subs", "SIN-EOL", "AT_SSD"]
+                                "SIN-Linhas", "SIN-Subs", "SIN-EOL", "AT_SSD", "GERADOR_AT"]
             if (list_layers.includes(nome_camada)){
                 selected = f;
                 return true;
@@ -455,6 +455,15 @@
                     const at_s3 = selected.get("voltage");
 
                     popup1.setInfo('Linha: '+ at_s1 + '<br>'+ at_s3 + ' kV' );
+                    break;
+                case 'GERADOR_AT':
+                    const at_g1 = selected.get("sub");
+                    const at_g2 = selected.get("ceg");
+                    const at_g3 = selected.get("voltage");
+                    const at_g4 = selected.get("power");
+                    const at_g5 = selected.get("ctat");
+
+                    popup1.setInfo('Gerador: <br>'+ at_g4 + ' kW<br> '+ at_g3 + ' kV <br>' + at_g2 );
                     break;
             }
         } else {
@@ -753,14 +762,17 @@
                 });
 
                 // Função para adicionar estilos baseados na cor de cada feature
+                var stroke = new ol.style.Stroke({color: 'black', width: 2});
+                var fill = new ol.style.Fill({color: 'red'});
                 function estiloSUBAT(feature) {
                     return new ol.style.Style({
-                        image: new ol.style.Circle({
-                            radius: 3,
-                            fill: new ol.style.Fill({color: [60,179,113]}),
-                            stroke: new ol.style.Stroke({
-                                color: [60,179,113], width: 2
-                            })
+                        image: new ol.style.RegularShape({
+                                fill: fill,
+                                stroke: stroke,
+                                points: 3,
+                                radius: 8,
+                                rotation: Math.PI / 4,
+                                angle: 0
                         })
                     });
                 }
@@ -771,8 +783,43 @@
                     style: estiloSUBAT
                 });
                 myGrpoupLayers.getLayers().push(vectorLayer2);
-                var extent = vectorSource2.getExtent();
+
+        fetch(`/api/gerador_at?distribuidora=${distribuidora}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+
+                var vectorSource3 = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloGERAT(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Circle({
+                            radius: 5,
+                            fill: new ol.style.Fill({color: [60,179,113]}),
+                            stroke: new ol.style.Stroke({
+                                color: [60,179,113], width: 2
+                            })
+                        })
+                    });
+                }
+
+                var vectorLayer3 = new ol.layer.Vector({
+                    name: "Generators",
+                    source: vectorSource3,
+                    style: estiloGERAT
+                });
+
+                myGrpoupLayers.getLayers().push(vectorLayer3);
+                var extent = vectorSource3.getExtent();
                 map.getView().fit(extent, { duration: 800 });
+            })
+
 
             document.body.style.cursor = 'default';  // Cursor normal
 

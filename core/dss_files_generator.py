@@ -1051,7 +1051,7 @@ class DssFilesGenerator:
                     linha_generators_bt_dss.append(f'New Tshape.MyTemp npts=24 interval=1 '
                                                    f'temp={pv_temp_data["crv_t_pv_2"]}')
                     linha_generators_bt_dss.append(f'New Loadshape.PVIrrad_{circuit} 24 1.0 '
-                                                   f'mult=({pv_temp_data["crv_g_norm"]})\n')
+                                                   f'mult={pv_temp_data["crv_g_norm"]}\n')
                     set_pv_system = True
 
                 linha_generators_bt_dss.append(f'{srt_comment_dss}New PVsystem.BT_{strName}_M1 '

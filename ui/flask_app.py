@@ -433,6 +433,41 @@ def create_geojson_from_points_UCBT(points_ucbt):
     return geojson
 
 
+def get_coords_gerador_at_from_db():
+    query = f'''
+            SELECT g.POINT_X, g.POINT_Y, g.CTAT, g.PAC, g.SUB, g.CEG_GD, g.TEN_CON, g.POT_INST, t.TEN/1000 as TEN
+                FROM [sde].[UGAT] G 
+                inner join [GEO_SIGR_DDAD_M10].sde.TTEN t 
+                    on g.TEN_CON = t.COD_ID
+                ;    
+            '''
+    rows = return_query_as_dataframe(query, engine)
+    rows["TIPO"] = "GERADOR_AT"
+    points = [((row["POINT_X"], row["POINT_Y"]), rows["CEG_GD"], rows["TEN"], rows["SUB"], rows["CTAT"],
+               rows["POT_INST"], rows["TIPO"]) for index, row in rows.iterrows()]
+    return points
+
+
+def create_geojson_from_points_gerador_at(points_ger_at):
+    # Criar uma lista de geometria de segmentos de linha a partir dos pontos
+    # lines = [LineString([start, end]) for start, end in line_segments]
+    points = []
+    # circ = []
+
+    for pt, ceg, ten, sub, ctat, potencia, tipo in points_ger_at:
+        points.append(Point([pt]))
+        # circ.append(ctmt)
+
+    # Criar um GeoDataFrame com as geometrias e dados extras
+    gdf = gpd.GeoDataFrame({'geometry': points, 'ceg': ceg, 'voltage': ten, 'sub': sub, 'circ': ctat, 'power': potencia,
+                            'tipo': tipo}, crs="EPSG:4326")
+    # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
+
+    # Converter o GeoDataFrame para GeoJSON
+    geojson = gdf.to_json()
+    return geojson
+
+
 def get_coords_ssdat_from_db():
     query = f'''Select  point_x1 as start_longitude, POINT_y1 as start_latitude, 
                     point_x2 as end_longitude, POINT_y2 as end_latitude,
@@ -940,6 +975,22 @@ def subat():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/gerador_at')
+def gerador_at():
+    distribuidora = request.args.get('distribuidora', '')
+    if distribuidora == '':
+        mens = {'error': 'Select an Utility!'}
+        print(f"{mens}")
+        return mens, 500, {'Content-Type': 'application/json'}
+    try:
+        pt_subs = get_coords_gerador_at_from_db()
+        geojson = create_geojson_from_points_gerador_at(pt_subs)
+
+        return geojson, 200, {'Content-Type': 'application/json'}
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 # Função que busca os segmentos - circuitos
 @app.route('/api/segments')
 def segments():
@@ -1044,21 +1095,21 @@ def get_data_at_EOL():
 # leitura dos dados do arquivo GDB do SIN
 @app.route('/get_data_at_sub')
 def get_data_at_sub():
-    my_gdb_sin = geo_tools.GeoDataSIN('subs_SIN.geojson')
-    return my_gdb_sin.read_geojson_subs()
+    #my_gdb_sin = geo_tools.GeoDataSIN('subs_SIN.geojson')
+    #return my_gdb_sin.read_geojson_subs()
 
-    #my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'Subestações___Base_Existente')
-    #return my_gdb_sin.read_gdb_sub_to_json()
+    my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'Subestações___Base_Existente')
+    return my_gdb_sin.read_gdb_sub_to_json()
 
 
 # leitura dos dados do arquivo GDB do SIN
 @app.route('/get_data_at')
 def get_data_at():
-    my_gdb_sin = geo_tools.GeoDataSIN('Linhas_SIN.geojson')
-    return my_gdb_sin.read_geojson_line()
+    #my_gdb_sin = geo_tools.GeoDataSIN('Linhas_SIN.geojson')
+    #return my_gdb_sin.read_geojson_line()
 
-    #my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'Linhas_de_Transmissão___Base_Existente')
-    #return my_gdb_sin.read_gdb_line_to_json()
+    my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'Linhas_de_Transmissão___Base_Existente')
+    return my_gdb_sin.read_gdb_line_to_json()
 
 
 def long_running_task():

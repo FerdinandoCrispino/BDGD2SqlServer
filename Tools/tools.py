@@ -202,7 +202,7 @@ def process_gdb_files(gdb_file, engine, schema, data_base, data_carga, column_re
             while True:
                 proc_table_parse_time_ini = time.time()
 
-                df = gpd.read_file(gdb_file, driver="pyogrio", layer=table_name, rows=slice(row_ini, row_end, 1),
+                df = gpd.read_file(gdb_file, driver="pyogrio", layer=table_name, rows=slice(row_ini, row_end),
                                    ignore_geometry=False, use_arrow=True)
                 print(f"Leitura de {len(df.index)} reg. em {round(time.time() - proc_table_parse_time_ini, 3)} de "
                       f"{round(time.time() - proc_table_time_ini, 3)} segundos.")
@@ -261,14 +261,14 @@ def process_gdb_files(gdb_file, engine, schema, data_base, data_carga, column_re
                 try:
                     # df.to_sql(table_name, engine, index=False, if_exists="append", chunksize=20, method='multi')
                     print(table_name_sql)
-                    df.to_sql(table_name_sql, engine, schema=schema, index=False,
+                    df.to_sql(table_name_sql, con=conn, schema=schema, index=False,
                               if_exists="append", chunksize=None, method=None)
                     print(f"Concluído em {round(time.time() - proc_table_time_ini, 3)} segundos.")
                     logging.info(f"{table_name}: \tProc concluído em {time.time() - proc_table_time_ini} sec.")
 
                     if table_name_ori != "":
                         print(table_name_ori)
-                        df.to_sql(table_name_ori, engine, schema=schema, index=False,
+                        df.to_sql(table_name_ori, con=conn, schema=schema, index=False,
                                   if_exists="append", chunksize=None, method=None)
                         print(f"Concluído em {round(time.time() - proc_table_time_ini, 3)} segundos.")
                         logging.info(f"{table_name}: \tProc concluído em {time.time() - proc_table_time_ini} sec.")
@@ -283,7 +283,7 @@ def process_gdb_files(gdb_file, engine, schema, data_base, data_carga, column_re
                         # engine = create_connection()
                         time.sleep(5)
                         df.to_sql(table_name_sql,
-                                  engine,
+                                  con=conn,
                                   schema=schema,
                                   index=False,
                                   if_exists="append",
@@ -802,6 +802,46 @@ def set_coords(dist):
     config = load_config(dist)
     engine = create_connection(config)
     proc_time_ini = time.time()
+
+    # Atualiza coordenadas UCAT
+    query_ucat_ponnot = f'''
+                Update sde.ucat set [POINT_Y] = q.Y, [POINT_X] = q.x
+                FROM (
+                    select  uc.cod_id, pn.[POINT_Y] as Y ,pn.[POINT_X] as X
+                    from sde.UCAT uc
+                    inner join sde.ponnot pn on pn.COD_ID = uc.PN_CON 
+                    ) q
+                where sde.UCAT.COD_ID = q.cod_id
+                  '''
+    result = engine.execute(query_ucat_ponnot)
+    print(f'coords UCAT: {result.rowcount}')
+
+    # Atualiza coordenadas UGAT
+    query_ugat_ponnot = f'''
+                Update sde.UGAT set [POINT_Y] = q.Y, [POINT_X] = q.x
+                FROM (
+                    select  ug.cod_id, pn.[POINT_Y] as Y ,pn.[POINT_X] as X
+                    from sde.UGAT ug
+                    inner join sde.ponnot pn on pn.COD_ID = ug.PN_CON 
+                    ) q
+                where sde.UGAT.COD_ID = q.cod_id
+                  '''
+    result = engine.execute(query_ugat_ponnot)
+    print(f'coords UGAT: {result.rowcount}')
+
+    # busca coordenadas da subestação conectado ao gerador
+    query_ugat_ponnot = f'''
+                    Update sde.UGAT set [POINT_Y] = q.Y, [POINT_X] = q.x
+                    FROM (
+                        select  ug.cod_id, pn.[POINT_Y] as Y ,pn.[POINT_X] as X
+                        from sde.UGAT ug
+                        inner join sde.ponnot pn on pn.COD_ID = ug.sub 
+                        ) q
+                    where sde.UGAT.COD_ID = q.cod_id
+                      '''
+    result = engine.execute(query_ugat_ponnot)
+    print(f'coords UGAT by sub: {result.rowcount}')
+
     query_ucmt_ponnot = f'''
               update sde.ucmt set [POINT_Y] = q.Y, [POINT_X] = q.x
                   FROM (
@@ -811,8 +851,8 @@ def set_coords(dist):
                   ) q
               where sde.ucmt.cod_id = q.cod_id
               '''
-    engine.execute(query_ucmt_ponnot)
-    print(f'coords UCMT')
+    result = engine.execute(query_ucmt_ponnot)
+    print(f'coords UCMT: {result.rowcount}')
 
     "Verifica se existem consumidores com coordenadas nulas e utiliza o segmento para associar as cordenadas deles"
     query_coods_ucmt_ssdmt = f'''  
@@ -825,8 +865,8 @@ def set_coords(dist):
                 ) q
             where sde.ucmt.cod_id = q.cod_id
             '''
-    engine.execute(query_coods_ucmt_ssdmt)
-    print(f'coords UCMT_ssdmt')
+    result = engine.execute(query_coods_ucmt_ssdmt)
+    print(f'coords UCMT_ssdmt: {result.rowcount}')
 
     query_coods_ugmt_ponnot = f'''
              update sde.ugmt set [POINT_Y] = q.Y, [POINT_X] = q.x
@@ -837,8 +877,8 @@ def set_coords(dist):
                 ) q
                 where sde.ugmt.cod_id = q.cod_id
              '''
-    engine.execute(query_coods_ugmt_ponnot)
-    print(f'coords UGMT')
+    result = engine.execute(query_coods_ugmt_ponnot)
+    print(f'coords UGMT: {result.rowcount}')
 
     query_coods_ugbt_ponnot = f'''
             update sde.ugbt set [POINT_Y] = q.Y, [POINT_X] = q.x
@@ -849,8 +889,8 @@ def set_coords(dist):
                 ) q
                 where sde.ugbt.cod_id = q.cod_id
              '''
-    engine.execute(query_coods_ugbt_ponnot)
-    print(f'coords UGBT')
+    result = engine.execute(query_coods_ugbt_ponnot)
+    print(f'coords UGBT: {result.rowcount}')
 
     query_coods_ucbt_ponnot = f'''
             update sde.ucbt set [POINT_Y] = q.Y, [POINT_X] = q.x
@@ -861,8 +901,8 @@ def set_coords(dist):
                 ) q
                 where sde.ucbt.cod_id = q.cod_id
              '''
-    engine.execute(query_coods_ucbt_ponnot)
-    print(f'coords UCBT')
+    result = engine.execute(query_coods_ucbt_ponnot)
+    print(f'coords UCBT: {result.rowcount}')
 
     # coordenadas a aprtir dos dados dos geradores na mesma instalação do consumidor bt
     query_coods_ucbt_ugbt = f'''
@@ -875,7 +915,7 @@ def set_coords(dist):
         WHERE sde.ucbt.cod_id = q.cod_id 
     '''
     x = engine.execute(query_coods_ucbt_ugbt)
-    print(f'coords UCBT_UGBT: {x.rowcount} - {time.time() - proc_time_ini}')
+    print(f'coords UCBT_UGBT: {x.rowcount} - time:{round(time.time() - proc_time_ini, 2)} seg')
 
     "Verifica se existem consumidores BT com coordenadas nulas e utiliza o segmento BT para associar suas cordenadas"
     subs = return_query_as_dataframe("select cod_id from sde.sub where pos='PD' order by cod_id", engine)
@@ -1027,6 +1067,29 @@ def circuit_by_bus(pac: str, dist):
     return ctmt
 
 
+def municipio_from_load(load, dist):
+    """
+    Obtem o cod do munício onde está instalada uma carga.
+    :return:
+    """
+    config = load_config(dist)
+    engine = create_connection(config)
+    # load = load.upper()
+    tabelas = ["UCBT", "UCMT"]
+    for table in tabelas:
+        query = f'''
+             SELECT distinct MUN FROM SDE.{table} 
+             WHERE COD_ID = '{load}' 
+             ;
+        '''
+
+        mun = return_query_as_dataframe(query, engine)
+        if not mun.empty:
+            return mun['MUN'].iloc[0]
+
+    return False
+
+
 def irrad_by_municipio(cod_municipio, mes,  dist):
     config = load_config(dist)
     engine = create_connection(config)
@@ -1072,10 +1135,12 @@ def temp_amb_to_temp_pv(crv_g=None, crv_ta=None) -> dict:
 
     :return: dict
     """
-    if crv_g is None:
+    if crv_g is None or not crv_g:
+        # valor default para quando não existir dados de irradiação solar
         crv_g = [0, 0, 0, 0, 0, 0, 53.84, 186.42, 371.93, 491.11, 634.01, 722.82, 795.12, 736.89, 641.51, 476.68,
                  252.55, 121.78, 32.7, 0, 0, 0, 0, 0]
-    if crv_ta is None:
+    if crv_ta is None or not crv_ta:
+        # valor default para quando não existir dados de temperatura ambiente
         crv_ta = [21.81, 21.48, 21.24, 20.98, 20.78, 20.62, 20.59, 21.88, 23.21, 24.36, 25.36, 26.17, 26.76, 27.2,
                   27.61, 28.73, 27.11, 26.03, 25.25, 24.32, 23.6, 23.45, 22.82, 22.22]
 
@@ -1107,8 +1172,28 @@ def fator_autoconsumo(classe):
         return 0.8
 
 
-if __name__ == "__main__":
+def list_substation(dist):
+    """
+    Busta a lista de codigos de subestações proprias de uma distribuidora.
+    :param dist:
+    :return:
+    """
+    config = load_config(dist)
+    engine = create_connection(config)
+    query = f'''
+                SELECT COD_ID 
+                FROM SDE.SUB 
+                WHERE dist = {dist}  and POS = 'PD"              
+                order by sub
+                ;
+            '''
+    list_sub = return_query_as_dataframe(query, engine)
 
+    return list_sub['COD_ID'].tolist()
+
+
+if __name__ == "__main__":
+    """
     import matplotlib.pyplot as plt
     import matplotlib
     matplotlib.use('TKAgg')
@@ -1127,6 +1212,6 @@ if __name__ == "__main__":
     plt.plot(test['crv_t_pv_1'])
     plt.plot(test['crv_t_pv_2'])
     plt.show()
+    """
 
-
-    # set_coords('391')
+    set_coords('391')
