@@ -34,8 +34,8 @@
 
         <label for="scenarios">Scenario:</label>
         <select id="scenarios" name="scenarios" style="float:right;width:110px">
-            <option value="base">Base Case</option>
         </select><br>
+
         <label for="tipo_dia">Type of Day:</label>
         <select id="tipo_dia" name="tipo_dia" style="float:right;width:110px">
             <option value="DU">Workdays (DU)</option>
@@ -50,7 +50,9 @@
           <input type="range" min="1" max="24" value="1" class="slider" id="myRange">
             <p>Hour: <span id="hour"></span></p>
         </div>
-
+        <div>
+            <button id="applyFilters" style="margin:auto; display:block;">Apply</button>
+        </div>
         <hr>
         <fieldset>
           <div>
@@ -95,11 +97,6 @@
             <label for="ucbt"><span class ="ucbt_font_awesome"><i class="fa-brands fa-houzz"></i></span> UCBT</label>
           </div>
         </fieldset>
-        <div style="position:relative">
-            <button id="applyFilters" style="width:50px;position:absolute;left:50%;margin-left:-25px;">Apply</button>
-        </div>
-
-
     </div>
 
     <!-- Mapa -->
@@ -155,6 +152,24 @@
             link.click();
         }
     }
+
+    // preenche combo com a lista de tipos de scenarios ============================================================
+    const scenariosSelect = document.getElementById("scenarios");
+    function populateScenarios(){
+        fetch('/list_scenarios')
+            .then(response => response.json())
+            .then(list_scenarios => {
+                console.log(list_scenarios)
+                for(let i = 0; i < list_scenarios.length; i++){
+                    const option = document.createElement('option');
+                    option.textContent = list_scenarios[i].toUpperCase();
+                    option.value = list_scenarios[i];
+                    scenariosSelect.appendChild(option);
+                }
+            });
+    };
+    populateScenarios();
+
 
     const monthSelect = document.getElementById("meses");
     const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October',
@@ -289,6 +304,7 @@
         });
         if (selected) {
             console.log(selected)
+            hora = document.getElementById("myRange").value
             switch (selected.get("tipo")) {
                 case 'SUB':
                     const h = selected.get("nome");
@@ -329,19 +345,19 @@
                     console.log('++++++++++++++' + h4)
                     //const result = h1 || h2 || h3;  //seleciona o primeiro valido (nao nulo ou vazio)
                     if (h1 && h2 && h3) {
-                        popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>Va: '+ h1 +' pu <br> Vb: ' + h2 + ' pu <br> Vc: ' + h3 +' pu' );
+                        popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Va: '+ h1 +' pu <br> Vb: ' + h2 + ' pu <br> Vc: ' + h3 +' pu' );
                     } else if (h1 && h2 && !h3) {
-                        popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>Va: '+ h1 +' pu');
+                        popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Va: '+ h1 +' pu');
                     } else if (!h1 && h2 && h3) {
-                        popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>Vb: '+ h2 +' pu');
+                        popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Vb: '+ h2 +' pu');
                     } else if (h1 && !h2 && h3) {
-                        popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>Vc: '+ h3 +' pu');
+                        popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Vc: '+ h3 +' pu');
                     } else if (h1) {
-                        popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>Va: '+ h1 +' pu');
+                        popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Va: '+ h1 +' pu');
                     } else if (h2) {
-                        popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>Vb: '+ h2 +' pu');
+                        popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Vb: '+ h2 +' pu');
                     } else if (h3) {
-                        popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>Vc: '+ h3 +' pu');
+                        popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Vc: '+ h3 +' pu');
                     }
                     break;
                 case 'UNTRMT':
@@ -474,15 +490,16 @@
 
     // On selected => show/hide popup
     select.getFeatures().on(['add'], function(e) {
-        var feature = e.element;
-        var nome_camada = feature.get("tipo")
-        var dist = document.getElementById("distribuidora");
-        var select_dist = dist.options[dist.selectedIndex].text;
-        var ano = select_dist.split(" ")[1]
+        const feature = e.element;
+        const nome_camada = feature.get("tipo")
+        const dist = document.getElementById("distribuidora");
+        const select_dist = dist.options[dist.selectedIndex].text;
+        const ano = select_dist.split(" ")[1]
         console.log(nome_camada)
         var content = "";
         if (nome_camada == "segmentos") {
-            var path_gr = "static/scenarios/base/" +  document.getElementById('distribuidora').value +
+            var path_gr = "static/scenarios/" +  document.getElementById('scenarios').value +
+                          "/" + document.getElementById('distribuidora').value +
                           "/" + document.getElementById('subestacao').value + "/" + feature.get("ctmt") +
                           "/" + document.getElementById('tipo_dia').value +
                           "/" + ano +
@@ -500,8 +517,8 @@
             //console.log (num_trafos);
             var path_sub_gr = [];
             for (let i = 1; i <= num_trafos; i++) {
-                path_sub_gr[i] = "static/scenarios/base/" +
-                    document.getElementById('distribuidora').value +
+                path_sub_gr[i] = "static/scenarios/" + document.getElementById('scenarios').value +
+                    "/" + document.getElementById('distribuidora').value +
                     "/" + document.getElementById('subestacao').value +
                     "/SUB_" + document.getElementById('subestacao').value +
                     "/" + document.getElementById('tipo_dia').value +
@@ -664,7 +681,7 @@
                 }
 
                 map.addLayer(vectorLayer);
-                var extent = vectorSource.getExtent();
+                const extent = vectorSource.getExtent();
                 //map.getView().fit(extent, { duration: 500 });
             });
     };
@@ -672,8 +689,8 @@
 
     // Função para carregar subestações com base na distribuidora selecionada
     document.getElementById('distribuidora').addEventListener('change', function() {
-        var distribuidora = this.value;
-        var circuitoSelect = document.getElementById('circuito');
+        const distribuidora = this.value;
+        const circuitoSelect = document.getElementById('circuito');
 
         fetch(`/api/subestacoes/${distribuidora}`)
             .then(response => response.json())
@@ -706,7 +723,7 @@
     //loadSSDAT
     function loadSSDAT() {
         document.body.style.cursor = 'wait';  // Cursor de espera
-        var distribuidora = document.getElementById('distribuidora').value;
+        const distribuidora = document.getElementById('distribuidora').value;
 
         var myGrpoupLayers = new ol.layer.Group({
             title: 'Hight Voltage',
@@ -816,7 +833,7 @@
                 });
 
                 myGrpoupLayers.getLayers().push(vectorLayer3);
-                var extent = vectorSource3.getExtent();
+                const extent = vectorSource3.getExtent();
                 map.getView().fit(extent, { duration: 800 });
             })
 
@@ -870,7 +887,7 @@
                   }
                 map.addLayer(vectorLayer);
 
-                var extent = vectorSource.getExtent();
+                const extent = vectorSource.getExtent();
                 map.getView().fit(extent, { duration: 1000 });
 
 
@@ -884,16 +901,16 @@
 
     // Carregar os segmentos de reta ao clicar no botão de aplicar filtros
     document.getElementById('applyFilters').addEventListener('click', function() {
-        var distribuidora = document.getElementById('distribuidora').value;
-        var subestacao = document.getElementById('subestacao').value;
-        var circuito = document.getElementById('circuito').value;
-        var scenario = document.getElementById('scenarios').value;
-        var tipo_dia = document.getElementById('tipo_dia').value;
-        var mes = document.getElementById('meses').value;
-        var dist = document.getElementById("distribuidora");
-        var select_dist = dist.options[dist.selectedIndex].text;
-        var ano = select_dist.split(" ")[1]
-        var hora = document.getElementById("myRange").value;
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
+        const scenario = document.getElementById('scenarios').value;
+        const tipo_dia = document.getElementById('tipo_dia').value;
+        const mes = document.getElementById('meses').value;
+        const dist = document.getElementById("distribuidora");
+        const select_dist = dist.options[dist.selectedIndex].text;
+        const ano = select_dist.split(" ")[1]
+        const hora = document.getElementById("myRange").value;
 
         loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes, hora);
     });
@@ -909,9 +926,9 @@
             });
             return;
         }
-        var distribuidora = document.getElementById('distribuidora').value;
-        var subestacao = document.getElementById('subestacao').value;
-        var circuito = document.getElementById('circuito').value;
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
         console.log(subestacao)
         if (subestacao){
             loadSUB(distribuidora, subestacao, circuito);
@@ -955,7 +972,7 @@
                 });
                 map.addLayer(vectorLayer);
 
-                var extent = vectorSource.getExtent();
+                const extent = vectorSource.getExtent();
                 map.getView().fit(extent, {size:map.getSize(), maxZoom:16, duration: 1000 });
             });
         document.body.style.cursor = 'default';  // Cursor normal
@@ -973,9 +990,9 @@
             });
             return;
         }
-        var distribuidora = document.getElementById('distribuidora').value;
-        var subestacao = document.getElementById('subestacao').value;
-        var circuito = document.getElementById('circuito').value;
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
         if (subestacao){
             loadUGBT(distribuidora, subestacao, circuito);
         }
@@ -1016,7 +1033,7 @@
                 });
                 map.addLayer(vectorLayer);
 
-                var extent = vectorSource.getExtent();
+                const extent = vectorSource.getExtent();
                 map.getView().fit(extent, { duration: 1000 });
 
             });
@@ -1036,9 +1053,9 @@
             });
             return;
         }
-        var distribuidora = document.getElementById('distribuidora').value;
-        var subestacao = document.getElementById('subestacao').value;
-        var circuito = document.getElementById('circuito').value;
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
         if (subestacao){
             loadUNSEMT(distribuidora, subestacao, circuito);
         }
@@ -1079,7 +1096,7 @@
                 });
                 map.addLayer(vectorLayer);
 
-                var extent = vectorSource.getExtent();
+                const extent = vectorSource.getExtent();
                 map.getView().fit(extent, { duration: 1000 });
             });
         document.body.style.cursor = 'default';  // Cursor normal
@@ -1097,9 +1114,9 @@
             });
             return;
         }
-        var distribuidora = document.getElementById('distribuidora').value;
-        var subestacao = document.getElementById('subestacao').value;
-        var circuito = document.getElementById('circuito').value;
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
         console.log(subestacao)
         if (subestacao){
             loadUNCRMT(distribuidora, subestacao, circuito);
@@ -1141,7 +1158,7 @@
                 });
                 map.addLayer(vectorLayer);
 
-                var extent = vectorSource.getExtent();
+                const extent = vectorSource.getExtent();
                 map.getView().fit(extent, { duration: 1000 });
             });
         document.body.style.cursor = 'default';  // Cursor normal
@@ -1158,9 +1175,9 @@
             });
             return;
         }
-        var distribuidora = document.getElementById('distribuidora').value;
-        var subestacao = document.getElementById('subestacao').value;
-        var circuito = document.getElementById('circuito').value;
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
         console.log(subestacao)
         if (subestacao){
             loadRegu(distribuidora, subestacao, circuito);
@@ -1202,7 +1219,7 @@
                 });
                 map.addLayer(vectorLayer);
 
-                var extent = vectorSource.getExtent();
+                const extent = vectorSource.getExtent();
                 map.getView().fit(extent, {size:map.getSize(), maxZoom:16, duration: 1000 });
                 document.body.style.cursor = 'default';  // Cursor normal
             })
@@ -1223,9 +1240,9 @@
             });
             return;
         }
-        var distribuidora = document.getElementById('distribuidora').value;
-        var subestacao = document.getElementById('subestacao').value;
-        var circuito = document.getElementById('circuito').value;
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
         console.log(subestacao)
         if (subestacao){
             loadUGMT(distribuidora, subestacao, circuito);
@@ -1268,7 +1285,7 @@
                 });
                 map.addLayer(vectorLayer);
 
-                var extent = vectorSource.getExtent();
+                const extent = vectorSource.getExtent();
                 map.getView().fit(extent, { duration: 1000 });
                 document.body.style.cursor = 'default';  // Cursor normal
             })
@@ -1288,9 +1305,9 @@
             });
             return;
         }
-        var distribuidora = document.getElementById('distribuidora').value;
-        var subestacao = document.getElementById('subestacao').value;
-        var circuito = document.getElementById('circuito').value;
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
         console.log(subestacao)
         if (subestacao) {
             loadUCMT(distribuidora, subestacao, circuito);
@@ -1332,7 +1349,7 @@
                 });
                 map.addLayer(vectorLayer);
 
-                var extent = vectorSource.getExtent();
+                const extent = vectorSource.getExtent();
                 map.getView().fit(extent, { duration: 1000 });
                 document.body.style.cursor = 'default';  // Cursor normal
             })
@@ -1353,9 +1370,9 @@
             });
             return;
         }
-        var distribuidora = document.getElementById('distribuidora').value;
-        var subestacao = document.getElementById('subestacao').value;
-        var circuito = document.getElementById('circuito').value;
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
         console.log(subestacao)
         if (subestacao) {
             loadUCBT(distribuidora, subestacao, circuito);
@@ -1397,7 +1414,7 @@
                 });
                 map.addLayer(vectorLayer);
 
-                var extent = vectorSource.getExtent();
+                const extent = vectorSource.getExtent();
                 map.getView().fit(extent, { duration: 1000 });
                 document.body.style.cursor = 'default';  // Cursor normal
             })
@@ -1418,9 +1435,9 @@
             });
             return;
         }
-        var distribuidora = document.getElementById('distribuidora').value;
-        var subestacao = document.getElementById('subestacao').value;
-        var circuito = document.getElementById('circuito').value;
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
         console.log(subestacao)
         if (subestacao) {
             loadTrafos(distribuidora, subestacao, circuito);
@@ -1467,7 +1484,7 @@
                 });
                 map.addLayer(vectorLayer);
 
-                var extent = vectorSource.getExtent();
+                const extent = vectorSource.getExtent();
                 map.getView().fit(extent, { duration: 1000 });
                 document.body.style.cursor = 'default';  // Cursor normal
             })
@@ -1493,9 +1510,9 @@
 
             return;
         }
-        var distribuidora = document.getElementById('distribuidora').value;
-        var subestacao = document.getElementById('subestacao').value;
-        var circuito = document.getElementById('circuito').value;
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
 
         for (let i = 0; i < 4; i++) {
             fetch(`/api/list?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}&idSummary=${i}`)

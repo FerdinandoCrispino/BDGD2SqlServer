@@ -3,7 +3,6 @@ import sys
 import time
 
 import geopandas as gpd
-import fiona
 import pandas as pd
 from colour import Color
 from flask import Flask, render_template, request, Response, url_for, redirect, jsonify
@@ -28,14 +27,14 @@ task_running = False  # Variável para evitar múltiplas execuções simultânea
 
 sys.path.append('../')
 # Configuração do Flask
-app = Flask(__name__)
-app.secret_key = "123456"
+server = Flask(__name__)
+server.secret_key = "123456"
 # Caminho para o arquivo Geodatabase
 GDB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'sin_data.gdb')
 
 
 # Função para buscar as subestações com base na distribuidora
-@app.route('/api/subestacoes/<distribuidora>', methods=['GET'])
+@server.route('/api/subestacoes/<distribuidora>', methods=['GET'])
 def get_subestacoes(distribuidora):
     global engine
     try:
@@ -54,7 +53,7 @@ def get_subestacoes(distribuidora):
 
 
 # Função para buscar os circuitos com base na subestação
-@app.route('/api/circuitos/<subestacao>', methods=['GET'])
+@server.route('/api/circuitos/<subestacao>', methods=['GET'])
 def get_circuitos(subestacao):
     query = f'''
             SELECT DISTINCT nome, cod_id FROM SDE.CTMT WHERE SUB ='{subestacao}'
@@ -713,7 +712,7 @@ def get_line_segments_from_db():
 """
 
 
-def read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_dia, ano, mes, hora=12):
+def read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_dia, ano, mes, hora):
     import json
     path_flask_static = 'ui/static/scenarios/'
 
@@ -733,20 +732,25 @@ def read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_di
         for index, js in enumerate(json_files):
             print(js)
             with open(os.path.join(path_json_file, js), 'r') as json_file:
-                json_text = json.load(json_file)[hora]
+                json_text = json.load(json_file)[hora-1]
                 dados_combinados.update(json_text)
         return dados_combinados
     else:
         # Opening JSON file
-        json_file = f"{circuito}.json"
+        month = 1  # TODO mes da simulação anual. Por enquanto, sempre sera utilizado o mes 1
+        if scenario.lower() == 'base':
+            json_file = f"{circuito}.json"
+        else:
+            json_file = f"{circuito}_sc{month}.json"
+
         path_json_file = os.path.join(parent, path_flask_static, scenario, distribuidora, subestacao, circuito,
                                       tipo_dia, ano, mes, json_file).replace('\\', '/')
         print(path_json_file)
         try:
             f = open(path_json_file, 'r')
-            result = json.load(f)[hora]
+            result = json.load(f)[hora-1]
             # returns JSON object as a list
-            return result  # para testes será utilizado a hora default 12
+            return result
         except Exception as e:
             print(f"File not found: {path_json_file}. {e}")
             return None
@@ -808,12 +812,12 @@ def create_geojson_from_segments(line_segments, json_data):
 
 
 # Rota principal para visualizar o mapa
-@app.route('/')
+@server.route('/')
 def index():
     return render_template('index.html')
 
 
-@app.route('/api/SUB')
+@server.route('/api/SUB')
 def sub():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
@@ -826,7 +830,7 @@ def sub():
     return geojson, 200, {'Content-Type': 'application/json'}
 
 
-@app.route('/api/UNCRMT')
+@server.route('/api/UNCRMT')
 def crmt():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
@@ -841,7 +845,7 @@ def crmt():
     return geojson, 200, {'Content-Type': 'application/json'}
 
 
-@app.route('/api/UNREMT')
+@server.route('/api/UNREMT')
 def regu():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
@@ -856,7 +860,7 @@ def regu():
     return geojson, 200, {'Content-Type': 'application/json'}
 
 
-@app.route('/api/UGMT')
+@server.route('/api/UGMT')
 def ugmt():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
@@ -871,7 +875,7 @@ def ugmt():
     return geojson, 200, {'Content-Type': 'application/json'}
 
 
-@app.route('/api/UCMT')
+@server.route('/api/UCMT')
 def ucmt():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
@@ -886,7 +890,7 @@ def ucmt():
     return geojson, 200, {'Content-Type': 'application/json'}
 
 
-@app.route('/api/UGBT')
+@server.route('/api/UGBT')
 def ugbt():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
@@ -901,7 +905,7 @@ def ugbt():
     return geojson, 200, {'Content-Type': 'application/json'}
 
 
-@app.route('/api/UCBT')
+@server.route('/api/UCBT')
 def ucbt():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
@@ -916,7 +920,7 @@ def ucbt():
     return geojson, 200, {'Content-Type': 'application/json'}
 
 
-@app.route('/api/UNSEMT')
+@server.route('/api/UNSEMT')
 def unsemt():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
@@ -929,7 +933,7 @@ def unsemt():
     return geojson, 200, {'Content-Type': 'application/json'}
 
 
-@app.route('/api/trafos')
+@server.route('/api/trafos')
 def trafos():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
@@ -943,7 +947,7 @@ def trafos():
 
 
 # Função que busca os segmentos - circuitos
-@app.route('/api/ssdat')
+@server.route('/api/ssdat')
 def ssdat():
     distribuidora = request.args.get('distribuidora', '')
     if distribuidora == '':
@@ -959,7 +963,7 @@ def ssdat():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/subat')
+@server.route('/api/subat')
 def subat():
     distribuidora = request.args.get('distribuidora', '')
     if distribuidora == '':
@@ -975,7 +979,7 @@ def subat():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/gerador_at')
+@server.route('/api/gerador_at')
 def gerador_at():
     distribuidora = request.args.get('distribuidora', '')
     if distribuidora == '':
@@ -992,7 +996,7 @@ def gerador_at():
 
 
 # Função que busca os segmentos - circuitos
-@app.route('/api/segments')
+@server.route('/api/segments')
 def segments():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
@@ -1014,12 +1018,12 @@ def segments():
 
 
 # Rota para visualizar o mapa com segmentos de reta
-@app.route('/map')
+@server.route('/map')
 def map_view():
     return render_template('map.html')
 
 
-@app.route('/login', methods=['GET', 'POST'])
+@server.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
     if request.method == 'POST':
@@ -1033,13 +1037,13 @@ def login():
 
 
 # Rota para listar os dados de uma tabela
-@app.route('/list')
+@server.route('/list')
 def list_table_view():
     return render_template('list.html')
 
 
 # API para listar o conteúdo de uma tabela
-@app.route('/api/list')
+@server.route('/api/list')
 def api_list_table():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
@@ -1079,21 +1083,21 @@ def get_table_data(sumario, id_summary):
 
 
 # leitura dos dados do arquivo GDB do SIN
-@app.route('/get_data_at_UFV')
+@server.route('/get_data_at_UFV')
 def get_data_at_UFV():
     my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'UFV___Base_Existente')
     return my_gdb_sin.read_gdb_ufv_to_json()
 
 
 # leitura dos dados do arquivo GDB do SIN
-@app.route('/get_data_at_EOL')
+@server.route('/get_data_at_EOL')
 def get_data_at_EOL():
     my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'EOL___Base_Existente')
     return my_gdb_sin.read_gdb_eol_to_json()
 
 
 # leitura dos dados do arquivo GDB do SIN
-@app.route('/get_data_at_sub')
+@server.route('/get_data_at_sub')
 def get_data_at_sub():
     #my_gdb_sin = geo_tools.GeoDataSIN('subs_SIN.geojson')
     #return my_gdb_sin.read_geojson_subs()
@@ -1103,7 +1107,7 @@ def get_data_at_sub():
 
 
 # leitura dos dados do arquivo GDB do SIN
-@app.route('/get_data_at')
+@server.route('/get_data_at')
 def get_data_at():
     #my_gdb_sin = geo_tools.GeoDataSIN('Linhas_SIN.geojson')
     #return my_gdb_sin.read_geojson_line()
@@ -1138,7 +1142,7 @@ def generate_events():
     buffer.close()
 
 
-@app.route('/start-task', methods=['POST'])
+@server.route('/start-task', methods=['POST'])
 def start_task():
     """Endpoint para iniciar a tarefa em uma thread separada."""
     global task_running
@@ -1150,19 +1154,30 @@ def start_task():
     return jsonify({"message": "Tarefa iniciada com sucesso."}), 202
 
 
-@app.route('/progress')
+@server.route('/progress')
 def progress():
     """Endpoint SSE que envia o progresso da tarefa."""
     return Response(generate_events(), content_type='text/event-stream')
 
 
 # Rota para listar os dados de uma tabela
-@app.route('/control_bus')
+@server.route('/control_bus')
 def control_bus():
     return render_template('control_bus.html')
 
 
+@server.route('/list_scenarios')
+def list_scenarios():
+    root = 'static/scenarios'
+
+    dir_list = os.listdir(root)
+
+    print(dir_list)
+    return jsonify(dir_list), 200
+
+
 if __name__ == '__main__':
-    app.run(use_reloader=False, debug=True)
+    server.run(use_reloader=False, debug=True)
+
     # Para rodar na linha de comando
     # C:\_BDGD2SQL\BDGD2SqlServer\venv\Scripts\activate.bat && python.exe C:\_BDGD2SQL\BDGD2SqlServer\ui\flask_app.py

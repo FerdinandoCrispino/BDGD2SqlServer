@@ -218,7 +218,7 @@ def process_gdb_files(gdb_file, engine, schema, data_base, data_carga, column_re
 
                 list_table_coords = ['PONNOT', 'SSDBT', 'SSDMT', 'SSDAT', 'UNTRMT', 'UNTRD',
                                      'UNTRAT', 'UNTRS', 'UNSEMT', 'UNSEAT', 'UNREMT', 'UNREAT',
-                                     'UNCRMT', 'UNCRAT', 'UNCRBT', 'SUB']
+                                     'UNCRMT', 'UNCRAT', 'UNCRBT', 'SUB', 'UNSEBT']
                 # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4326")
                 if table_name_sql in list_table_coords:
                     if df.iloc[0]['geometry'].geom_type == 'Point':
@@ -798,6 +798,21 @@ def ligacao_gerador(strCodFas, tip_trafo=None):
         return "Delta"
 
 
+def get_coord_load(dist, load):
+    config = load_config(dist)
+    engine = create_connection(config)
+
+    # coordenadas a aprtir dos dados dos geradores na mesma instalação do consumidor bt
+    query_coods = f''' select POINT_X as x, POINT_Y as y
+                       from sde.UCBT               
+                       where COD_ID = '{load}'           
+                    '''
+    with engine.connect() as conn:
+        coords = conn.execute(query_coods)
+
+    return coords
+
+
 def set_coords(dist):
     config = load_config(dist)
     engine = create_connection(config)
@@ -813,8 +828,9 @@ def set_coords(dist):
                     ) q
                 where sde.UCAT.COD_ID = q.cod_id
                   '''
-    result = engine.execute(query_ucat_ponnot)
-    print(f'coords UCAT: {result.rowcount}')
+    with engine.connect() as conn:
+        result = conn.execute(query_ucat_ponnot)
+        print(f'coords UCAT: {result.rowcount}')
 
     # Atualiza coordenadas UGAT
     query_ugat_ponnot = f'''
@@ -941,10 +957,10 @@ def set_coords(dist):
                 SELECT
                     PAC_1,
                     PAC_2,
-                    POINT_Y1,
-                    POINT_X1
+                    POINT_X1,
+                    POINT_Y1
                 FROM
-                    sde.SSDBT  where sub='{sub}'
+                    sde.SSDBT where sub='{sub}'
             )
             update sde.ucbt set [POINT_Y] = q.Y, [POINT_X] = q.x
                FROM (
@@ -956,15 +972,29 @@ def set_coords(dist):
                 CTE_UCBT uc
             INNER JOIN
                 CTE_RAMLIG rm
-                ON rm.PAC_1 = uc.PAC OR rm.PAC_2 = uc.PAC
+                ON rm.PAC_1 = uc.PAC OR rm.PAC_2 = uc.PAC			
             INNER JOIN
                 CTE_SSDBT pn
-                ON pn.PAC_1 IN (rm.PAC_1, rm.PAC_2) OR pn.PAC_2 IN (rm.PAC_1, rm.PAC_2)
+                ON pn.PAC_1 IN (rm.PAC_1, rm.PAC_2) OR pn.PAC_2 IN (rm.PAC_1, rm.PAC_2)					
             ) q
             where sde.ucbt.cod_id = q.cod_id
             '''
         x = engine.execute(query_coods_ucbt_ssdmt)
         print(f'coords UCBT_SSDBT: {sub} - {x.rowcount} - {time.time() - proc_time_ini}')
+
+        query_ucbt_untrmt = f"""
+                update sde.ucbt set [POINT_Y] = q.Y, [POINT_X] = q.x
+                    FROM (
+                        select tr.POINT_X as x, tr.POINT_Y as y, uc.sub, uc.COD_ID, uc.PAC, rm.PAC_2
+                        from sde.ucbt uc
+                        inner join sde.RAMLIG rm ON rm.PAC_1 = uc.PAC OR rm.PAC_2 = uc.PAC
+                        inner join sde.UNTRMT tr ON rm.pac_1 = tr.PAC_2 or rm.PAC_2 = tr.PAC_2
+                        where uc.POINT_X is null and uc.sub = '{sub}'
+                    ) as q
+                WHERE sde.ucbt.cod_id = q.cod_id 
+                """
+        result = engine.execute(query_ucbt_untrmt)
+        print(f'coords UCBT_untrmt: {sub} - {result.rowcount} - {time.time() - proc_time_ini}')
 
     print(f"Processo concluído em {time.time() - proc_time_ini}")
 

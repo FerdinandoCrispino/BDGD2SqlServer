@@ -1,12 +1,12 @@
 pyodbc==4.0.32
 py-dss-interface==2.0.4
-pandas==1.5.3
+pandas==2.1.14
 PyYAML==6.0
 simpledbf==0.2.6
-geopandas~=1.0.1
+geopandas~=0.14.4
 pyarrow==19.0.0
 Fiona==1.9.2
-SQLAlchemy==1.4.29
+SQLAlchemy==1.4.54
 numpy~=1.26.4
 tqdm~=4.66.4
 shapely~=2.0.4
@@ -17,3 +17,4 @@ flask~=3.0.3
 colour~=0.1.5
 geojson~=3.2.0
 openpyxl~=3.1.5
+xlrd==2.0.1
