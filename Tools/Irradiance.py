@@ -16,10 +16,10 @@ from Tools.tools import create_connection, load_config
 
 # Verifica se existe o município
 def existe_municipio_banco_de_dados(con, municipio):
-    query = f"SELECT COUNT (*) FROM sde.IRRAD WHERE COD_MUNICIPIO = '{municipio}'"
+    query = f"SELECT COUNT (*) AS HOURS FROM sde.IRRAD WHERE COD_MUNICIPIO = '{municipio}'"
     try:
         df_municipio = pd.read_sql_query(sql=query, con=con)
-        count_reg = df_municipio.iloc[0][0]
+        count_reg = df_municipio.iloc[0]['HOURS']
 
         if count_reg > 0:
             return True
