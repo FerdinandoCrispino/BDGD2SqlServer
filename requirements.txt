@@ -1,6 +1,6 @@
 pyodbc==4.0.32
 py-dss-interface==2.0.4
-pandas==2.1.14
+pandas==2.1.4
 PyYAML==6.0
 simpledbf==0.2.6
 geopandas~=0.14.4

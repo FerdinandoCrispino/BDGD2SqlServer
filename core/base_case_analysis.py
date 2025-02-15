@@ -19,17 +19,76 @@ matplotlib.use('TKAgg')
 logging.basicConfig(filename='base_case.log', level=logging.INFO,
                     format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d,%H:%M:%S')
 
-
 # False para rodar o master com todos os circuitos e os transformadores de alta ou
 # True para rodar um circuito de cada vez
-exec_by_circuit = True
+exec_by_circuit = False
 master_folder = os.path.expanduser('~\\dss')
 dist = "391"
-master_type_day = "DU"
-master_month = "1"
+master_type_day = "DO"
+master_month = "12"
 master_data_base = "2022"
 # set run multiprocess
 tip_process = 0
+
+
+def substations_transformer_charge(dist, tipo_dia, ano, mes):
+    """
+    Reune as informações das simulações já realizadas para apresentar um resumo do carregamento das subestações para um
+    determinado tipo de dia, ano e mes.
+    Cria um Dataframe com os resultados das potências máximas e mínimas de cada subestação.
+    Exporta o dataframe em um arquivo e gera um grafico de barras
+
+    :param dist: código da distribuidora.
+    :param tipo_dia: tipo de dia utilizado no cálculo do fluxo de potência.
+    :param ano: ano utilizado no cálculo do fluxo de potência.
+    :param mes: mes do ano utilizado no cálculo do fluxo de potência.
+    :return:
+    """
+    subs_power = pd.DataFrame()
+    for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base')):
+        for file in files:
+            if file.endswith(f'{dist}_{tipo_dia}_{ano}_{mes}_power.csv'):
+                print(file)
+                print(root)
+
+                try:
+                    df = pd.read_csv(os.path.join(root, file))
+                    print(df)
+                    df_filter = df[['sub', 'nome', 'P_max', 'P_min', 'P_time_max', 'P_time_min']].copy()
+                    subs_power = pd.concat([subs_power, df_filter])
+
+                except FileNotFoundError:
+                    print(f'Error with fife {root}/{file}')
+
+    subs_power.reset_index(drop=True, inplace=True)
+    print(subs_power)
+
+    plt_path = os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base', str(dist))
+    subs_power.to_excel(f"{plt_path}/{tipo_dia}_{mes}_sub_analysis.xlsx")
+
+    x = np.arange(len(subs_power['nome']))
+    multiplier = 0
+
+    fig, ax = plt.subplots(figsize=(20, 6), layout='constrained')
+
+    for attribute, mesasurements in subs_power.items():
+        if attribute in ('sub', 'nome', 'P_time_max', 'P_time_min'):
+            continue
+        offset = 0.25 * multiplier
+        rects = ax.bar(x + offset, mesasurements, 0.25, label=attribute)
+        # ax.bar_label(rects, padding=3)
+        multiplier += 1
+
+    ax.set_ylabel('Apparent Power (p.u)')
+    ax.set_title(f'EDP-SP Power Transformer Charger - {tipo_dia} {ano} {mes}')
+    ax.set_xticks(x + 0.25, subs_power['sub'])
+    ax.tick_params(axis='x', labelsize=8, labelrotation=90)
+    ax.legend(loc='upper left', ncols=3)
+
+    plt.grid(axis='y')
+    # plt.bar(subs_power['nome'], subs_power['P_max'], width=0.5, color='orange')
+    plt.savefig(f'{plt_path}/{tipo_dia}_{mes}_sub_analysis.png', dpi=fig.dpi)
+    plt.close()
 
 
 def run_multi(subs):
@@ -143,13 +202,18 @@ class SimuladorOpendss:
                         p2_kva = self._calc_kva(2)
                         p3_kva = self._calc_kva(3)
 
+                        # potencia trifasica
+                        p_kva = [p1 + p2 + p3 for p1, p2, p3 in zip(p1_kva, p2_kva, p3_kva)]
+
                         max_p1 = max(p1_kva)
                         max_p2 = max(p2_kva)
                         max_p3 = max(p3_kva)
+                        max_p = max(p_kva)
 
                         min_p1 = min(p1_kva)
                         min_p2 = min(p2_kva)
                         min_p3 = min(p3_kva)
+                        min_p = min(p_kva)
 
                         # max_index1 = pd.Series(self.dss.monitors.channel(1)).idxmax()
                         # max_index2 = self.dss.monitors.channel(1).index(max_p1)
@@ -160,16 +224,22 @@ class SimuladorOpendss:
                         p_data_dict[f"P1_max"] = max_p1 / self.dss.transformers.kva
                         p_data_dict[f"P2_max"] = max_p2 / self.dss.transformers.kva
                         p_data_dict[f"P3_max"] = max_p3 / self.dss.transformers.kva
+                        p_data_dict[f"P_max"] = max_p / self.dss.transformers.kva
+
                         p_data_dict[f"P1_time_max"] = p1_kva.index(max_p1)
                         p_data_dict[f"P2_time_max"] = p2_kva.index(max_p2)
                         p_data_dict[f"P3_time_max"] = p3_kva.index(max_p3)
+                        p_data_dict[f"P_time_max"] = p_kva.index(max_p)
 
                         p_data_dict[f"P1_min"] = min_p1 / self.dss.transformers.kva
                         p_data_dict[f"P2_min"] = min_p2 / self.dss.transformers.kva
                         p_data_dict[f"P3_min"] = min_p3 / self.dss.transformers.kva
+                        p_data_dict[f"P_min"] = min_p / self.dss.transformers.kva
+
                         p_data_dict[f"P1_time_min"] = p1_kva.index(min_p1)
                         p_data_dict[f"P2_time_min"] = p2_kva.index(min_p2)
                         p_data_dict[f"P3_time_min"] = p3_kva.index(min_p3)
+                        p_data_dict[f"P_time_min"] = p_kva.index(min_p)
 
                         p_data_list.append(p_data_dict.copy())
 
@@ -296,7 +366,7 @@ class SimuladorOpendss:
             voltage_bus_dict.clear()
             for bus_name in self.dss.circuit.nodes_names:
                 if bus_name.split('.')[0] in (
-                        active_bus, 'busa'):  # bus ficticio para o OLTC do inicio do circuito, Não será avaliado
+                        active_bus, 'busa'):  # bus ficticio para o OLTC do início do circuito, Não será avaliado
                     continue
                 active_bus = bus_name.split('.')[0]
                 id = self.dss.circuit.set_active_bus(active_bus)
@@ -327,7 +397,8 @@ class SimuladorOpendss:
 
                         # tensões de fase
                         vln_pu.append(
-                            round(math.sqrt(self.dss.bus.pu_voltages[i * 2] ** 2 + self.dss.bus.pu_voltages[(i * 2) + 1] ** 2), 5))
+                            round(math.sqrt(
+                                self.dss.bus.pu_voltages[i * 2] ** 2 + self.dss.bus.pu_voltages[(i * 2) + 1] ** 2), 5))
                         voltage_bus_dict[f"{bus_name.split('.')[0]}.{i + 1}"] = vln_pu[i]
 
                     if num_nodes == 3 and vll[0] != 0:
@@ -426,7 +497,8 @@ class SimuladorOpendss:
         df_vbus = pd.DataFrame.from_dict(voltage_bus_list)
         df_vbus.to_csv(f'{result_path}/{self.database}_{self.tipo_dia}_{self.mes}_voltage_bus_scenario.csv')
         df_violation = pd.DataFrame.from_dict(voltage_bus_violation_list)
-        df_violation.to_csv(f'{result_path}/{self.database}_{self.tipo_dia}_{self.mes}_voltage_bus_violation_scenario.csv')
+        df_violation.to_csv(
+            f'{result_path}/{self.database}_{self.tipo_dia}_{self.mes}_voltage_bus_violation_scenario.csv')
         df_vuf = pd.DataFrame.from_dict(vuf_bus_violation_list)
         # df_vuf.to_csv(f'{self.database}_{self.tipo_dia}_{self.mes}_vuf_bus_violation_scenario.csv')
         df_vuf = df_vuf.transpose()
@@ -440,8 +512,13 @@ class SimuladorOpendss:
 
 
 if __name__ == '__main__':
-    proc_time_ini = time.time()
 
+    # teste: análise de carregamento das subestações
+    substations_transformer_charge(391, 'DU', '2022', '12')
+    substations_transformer_charge(391, 'DO', '2022', '12')
+    exit()
+
+    proc_time_ini = time.time()
     if tip_process == 0:
         list_sub = [['APA'], ['ARA'], ['ASP'], ['AVP'], ['BCU'], ['BIR'], ['BON'], ['CAC'], ['CAR'], ['CMB'], ['COL'],
                     ['CPA'], ['CRU'], ['CSO'], ['DBE'],
