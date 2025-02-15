@@ -665,7 +665,7 @@ class ElectricDataPort:
                     u.DEM_01, u.DEM_02, u.DEM_03, u.DEM_04, u.DEM_05, u.DEM_06, 
                     u.DEM_07, u.DEM_08, u.DEM_09, u.DEM_10, u.DEM_11, u.DEM_12, 
                     t1.TEN/1000 as KV_FORM, t2.TEN/1000 as KV_CON, year(u.DATA_BASE) as ANO_BASE, 
-                    u.TEN_CON 
+                    u.TEN_CON, u.MUN 
                 FROM sde.UGMT u
                 INNER JOIN sde.SSDMT T
                     on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.SIT_ATIV='AT' and  
@@ -684,7 +684,7 @@ class ElectricDataPort:
                     u.DEM_01, u.DEM_02, u.DEM_03, u.DEM_04, u.DEM_05, u.DEM_06, 
                     u.DEM_07, u.DEM_08, u.DEM_09, u.DEM_10, u.DEM_11, u.DEM_12, 
                     t1.TEN/1000 as KV_FORM, t2.TEN/1000 as KV_CON,  year(u.DATA_BASE) as ANO_BASE, 
-                    u.TEN_CON 
+                    u.TEN_CON, u.MUN 
                 FROM sde.UGMT u
                 INNER JOIN sde.SSDMT T
                     on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.ctmt='{ctmt}' and u.SIT_ATIV='AT' and  
@@ -1080,10 +1080,10 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
 
 def main():
     proc_time_ini = time.time()
-    config = load_config('40')
+    config = load_config('391')
     # controles de execução para apenas um primeiro mes e um primeiro tipo de dia da lista 'tipo_de_dias'
     control_mes = True
-    control_tipo_dia = False
+    control_tipo_dia = True
 
     ano = config['data_base'].split('-')[0]
     dist = config['dist']
@@ -1095,7 +1095,7 @@ def main():
     print(list_sub)
 
     # set 0 to multiprocessing
-    tip_process = 0
+    tip_process = 1
 
     mes_ini = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
@@ -1159,6 +1159,8 @@ def main():
         # Cosern = 40
         # list_sub = [ 'SBN', 'STO', 'MSU', 'NCR', 'JCT', 'CPG', 'AAF' ]
         # list_sub = ['MSU']
+
+        list_sub = ['ARA']
 
         print(f'Ajusting CodBNC....')
         ajust_eqre_codbanc(dist, engine)
