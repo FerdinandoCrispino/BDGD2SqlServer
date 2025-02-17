@@ -33,6 +33,53 @@ server.secret_key = "123456"
 GDB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'sin_data.gdb')
 
 
+@server.route('/dashboard')
+def render_dashboard():
+    return render_template('dash1.html')
+
+
+@server.route('/data')
+def render_data():
+    list_data = []
+
+    xls = pd.ExcelFile("static/scenarios/base/391/DO_12_sub_analysis.xlsx")
+    df1 = xls.parse(xls.sheet_names[0])
+    df_data = df1[['nome', 'sub', 'P_max', 'P_min']].copy()
+    df_data['nome'] = df_data['nome'].str[5:-3]
+
+    label_list = df_data['nome'].values.tolist()
+    label_list1 = df_data['sub'].values.tolist()
+    data_list = df_data['P_max'].values.tolist()
+    data_list2 = df_data['P_min'].values.tolist()
+
+    data = {k: v for k, v in zip(label_list, data_list)}
+    list_data.append(data)
+    data2 = {k: v for k, v in zip(label_list, data_list2)}
+    list_data.append(data2)
+
+    xls = pd.ExcelFile("static/scenarios/base/391/DU_12_sub_analysis.xlsx")
+    df2 = xls.parse(xls.sheet_names[0])
+    df_data = df2[['sub', 'nome', 'P_max', 'P_min']].copy()
+    df_data['nome'] = df_data['nome'].str[5:-3]
+
+    result = df_data.to_dict(orient='records')
+
+    label_list = df_data['nome'].values.tolist()
+
+    label_list1 = df_data['sub'].values.tolist()
+    data_list = df_data['P_max'].values.tolist()
+    data_list2 = df_data['P_min'].values.tolist()
+
+    data = {k: v for k, v in zip(label_list, data_list)}
+    list_data.append(data)
+    data2 = {k: v for k, v in zip(label_list, data_list2)}
+    list_data.append(data2)
+    data3 = {k: v for k, v in zip(label_list, label_list1)}
+    list_data.append(data3)
+
+    return jsonify(list_data)
+
+
 # Função para buscar as subestações com base na distribuidora
 @server.route('/api/subestacoes/<distribuidora>', methods=['GET'])
 def get_subestacoes(distribuidora):

@@ -491,7 +491,7 @@
     // On selected => show/hide popup
     select.getFeatures().on(['add'], function(e) {
         const feature = e.element;
-        const nome_camada = feature.get("tipo")
+        let nome_camada = feature.get("tipo")
         const dist = document.getElementById("distribuidora");
         const select_dist = dist.options[dist.selectedIndex].text;
         const ano = select_dist.split(" ")[1]
