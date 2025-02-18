@@ -9,7 +9,8 @@ import calendar
 import math
 import json
 import logging
-from Tools.tools import circuit_by_bus, load_config
+from Tools.tools import circuit_by_bus, load_config, create_connection
+from electric_data import get_substations_list
 
 from multiprocessing import Pool, cpu_count
 import time
@@ -21,14 +22,21 @@ logging.basicConfig(filename='base_case.log', level=logging.INFO,
 
 # False para rodar o master com todos os circuitos e os transformadores de alta ou
 # True para rodar um circuito de cada vez
-exec_by_circuit = False
+exec_by_circuit = True
 master_folder = os.path.expanduser('~\\dss')
 dist = "391"
 master_type_day = "DO"
 master_month = "12"
 master_data_base = "2022"
+
 # set run multiprocess
 tip_process = 0
+
+config = load_config(dist)
+engine = create_connection(config)
+dss_files_folder = config['dss_files_folder']
+# Lista com os codigos das subestações
+list_sub = get_substations_list(engine)
 
 
 def substations_transformer_charge(dist, tipo_dia, ano, mes):
@@ -175,6 +183,8 @@ class SimuladorOpendss:
         nun_monit = 1
         p_data_list = []
         p_data_dict = dict()
+        all_power = pd.DataFrame()
+
         monitor = self.dss.monitors.first()
         while monitor:
             xpoints = np.array([])
@@ -261,7 +271,7 @@ class SimuladorOpendss:
             plt.plot(xpoints, ypoints5, label=self.dss.monitors.header[4])
             plt.title(f'{self.dss.circuit.name.upper()} {self.tipo_dia} {self.mes_abr}/{self.database} \n'
                       f'{self.dss.monitors.element} {tr_kva}')
-            plt.title(f'{self.dss.circuit.name.upper()} {self.tipo_dia} {self.mes_abr}/{self.database}')
+            # plt.title(f'{self.dss.circuit.name.upper()} {self.tipo_dia} {self.database} {self.mes}')
 
             plt.ylabel(monitor_mode[self.dss.monitors.mode])
             plt.xlabel("Hours")
@@ -286,6 +296,16 @@ class SimuladorOpendss:
                                     self.tipo_dia, self.database, self.mes).replace('\\', '/')
             os.makedirs(plt_path, exist_ok=True)
             plt.savefig(f'{plt_path}/{self.dss.circuit.name.upper()}_Balance_M{nun_monit}.png')
+
+            all_power_dict = {'SUB': self.sub, 'circuit': self.dss.circuit.name.upper(),
+                              'monitor': self.dss.monitors.element,
+                              'P1': ypoints1, 'P2': ypoints3, 'P3': ypoints5,
+                              'Q1': ypoints_ang2, 'Q2': ypoints_ang4, 'Q3': ypoints_ang6}
+
+            # descarta se os valores estão proximos de zero
+            if sum(ypoints1) > 1:
+                all_power = pd.concat([all_power, pd.DataFrame.from_dict(all_power_dict)], ignore_index=True, sort=False)
+
             # mng = plt.get_current_fig_manager()
             # mng.window.state("zoomed")
             # mng.frame.Maximize(True)
@@ -300,6 +320,9 @@ class SimuladorOpendss:
         p_adata = pd.DataFrame.from_dict(p_data_list)
         if not p_adata.empty:
             p_adata.to_csv(f'{plt_path}/{self.dist}_{self.tipo_dia}_{self.database}_{self.mes}_power.csv')
+        if not all_power.empty:
+            all_power.to_excel(f'{plt_path}/{self.dist}_{self.dss.circuit.name.upper()}_{self.tipo_dia}_'
+                               f'{self.database}_{self.mes}_all_power.xlsx')
 
     def executa_fluxo_potencia(self) -> None:
         """
@@ -308,6 +331,7 @@ class SimuladorOpendss:
         """
         erros = []
         # self.dss.text("clear")
+        self.dss.dssinterface.allow_forms = False
         self.dss.dssinterface.clear_all()
         # self.dss.text(f"set datapath = '{os.path.join(config_opendss['master_folder'], config_opendss['master_dist'])}'")
         self.dss.text(f"set Datapath = '{os.path.dirname(self.dss_file)}'")
@@ -513,13 +537,16 @@ class SimuladorOpendss:
 
 if __name__ == '__main__':
 
-    # teste: análise de carregamento das subestações
-    substations_transformer_charge(391, 'DU', '2022', '12')
-    substations_transformer_charge(391, 'DO', '2022', '12')
-    exit()
+    control_sub_charge = False
+
+    if control_sub_charge:
+        # teste: análise de carregamento das subestações
+        substations_transformer_charge(dist, 'DU', '2022', '12')
+        substations_transformer_charge(dist, 'DO', '2022', '12')
 
     proc_time_ini = time.time()
     if tip_process == 0:
+        """
         list_sub = [['APA'], ['ARA'], ['ASP'], ['AVP'], ['BCU'], ['BIR'], ['BON'], ['CAC'], ['CAR'], ['CMB'], ['COL'],
                     ['CPA'], ['CRU'], ['CSO'], ['DBE'],
                     ['DUT'], ['FER'], ['GOP'], ['GUE'], ['GUL'], ['GUR'], ['INP'], ['IPO'], ['ITQ'], ['JAC'], ['JNO'],
@@ -528,7 +555,7 @@ if __name__ == '__main__':
                     ['PME'], ['PNO'], ['POA'], ['PRT'],
                     ['PTE'], ['ROS'], ['SAT'], ['SBR'], ['SJC'], ['SKO'], ['SLU'], ['SLZ'], ['SSC'], ['SUZ'], ['TAU'],
                     ['UNA'], ['URB'], ['USS'], ['VGA'], ['VHE'], ['VJS'], ['VSL']]
-
+        """
         print(cpu_count())
 
         # utilizando map (multi-args=no order result=yes)
@@ -548,13 +575,15 @@ if __name__ == '__main__':
         p.join()
         """
     else:
+        list_sub = list(map(lambda sl: sl[0], list_sub))
+        """
         list_sub = ['APA', 'ARA', 'ASP', 'AVP', 'BCU', 'BIR', 'BON', 'CAC', 'CAR', 'CMB', 'COL', 'CPA', 'CRU', 'CSO',
                     'DBE', 'DUT', 'FER', 'GOP', 'GUE', 'GUL', 'GUR', 'INP', 'IPO', 'ITQ', 'JAC', 'JNO', 'JAM', 'JAR',
                     'JCE', 'JUQ', 'KMA', 'LOR', 'MAP', 'MAS', 'MCI', 'MRE', 'MTQ', 'OLR', 'PED', 'PID', 'PIL', 'PME',
                     'PNO', 'POA', 'PRT', 'PTE', 'ROS', 'SAT', 'SBR', 'SJC', 'SKO', 'SLU', 'SLZ', 'SSC', 'SUZ', 'TAU',
                     'UNA', 'URB', 'USS', 'VGA', 'VHE', 'VJS', 'VSL']
         list_sub = ['APA']
-
+        """
         for nome_sub in list_sub:
             sub = nome_sub
             master_file = f"{master_type_day}_{master_month}_Master_substation_{dist}_{sub}.dss"

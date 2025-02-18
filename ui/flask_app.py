@@ -211,21 +211,30 @@ def create_geojson_from_points_UNSEMT(points_unsemt):
 
 def get_coords_ugbt_from_db(sub, ctmt):
     if ctmt == "":
-        query = f'''Select POINT_X, POINT_Y, g.COD_ID, g.CEG, g.CTMT, g.POT_INST, g.FAS_CON, g.TEN_FORN, t.TEN
+        query = f'''Select POINT_X, POINT_Y, g.COD_ID, g.CEG_GD as CEG, g.CTMT, g.POT_INST, g.FAS_CON, 
+                    g.TEN_FORN, t.TEN, g.TEN_CON, t_con.TEN as TEN1
                     from sde.UGBT G
-                    inner join GEO_SIGR_DDAD_M10.SDE.TTEN  t on t.COD_ID = g.TEN_FORN
+                    left join GEO_SIGR_DDAD_M10.SDE.TTEN  t on t.COD_ID = g.TEN_FORN
+                    left join GEO_SIGR_DDAD_M10.SDE.TTEN  t_con on t_con.COD_ID = g.TEN_CON               
                     where sub='{sub}' 
                 ;   
                 '''
     else:
-        query = f'''Select POINT_X, POINT_Y, g.COD_ID, g.CEG, g.CTMT, g.POT_INST, g.FAS_CON, g.TEN_FORN, t.TEN
+        query = f'''Select POINT_X, POINT_Y, g.COD_ID, g.CEG_GD as CEG, g.CTMT, g.POT_INST, g.FAS_CON, 
+                    g.TEN_FORN, t.TEN, g.TEN_CON, t_con.TEN as TEN1
                     from sde.UGBT G
-                    inner join GEO_SIGR_DDAD_M10.SDE.TTEN  t on t.COD_ID = g.TEN_FORN                 
+                    left join GEO_SIGR_DDAD_M10.SDE.TTEN  t on t.COD_ID = g.TEN_FORN  
+                    left join GEO_SIGR_DDAD_M10.SDE.TTEN  t_con on t_con.COD_ID = g.TEN_CON               
                     where sub='{sub}' and ctmt='{ctmt}'
                 ;   
                 '''
     rows = return_query_as_dataframe(query, engine)
     rows["TIPO"] = "UGBT"
+
+    # verifica se a tensão de fornecimento é None e utiliza então a tensão da conexão
+    if rows["TEN"].isnull().values.any():
+        rows["TEN"] = rows["TEN1"]
+
     points = [((row["POINT_X"], row["POINT_Y"]), rows["COD_ID"], rows["CEG"], rows["POT_INST"], rows["TEN"],
                rows["CTMT"], rows["FAS_CON"], rows["TIPO"])
               for index, row in rows.iterrows()]
