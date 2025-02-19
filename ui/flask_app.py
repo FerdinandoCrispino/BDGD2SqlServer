@@ -1,6 +1,5 @@
 import os
 import sys
-import time
 
 import geopandas as gpd
 import pandas as pd
@@ -8,7 +7,7 @@ from colour import Color
 from flask import Flask, render_template, request, Response, url_for, redirect, jsonify
 from flask import flash
 from shapely.geometry import LineString, Point
-import connected_segments as cs
+
 import geo_tools
 import io
 import threading
@@ -41,14 +40,16 @@ def render_dashboard():
 @server.route('/data')
 def render_data():
     list_data = []
-
-    xls = pd.ExcelFile("static/scenarios/base/391/DO_12_sub_analysis.xlsx")
+    path_result = 'static/scenarios/base/391'
+    file_result = 'DO_12_sub_analysis.xlsx'
+    path_all_result = os.path.join(path_result, file_result)
+    xls = pd.ExcelFile(path_all_result)
     df1 = xls.parse(xls.sheet_names[0])
     df_data = df1[['nome', 'sub', 'P_max', 'P_min']].copy()
     df_data['nome'] = df_data['nome'].str[5:-3]
 
     label_list = df_data['nome'].values.tolist()
-    label_list1 = df_data['sub'].values.tolist()
+    # label_list1 = df_data['sub'].values.tolist()
     data_list = df_data['P_max'].values.tolist()
     data_list2 = df_data['P_min'].values.tolist()
 
@@ -57,15 +58,15 @@ def render_data():
     data2 = {k: v for k, v in zip(label_list, data_list2)}
     list_data.append(data2)
 
-    xls = pd.ExcelFile("static/scenarios/base/391/DU_12_sub_analysis.xlsx")
+    file_result = 'DU_12_sub_analysis.xlsx'
+    path_all_result = os.path.join(path_result, file_result)
+    xls = pd.ExcelFile(path_all_result)
     df2 = xls.parse(xls.sheet_names[0])
     df_data = df2[['sub', 'nome', 'P_max', 'P_min']].copy()
     df_data['nome'] = df_data['nome'].str[5:-3]
 
-    result = df_data.to_dict(orient='records')
-
+    # result = df_data.to_dict(orient='records')
     label_list = df_data['nome'].values.tolist()
-
     label_list1 = df_data['sub'].values.tolist()
     data_list = df_data['P_max'].values.tolist()
     data_list2 = df_data['P_min'].values.tolist()
@@ -546,6 +547,7 @@ def get_coords_ssdat_from_db():
         # Encontrar e ordenar segmentos conectados usando DFS
         connected_segments = cs.dfs(graph, pn_ini)
     """
+    # Considera que os trechos com o mesmo CT_COD_OP tem a mesma tensão.
     ssdat_ini = rows[rows['TEN'] > 0]
     for index, row in ssdat_ini.iterrows():
         voltage = row['TEN']

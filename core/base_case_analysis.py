@@ -9,11 +9,11 @@ import calendar
 import math
 import json
 import logging
+import time
 from Tools.tools import circuit_by_bus, load_config, create_connection
 from electric_data import get_substations_list
-
 from multiprocessing import Pool, cpu_count
-import time
+
 
 matplotlib.use('TKAgg')
 # Configuração do logger
@@ -30,7 +30,7 @@ master_month = "12"
 master_data_base = "2022"
 
 # set run multiprocess
-tip_process = 0
+tip_process = 1
 
 config = load_config(dist)
 engine = create_connection(config)
@@ -44,12 +44,12 @@ def substations_transformer_charge(dist, tipo_dia, ano, mes):
     Reune as informações das simulações já realizadas para apresentar um resumo do carregamento das subestações para um
     determinado tipo de dia, ano e mes.
     Cria um Dataframe com os resultados das potências máximas e mínimas de cada subestação.
-    Exporta o dataframe em um arquivo e gera um grafico de barras
+    Exporta o dataframe num arquivo e gera um grafico de barras
 
-    :param dist: código da distribuidora.
-    :param tipo_dia: tipo de dia utilizado no cálculo do fluxo de potência.
-    :param ano: ano utilizado no cálculo do fluxo de potência.
-    :param mes: mes do ano utilizado no cálculo do fluxo de potência.
+    :param dist: Código da distribuidora.
+    :param tipo_dia: Tipo de dia utilizado no cálculo do fluxo de potência.
+    :param ano: Ano utilizado no cálculo do fluxo de potência.
+    :param mes: Mês do ano utilizado no cálculo do fluxo de potência.
     :return:
     """
     subs_power = pd.DataFrame()
@@ -177,7 +177,40 @@ class SimuladorOpendss:
 
     def plot_data_monitors(self) -> None:
 
+        self.dss.dssinterface.clear_all()
         self.dss.text(f"compile [{self.dss_file}]")
+
+        plt_path = os.path.join("C:\\_BDGD2SQL\\BDGD2SqlServer\\ui\\static\\scenarios\\base\\",
+                                self.dist, self.sub, self.dss.circuit.name.upper(),
+                                self.tipo_dia, self.database, self.mes).replace('\\', '/')
+        os.makedirs(plt_path, exist_ok=True)
+
+        if self.dss.solution.converged == 0:
+            print(f'OpenDSS: File {self.dss_file} not solved!!!!')
+            return
+
+        # TODO: Organizar o código e separar métodos
+        # Perdas totais
+        meter = self.dss.meters.first()
+        self.dss.meters.save_all()
+
+        total_losses_df = pd.DataFrame()
+
+        while meter:
+            meter_reg_index = [i for i , x in enumerate(self.dss.meters.register_names) if x == 'Zone Losses kWh'][0]
+            total_losses = self.dss.meters.register_names[meter_reg_index]
+
+            total_losses_dict = {'SUB': self.sub, 'circuit': self.dss.circuit.name.upper(),
+                                 'meter': {self.dss.meters.name}, 'losses': total_losses}
+
+            # Descartar valores próximo de zero - Meter conectado a elemento sem carga. ver arquivo monitors.dss
+            if total_losses > 1:
+                total_losses_df = pd.concat([total_losses_df, pd.DataFrame.from_dict(total_losses_dict)],
+                                            ignore_index=True, sort=False)
+
+            # print(f'OpenDSS:  {self.dist} - {self.sub} - {self.tipo_dia} - {self.mes} - {self.dss.meters.name} - {total_losses}')
+
+
 
         monitor_mode = {0: "Voltages", 1: "Powers ", 2: "Tap Position"}
         nun_monit = 1
@@ -291,18 +324,16 @@ class SimuladorOpendss:
 
             # plt.suptitle("Demanda máxima e Limite corrente")
 
-            plt_path = os.path.join("C:\\_BDGD2SQL\\BDGD2SqlServer\\ui\\static\\scenarios\\base\\",
-                                    self.dist, self.sub, self.dss.circuit.name.upper(),
-                                    self.tipo_dia, self.database, self.mes).replace('\\', '/')
-            os.makedirs(plt_path, exist_ok=True)
+
             plt.savefig(f'{plt_path}/{self.dss.circuit.name.upper()}_Balance_M{nun_monit}.png')
+
 
             all_power_dict = {'SUB': self.sub, 'circuit': self.dss.circuit.name.upper(),
                               'monitor': self.dss.monitors.element,
                               'P1': ypoints1, 'P2': ypoints3, 'P3': ypoints5,
                               'Q1': ypoints_ang2, 'Q2': ypoints_ang4, 'Q3': ypoints_ang6}
 
-            # descarta se os valores estão proximos de zero
+            # descarta se os valores estão próximos de zero
             if sum(ypoints1) > 1:
                 all_power = pd.concat([all_power, pd.DataFrame.from_dict(all_power_dict)], ignore_index=True, sort=False)
 
@@ -310,7 +341,7 @@ class SimuladorOpendss:
             # mng.window.state("zoomed")
             # mng.frame.Maximize(True)
             # mng.full_screen_toggle()
-            # O comando show aguarda o usuario fechar o grafico para continuar
+            # O comando show aguarda o usuário fechar o grafico para continuar
             # plt.show()
             plt.close()
 
@@ -323,6 +354,9 @@ class SimuladorOpendss:
         if not all_power.empty:
             all_power.to_excel(f'{plt_path}/{self.dist}_{self.dss.circuit.name.upper()}_{self.tipo_dia}_'
                                f'{self.database}_{self.mes}_all_power.xlsx')
+        if not total_losses_df.empty:
+            total_losses_df.to_excel(f'{plt_path}/{self.dist}_{self.dss.circuit.name.upper()}_{self.tipo_dia}_'
+                                     f'{self.database}_{self.mes}_losses.xlsx')
 
     def executa_fluxo_potencia(self) -> None:
         """

@@ -106,7 +106,7 @@
 
     <table id="data-table_0" class="table table-sm">
         <thead>
-            <tr id="table-header_0" style="font-size: 0.8em; backgroundColor: 'yellow';"></tr>
+            <tr id="table-header_0" style="font-size: 0.8em; background-Color: #04AA6D"></tr>
         </thead>
         <tbody id="table-body_0" style="font-size: 0.8em;"></tbody>
     </table>
@@ -507,7 +507,7 @@
                           "/" + feature.get("ctmt") + "_Balance_m1.png"
             console.log (path_gr);
             if (fileExists(path_gr)) {
-                content += "<img src=" + path_gr + " style='width:750px; height:300px;'/>";
+                content += "<img alt = 'Imagem não encontrada.' src=" + path_gr + " style='width:750px; height:300px;'/>";
                 popup.show(feature.getGeometry().getFirstCoordinate(), content);
             } else {
                 console.log('arquivo não existe!!!!' );
@@ -528,7 +528,7 @@
 
                     //console.log (path_sub_gr);
                     if (fileExists(path_sub_gr[i])) {
-                        content += "<img src=" + path_sub_gr[i] + " style='width:500px; height:230px;'/><p>";
+                        content += "<img alt = 'Imagem não encontrada.' src=" + path_sub_gr[i] + " style='width:500px; height:230px;'/><p>";
                     } else {
                         console.log('arquivo não existe!!!!' );
                     }
@@ -570,7 +570,7 @@
                 }
             });
 
-            if (layerAT == false && document.getElementById('distribuidora').value != '') {
+            if (layerAT === false && document.getElementById('distribuidora').value != '') {
                 loadSSDAT();
                 loadSIN('subs');
                 loadSIN('linhas');
@@ -596,11 +596,12 @@
         var nome_layer = '';
         var nome_stilo = '';
         var meu_estilo
-        if (tipo == 'linhas'){
+        var req_func = '';
+        if (tipo === 'linhas'){
             req_func = 'get_data_at';  // nome do metodo no flask
             nome_layer = 'SIN-Linhas';
             meu_estilo = ''
-        } else if (tipo == 'subs'){
+        } else if (tipo === 'subs'){
             req_func = 'get_data_at_sub';
             nome_layer = 'SIN-Subs';
             meu_estilo = new ol.style.Style({
@@ -612,7 +613,7 @@
                     })
                 })
             });
-        } else if (tipo == 'EOL') {
+        } else if (tipo === 'EOL') {
             req_func = '/get_data_at_EOL';
             nome_layer = 'SIN-EOL';
             meu_estilo = new ol.style.Style({
@@ -626,7 +627,7 @@
                         }))
                     });
 
-        } else if (tipo == 'UFV') {
+        } else if (tipo === 'UFV') {
             req_func = '/get_data_at_UFV';
             nome_layer = 'SIN-UFV';
             meu_estilo = new ol.style.Style({
@@ -657,7 +658,7 @@
                 });
 
 
-                if (tipo == 'linhas') {
+                if (tipo === 'linhas') {
                     // Função para adicionar estilos baseados na cor de cada feature
                     function linha_estilo(feature) {
                         return new ol.style.Style({
@@ -684,7 +685,7 @@
                 const extent = vectorSource.getExtent();
                 //map.getView().fit(extent, { duration: 500 });
             });
-    };
+    }
 
 
     // Função para carregar subestações com base na distribuidora selecionada
@@ -881,7 +882,7 @@
                     style: estiloSegmento
                 });
 
-                checkboxes = document.getElementsByName('opt[]');
+                var checkboxes = document.getElementsByName('opt[]');
                   for(var i=0, n=checkboxes.length;i<n;i++) {
                     checkboxes[i].checked = false;
                   }
@@ -1542,7 +1543,7 @@
                         body.appendChild(tr);
                     });
                 });
-        };
+        }
     });
 
 

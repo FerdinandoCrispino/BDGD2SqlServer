@@ -1,16 +1,13 @@
 # -*- encoding: utf-8 -*-
-import math
-
 import numpy as np
 from Tools.tools import *
-import connected_segments as cs
 import calendar
 
 """
 # @Date    : 20/06/2024
-# @Author  : Ferdinano Crispino
+# @Author  : Ferdinando Crispino
 # @Email   : ferdinando.crispino@usp.br
-Implemeta funcionalidades de preparação dos dados para escrita dos arquivos do openDSS
+Implementa funcionalidades de preparação dos dados para escrita dos arquivos do openDSS
 """
 
 
@@ -136,7 +133,7 @@ class DssFilesGenerator:
             linhas_substation_dss.append('')
             for nome_arquivo in list_files_dss:
                 nome_arquivo += '_' + cir_name
-                linhas_substation_dss.append(f"redirect {cir_name}\{nome_arquivo}.dss")
+                linhas_substation_dss.append(f"redirect {cir_name}/{nome_arquivo}.dss")
             linhas_substation_dss.append('')
 
         # Inclui tensões nominais
@@ -226,7 +223,7 @@ class DssFilesGenerator:
             dblPerdVz_per = reatores.loc[index]['PER_FER']
             dblPerdTtl_per = reatores.loc[index]['PER_TOT']
 
-            # obtido da relação do tp -> será sempre tensão de fase
+            # obtido da relação do tp e será sempre tensão de fase
             dblkvREG = round(tens_regulador(dblTensaoPrimTrafo_kV), 4)
             if dblkvREG != round(ctmt_vll/np.sqrt(3), 4):
                 dblkvREG = round(ctmt_vll/np.sqrt(3), 4)
@@ -421,7 +418,7 @@ class DssFilesGenerator:
     def get_lines_condutores(self, condutores, linhas_condutores_dss) -> None:
         """
         Escreve os comandos do openDSS para os LineCodes
-        :param condutores: Dataframe com o dados da bdgd do condutores
+        :param condutores: Dataframe com os dados da bdgd do condutores
         :param linhas_condutores_dss: Saida com lista dos comandos gerados para o openDSS
         :return:
         """
@@ -467,7 +464,7 @@ class DssFilesGenerator:
         """
         Transforma os 96 pontos das curvas de carga em 24 pontos e normaliza pelo seu valor máximo.
         :param multi_ger:
-        :param curvas_carga: dados da BDGD
+        :param curvas_carga: Dados da BDGD
         :param linhas_curvas_carga_dss: Retorno com os dados transformados.
         :return:
         """
@@ -504,9 +501,9 @@ class DssFilesGenerator:
             # print(linha)
             linhas_curvas_carga_dss.append(linha)
 
-            # Curva de carga do consumidor com GD (curva de carga sem GD zerando para os horarios de geração)
-            # Essa curva não sera utilizada no novo modelo de carga + geração independente.
-            # Assim a curva do consumidor se mantem a mesma sendo a demanda acrecida do autoconsumo
+            # Curva de carga do consumidor com GD (curva de carga sem GD zerando para os horários de geração)
+            # Essa curva não será utilizada no novo modelo de carga + geração independente.
+            # Assim a curva do consumidor se mantem a mesma, sendo a demanda acrescida do autoconsumo
             multi_list = multi.split(",")
             for idx, item in enumerate(multi_list):
                 if 8 <= idx < 17:
@@ -526,10 +523,10 @@ class DssFilesGenerator:
     def get_lines_trechos_mt(self, is_bt, trechos, linhas_trechos_dss) -> None:
         """ Função para obter as linhas (DSS) referentes aos trechos
 
-        Caso seja de um terceiro, o programa da ANEEL transforma aquele trecho numa chave sem perdas no arquivo .DSS
+        Caso seja de um terceiro, o programa da ANEEL transforma aquele trecho numa chave sem perdas no arquivo *.DSS
         (caso tenha habilitado para “Neutralizar redes de terceiros”)
 
-        O transformador é comentado no arquivo .DSS (caso habilite a opção “Eliminar transformadores a vazio”),
+        O transformador é comentado no arquivo *.DSS (caso habilite a opção “Eliminar transformadores a vazio”),
         e toda a rede BT a jusante dele também é comentada. (ainda nao implementadoa eliminação da rede a jusante!)
         """
         linhas_trechos_dss.clear()
@@ -672,7 +669,7 @@ class DssFilesGenerator:
             ano_base = cargas.loc[index]['ANO_BASE']
             strCodFasSSDMT = cargas.loc[index]['FAS_CON_SSDMT']
 
-            # verifica a tensão do circuito em relação a tensão da carga MT
+            # verifica a tensão do circuito relativo à tensão da carga MT
             if kv_ctmt != dblTensao_kV:
                 dblTensao_kV = kv_ctmt
             if numero_fases_carga(strCodFas) == '1':  # fase da carga
@@ -1134,11 +1131,11 @@ class DssFilesGenerator:
                 srt_comment_dss = '!'
 
             if model_pv_system == 1 and cod_ceg[:2].upper() == 'GD':
-                # No início do arquivo uma unica vez para todos os PV.
-                # deverá ser substituido por dados de um banco de dados de irradiancia e temperatura
-                # A curva de irradiancia normalizada é inserida no parametro Daily
-                # considera-se que o valor obtido da BDGD se refere a potencia do inversor
-                # irrad = 0.7  # deverá ser obtido do maximo valor da curva de irradiação / 1000
+                # No início do arquivo, uma única vez para todos os PV.
+                # deverá ser substituido por dados de um banco de dados de irradiância e temperatura
+                # A curva de irradiância normalizada é inserida no parametro Daily
+                # considera-se que o valor obtido da BDGD se refere à potência do inversor
+                # irrad = 0.7  # deverá ser obtido do máximo valor da curva de irradiação / 1000
                 rel_cc_ca = 1.15  # relação potência do painel pmpp e potência do inversor kva
                 pf = 1.0
                 kva = dblDemMax_kW / pf
@@ -1153,7 +1150,7 @@ class DssFilesGenerator:
                 # converte temperatura ambiente e irradiação solar em temperatura do painel solar
                 pv_temp_data = temp_amb_to_temp_pv(irradiacao, temp_amb)
 
-                # máxima irradiação solar em relação a uma irradiação de 1000 W/m2
+                # máxima irradiação solar relativo a uma irradiação de 1000 W/m2
                 irrad = round(max(pv_temp_data["crv_g"]) / 1000, 2)
 
                 if not set_pv_system:
@@ -1252,6 +1249,8 @@ class DssFilesGenerator:
     def get_line_capacitor(self, capacitores, trafos_mt_mt, trafos_mt_mt_seg, linha_capacitores_dss):
         """
         Montagem do arquivo DSS para capacitores de média tensão.
+        :param trafos_mt_mt:
+        :param trafos_mt_mt_seg:
         :param capacitores:
         :param linha_capacitores_dss:
         :return:
@@ -1271,7 +1270,7 @@ class DssFilesGenerator:
             ctmt = capacitores.loc[index]['CTMT']
 
             # A tensão do capacitor pode não ser a tensão do circuito (kv_nom) quando existir um
-            # transformador MT-MT no circito. Neste caso deve-se verificar se o capacitor está
+            # transformador MT-MT no circuito. Neste caso se deve verificar se o capacitor está
             # instalado a jusante ou a montante do transformador MT-MT.
             if trafos_mt_mt_seg:
                 find_cap = list(filter(lambda x: str_pac in x, trafos_mt_mt_seg))

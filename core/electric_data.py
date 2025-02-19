@@ -897,12 +897,12 @@ def write_sub_dss(cod_sub, cod_dist, mes, tipo_dia, engine, dss_files_folder):
 
 def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, engine, model_type=1):
     """
-    Procedimento principal de controle dos metodos de extração dos dados da BDGD para todos os elementos
+    Procedimento principal de controle dos métodos de extração dos dados da BDGD para todos os elementos
     de rede e cria lista com os modelos para o openDSS e gerência a escrita dos arquivos para o openDSS.
-    :param cod_sub: código da subestação definido na BDGD
-    :param cod_dist: código da distribuido definido na BDGD
-    :param mes: mês de refeêencia para a associação das curvas de carga.
-    :param tipo_dia: tipo de dia (DU, DO, SA) de referência para associação das curvas de carga.
+    :param cod_sub: Código da subestação definido na BDGD
+    :param cod_dist: Código da distribuidora definido na BDGD
+    :param mes: mês de referência para a associação das curvas de carga.
+    :param tipo_dia: Tipo de dia (DU, DO, SA) de referência para associação das curvas de carga.
     :return:
     """
 
@@ -1120,8 +1120,9 @@ def main():
         # list_sub = [['SBN'], ['STO']]
 
         print(cpu_count())
+
         """
-        # utilizando map (multi-args=no order result=yes)
+        utilizando map (multi-args=no order result=yes)
         with Pool(processes=(cpu_count() - 1)) as p:
             print(p.map(run_multi, [['AVP'], ['GUE'], ]))
             #print(p.map(run_multi, list_sub))    
@@ -1151,8 +1152,9 @@ def main():
                     'PTE', 'ROS', 'SAT', 'SBR', 'SJC', 'SKO', 'SLU', 'SLZ', 'SSC', 'SUZ', 'TAU', 'UNA', 'URB', 'USS', 'VGA',
                     'VHE', 'VJS', 'VSL']
 
-        list_sub = ['CAC']
+        
         """
+        list_sub = ['CAC']
         # 'UBA' sem circuitos e transformadores
         # 'GUL', 'IPO (104)'  CSO e USS Trafos 34,5 kv  SSC Sem info de TRAFO_AT  #JCE, PED ok dentro dos limites
 
