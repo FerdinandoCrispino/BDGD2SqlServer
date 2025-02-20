@@ -25,7 +25,7 @@ logging.basicConfig(filename='base_case.log', level=logging.INFO,
 exec_by_circuit = True
 master_folder = os.path.expanduser('~\\dss')
 dist = "391"
-master_type_day = "DO"
+master_type_day = "DU"
 master_month = "12"
 master_data_base = "2022"
 
@@ -35,9 +35,57 @@ tip_process = 1
 config = load_config(dist)
 engine = create_connection(config)
 dss_files_folder = config['dss_files_folder']
-# Lista com os codigos das subestações
+# Lista com os códigos das subestações
 list_sub = get_substations_list(engine)
 
+
+def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
+    subs_losses = pd.DataFrame()
+    file_result = f'{tipo_dia}_{ano}_{mes}_losses.xlsx'
+
+    for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base', str(dist))):
+        for file in files:
+            if file.endswith(file_result):
+                print(file)
+                print(root)
+                try:
+                    df = pd.read_excel(os.path.join(root, file))
+                    print(df)
+                    df_filter = df[['SUB', 'circuit', 'losses']].copy()
+                    subs_losses = pd.concat([subs_losses, df_filter])
+
+                except FileNotFoundError:
+                    print(f'Error with fife {root}/{file}')
+
+    subs_losses.reset_index(drop=True, inplace=True)
+    print(subs_losses)
+
+    plt_path = os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base', str(dist))
+    subs_losses.to_excel(f"{plt_path}/{tipo_dia}_{mes}_sub_losses.xlsx")
+
+    x = np.arange(len(subs_losses['circuit']))
+    multiplier = 0
+
+    fig, ax = plt.subplots(figsize=(20, 6), layout='constrained')
+
+    for attribute, mesasurements in subs_losses.items():
+        if attribute in ('SUB', 'circuit'):
+            continue
+        offset =0.25 * multiplier
+        rects = ax.bar(x + offset, mesasurements, 0.25, label=attribute)
+        # ax.bar_label(rects, padding=3)
+        multiplier += 1
+
+    ax.set_ylabel('Power Loss (kWh)')
+    ax.set_title(f'EDP-SP Power transformer Losses - {tipo_dia} {ano} {mes}')
+
+    ax.set_xticks(x + 0.1, subs_losses['SUB'])
+    ax.tick_params(axis='x', labelsize=8, labelrotation=90)
+    ax.legend(loc='upper left', ncols=3)
+
+    plt.grid(axis='y')
+    plt.savefig(f'{plt_path}/{tipo_dia}_{mes}_sub_losses_analysis.png', dpi=fig.dpi)
+    plt.close()
 
 def substations_transformer_charge(dist, tipo_dia, ano, mes):
     """
@@ -74,6 +122,7 @@ def substations_transformer_charge(dist, tipo_dia, ano, mes):
     plt_path = os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base', str(dist))
     subs_power.to_excel(f"{plt_path}/{tipo_dia}_{mes}_sub_analysis.xlsx")
 
+    # plot ---------------------------------------
     x = np.arange(len(subs_power['nome']))
     multiplier = 0
 
@@ -191,26 +240,23 @@ class SimuladorOpendss:
 
         # TODO: Organizar o código e separar métodos
         # Perdas totais
-        meter = self.dss.meters.first()
-        self.dss.meters.save_all()
-
         total_losses_df = pd.DataFrame()
-
+        meter = self.dss.meters.first()
         while meter:
-            meter_reg_index = [i for i , x in enumerate(self.dss.meters.register_names) if x == 'Zone Losses kWh'][0]
-            total_losses = self.dss.meters.register_names[meter_reg_index]
+            # self.dss.meters.sample() if snap mode
+
+            meter_reg_index = [i for i, x in enumerate(self.dss.meters.register_names) if x == 'Zone Losses kWh'][0]
+            total_losses = self.dss.meters._register_values[meter_reg_index]
 
             total_losses_dict = {'SUB': self.sub, 'circuit': self.dss.circuit.name.upper(),
-                                 'meter': {self.dss.meters.name}, 'losses': total_losses}
+                                 'meter': self.dss.meters.name, 'losses': total_losses}
 
             # Descartar valores próximo de zero - Meter conectado a elemento sem carga. ver arquivo monitors.dss
             if total_losses > 1:
-                total_losses_df = pd.concat([total_losses_df, pd.DataFrame.from_dict(total_losses_dict)],
+                total_losses_df = pd.concat([total_losses_df, pd.DataFrame([total_losses_dict])],
                                             ignore_index=True, sort=False)
-
+            meter = self.dss.meters.next()
             # print(f'OpenDSS:  {self.dist} - {self.sub} - {self.tipo_dia} - {self.mes} - {self.dss.meters.name} - {total_losses}')
-
-
 
         monitor_mode = {0: "Voltages", 1: "Powers ", 2: "Tap Position"}
         nun_monit = 1
@@ -232,7 +278,7 @@ class SimuladorOpendss:
             print(f"Sample_count:{self.dss.monitors.sample_count} ")
             """
 
-            # Get power from monitored transformer
+            # Get power from monitored transformer when DSS run for all substation circuits
             tr_kva = ''
             if self.dss.monitors.mode == 1:
                 for tr_name in self.dss.transformers.names:
@@ -245,7 +291,7 @@ class SimuladorOpendss:
                         p2_kva = self._calc_kva(2)
                         p3_kva = self._calc_kva(3)
 
-                        # potencia trifasica
+                        # potencia trifásico
                         p_kva = [p1 + p2 + p3 for p1, p2, p3 in zip(p1_kva, p2_kva, p3_kva)]
 
                         max_p1 = max(p1_kva)
@@ -415,7 +461,7 @@ class SimuladorOpendss:
                 print(f'OpenDSS: File {self.dss_file} not solved!!!!')
                 print(f"{self.dss.solution.event_log}\n")
                 logging.info(
-                    f'OpenDSS: File {self.dss_file} not solved! -set number: {number} - event: {self.dss.solution.event_log}')
+                    f'OpenDSS: File {self.dss_file} not solved! Set number: {number} - event: {self.dss.solution.event_log}')
                 # Add null dict. indicates the time at which the program did not converge
                 voltage_bus_list.append(dict.fromkeys(voltage_bus_dict.copy(), None))
                 continue
@@ -424,7 +470,7 @@ class SimuladorOpendss:
             voltage_bus_dict.clear()
             for bus_name in self.dss.circuit.nodes_names:
                 if bus_name.split('.')[0] in (
-                        active_bus, 'busa'):  # bus ficticio para o OLTC do início do circuito, Não será avaliado
+                        active_bus, 'busa'):  # bus fictício para o OLTC do início do circuito, Não será avaliado
                     continue
                 active_bus = bus_name.split('.')[0]
                 id = self.dss.circuit.set_active_bus(active_bus)
@@ -441,7 +487,7 @@ class SimuladorOpendss:
                 # for i in range(self.dss.bus.num_nodes):
                 num_nodes = int(len(self.dss.bus.vll) / 2)
                 # num_nodes = self.dss.bus.num_nodes
-                # Não existe valores de tensão de linha para barras monofasicas
+                # Não existe valores de tensão de linha para barras monofásicas
                 if num_nodes > 1:
                     for i in range(num_nodes):
                         # print(active_bus)
@@ -503,7 +549,7 @@ class SimuladorOpendss:
             print(f'Tensão máxima na hora {number}: {max_vol}')
             print(f'Tensão mínima na hora {number}: {min_vol}')
 
-            # desequilibrio na barra com menor tensão
+            # desequilíbrio na barra com menor tensão
             self.dss.circuit.set_active_bus(min_vol[0].split('.')[0])
 
             cir_nome = circuit_by_bus(min_vol[0].split('.')[0], self.dist)
@@ -517,7 +563,7 @@ class SimuladorOpendss:
             print(f' VBC: {Vbc} V')
             print(f' VCA: {Vca} V')
 
-            # Desequilibrio de tensão:
+            # Desequilíbrio de tensão:
             # IEEE
             # vuf% = 3(Vmax-Vmin)/(VA+Vb+Vc)
             # Cigre / Prodist - limite 2%
@@ -527,12 +573,12 @@ class SimuladorOpendss:
             if Vab != 0 and Vbc != 0 and Vca != 0:
                 beta = (Vab ** 4 + Vbc ** 4 + Vca ** 4) / (Vab ** 2 + Vbc ** 2 + Vca ** 2) ** 2
                 Vuf = round(math.sqrt((abs(1 - math.sqrt(3 - 6 * beta))) / (1 + math.sqrt(3 - 6 * beta))) * 100, 5)
-                print(f' Desequilibrio de Tensão: {Vuf} %')
+                print(f' Desequilíbrio de Tensão: {Vuf} %')
 
             # deve-se fazer a copia caso contrario a referencia é por ponteiro!!
             vuf_bus_list.append(vuf_bus_dict.copy())
 
-            # acrescenta o dict das linhas monofasicas
+            # acrescenta o dict das linhas monofásicas
             voltage_bus_dict.update(voltage_bus_dict_1phase)
 
             # create list of dict
@@ -543,7 +589,7 @@ class SimuladorOpendss:
                                                                                               float(v) > 1.05))
             voltage_bus_violation_list.append(voltage_bus_violation_dict.copy())
 
-            # fator de desbalanceamento de tensão
+            # fator de Desequilíbrio de tensão
             vuf_bus_violation_dict = dict((k, v) for k, v in vuf_bus_dict.items() if float(v) > 3.0)
             vuf_bus_violation_list.append(vuf_bus_violation_dict)
 
@@ -571,12 +617,15 @@ class SimuladorOpendss:
 
 if __name__ == '__main__':
 
-    control_sub_charge = False
+    control_sub_charge = True
 
     if control_sub_charge:
         # teste: análise de carregamento das subestações
-        substations_transformer_charge(dist, 'DU', '2022', '12')
-        substations_transformer_charge(dist, 'DO', '2022', '12')
+        substations_losses(dist,'DU','2022','12')
+        #substations_transformer_charge(dist, 'DU', '2022', '12')
+        #substations_transformer_charge(dist, 'DO', '2022', '12')
+        exit()
+
 
     proc_time_ini = time.time()
     if tip_process == 0:

@@ -4,34 +4,7 @@
 
 {% block content %}
 
-<!-- Navbar Bootstrap dashboard-->
-<nav class="navbar navbar-expand-lg navbar-light" style="background-color: #62a2d1;">
-  <div class="container-fluid">
-
-    <div class="collapse navbar-collapse" id="navbarSupportedContent">
-      <ul class="navbar-nav me-auto mb-2 mb-lg-0 active" >
-        <li class="nav-item ">
-          <a class="nav-link" href="#">Power Transformer Charge <span class="sr-only">(current)</span></a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="#">Voltage Analysis</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="#">Power Circuit</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="#">Reverse Power Flow</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="#">Voltage Unbalance</a>
-        </li>
-        <li class="nav-item">
-          <a class="nav-link" href="#">Losses</a>
-        </li>
-      </ul>
-    </div>
-  </div>
-</nav>
+{% include 'nav_dash.html' %}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
@@ -39,22 +12,26 @@
 
 <canvas id="myChart1" width="400" height="90"></canvas>
 <canvas id="myChart2" width="400" height="90"></canvas>
+<canvas id="myChart3" width="400" height="90"></canvas>
+<canvas id="myChart4" width="400" height="90"></canvas>
 <script>
     fetch('/data')
         .then(response => response.json())
         .then(data => {
             var groupLabel1 = []
             var groupLabel2 = []
-            for (const[key, val]  of Object.entries(data[4])) {
+            for (const[key, val]  of Object.entries(data[9])) {
                 groupLabel2.push(val)
             }
-            for (const[key]  of Object.entries(data[3])) {
+            for (const[key]  of Object.entries(data[8])) {
                 groupLabel1.push(key)
             }
             console.log(groupLabel1)
             console.log(groupLabel2)
             const ctx1 = document.getElementById('myChart1').getContext('2d');
             const ctx2 = document.getElementById('myChart2').getContext('2d');
+            const ctx3 = document.getElementById('myChart3').getContext('2d');
+            const ctx4 = document.getElementById('myChart4').getContext('2d');
             const myChart1 = new Chart(ctx1, {
                 type: 'bar',
                 data: {
@@ -130,14 +107,14 @@
                     datasets: [
                         {
                             label: 'Max Power (p.u.)',
-                            data: data[2],
+                            data: data[4],
                             backgroundColor: 'rgba(75, 192, 192, 0.2)',
                             borderColor: 'rgba(75, 192, 192, 1)',
                             borderWidth: 1,
                         },
                         {
                             label: 'Min Power (p.u.)',
-                            data: data[3],
+                            data: data[5],
                             backgroundColor: 'rgba(175, 92, 192, 0.2)',
                             borderColor: 'rgba(175, 92, 192, 1)',
                             borderWidth: 1
@@ -185,6 +162,134 @@
             });
             myChart2.options.plugins.legend.align = 'end';
             myChart2.update();
+            const myChart3 = new Chart(ctx3, {
+                type: 'bar',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Time-Max-Power',
+                            data: data[2],
+                            backgroundColor: 'rgba(46,69,142, 0.2)',
+                            borderColor: 'rgb(46,69,142)',
+                            borderWidth: 1,
+                        },
+                        {
+                            label: 'Time-Min-Power',
+                            data: data[3],
+                            backgroundColor: 'rgba(100,136,23, 0.2)',
+                            borderColor: 'rgb(100,136,23)',
+                            borderWidth: 1
+                        },
+                    ]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            labels: groupLabel1,
+                        },
+                        y: {
+                            beginAtZero: true,
+                            type: 'linear',
+                            min: 0,
+                            max: 24
+                        },
+                    },
+                    plugins: {
+                        zoom: {
+                            pan: {
+                                enabled: true,
+                                mode: 'x',
+                                onPanComplete: ({chart}) => {
+                                  console.log(`chart onPanComplete`)
+                                },
+                            },
+                            zoom: {
+                                wheel: {
+                                    enabled: true,
+                                },
+                                mode: 'x',
+                                onZoomComplete: ({chart}) => {
+                                  console.log(`chart onZoomComplete`)
+                                },
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'EDP-SP - Power Transformer Charge - Time of Day of Occurrence'
+                        },
+                        subtitle: {
+                            display: true,
+                            text: 'DO - 2022 - 12'
+                        },
+                    }
+                }
+            });
+            myChart3.options.plugins.legend.align = 'end';
+            myChart3.update();
+            const myChart4 = new Chart(ctx4, {
+                type: 'bar',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Time-Max-Power',
+                            data: data[6],
+                            backgroundColor: 'rgba(46,69,142, 0.2)',
+                            borderColor: 'rgb(46,69,142)',
+                            borderWidth: 1,
+                        },
+                        {
+                            label: 'Time-Min-Power',
+                            data: data[7],
+                            backgroundColor: 'rgba(100,136,23, 0.2)',
+                            borderColor: 'rgb(100,136,23)',
+                            borderWidth: 1
+                        },
+                    ]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            labels: groupLabel1,
+                        },
+                        y: {
+                            beginAtZero: true,
+                            type: 'linear',
+                            min: 0,
+                            max: 24
+                        },
+                    },
+                    plugins: {
+                        zoom: {
+                            pan: {
+                                enabled: true,
+                                mode: 'x',
+                                onPanComplete: ({chart}) => {
+                                  console.log(`chart onPanComplete`)
+                                },
+                            },
+                            zoom: {
+                                wheel: {
+                                    enabled: true,
+                                },
+                                mode: 'x',
+                                onZoomComplete: ({chart}) => {
+                                  console.log(`chart onZoomComplete`)
+                                },
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'EDP-SP - Power Transformer Charge - Time of Day of Occurrence'
+                        },
+                        subtitle: {
+                            display: true,
+                            text: 'DU - 2022 - 12'
+                        },
+                    }
+                }
+            });
+            myChart4.options.plugins.legend.align = 'end';
+            myChart4.update();
         })
         .catch(error => console.error('Error loading chart data:', error));
 </script>

@@ -37,6 +37,31 @@ def render_dashboard():
     return render_template('dash1.html')
 
 
+@server.route('/dash_losses')
+def dash_losses():
+    return render_template('dash_losses.html')
+
+@server.route('/data_losses')
+def render_data_losses():
+    list_data = []
+    path_result = 'static/scenarios/base/391'
+    file_result = 'DU_12_sub_losses.xlsx'
+    path_all_result = os.path.join(path_result, file_result)
+    xls = pd.ExcelFile(path_all_result)
+    df1 = xls.parse(xls.sheet_names[0])
+    df_data = df1[['SUB', 'circuit', 'losses']].copy()
+    label_list = df_data['circuit'].values.tolist()
+    label_list1 = df_data['SUB'].values.tolist()
+    data_list_losses = df_data['losses'].values.tolist()
+    data_losses = {k: v for k, v in zip(label_list, data_list_losses)}
+    list_data.append(data_losses)
+    data_label = {k: v for k, v in zip(label_list, label_list)}
+    list_data.append(data_label)
+    data_label1 = {k: v for k, v in zip(label_list, label_list1)}
+    list_data.append(data_label1)
+
+    return jsonify(list_data)
+
 @server.route('/data')
 def render_data():
     list_data = []
@@ -45,38 +70,52 @@ def render_data():
     path_all_result = os.path.join(path_result, file_result)
     xls = pd.ExcelFile(path_all_result)
     df1 = xls.parse(xls.sheet_names[0])
-    df_data = df1[['nome', 'sub', 'P_max', 'P_min']].copy()
+    df_data = df1[['nome', 'sub', 'P_max', 'P_min','P_time_max', 'P_time_min']].copy()
     df_data['nome'] = df_data['nome'].str[5:-3]
 
     label_list = df_data['nome'].values.tolist()
     # label_list1 = df_data['sub'].values.tolist()
-    data_list = df_data['P_max'].values.tolist()
-    data_list2 = df_data['P_min'].values.tolist()
+    data_list_pmax_0 = df_data['P_max'].values.tolist()
+    data_list_pmin_1 = df_data['P_min'].values.tolist()
+    data_list_time_max_2 = df_data['P_time_max'].values.tolist()
+    data_list_time_min_3 = df_data['P_time_min'].values.tolist()
 
-    data = {k: v for k, v in zip(label_list, data_list)}
-    list_data.append(data)
-    data2 = {k: v for k, v in zip(label_list, data_list2)}
-    list_data.append(data2)
+    data_pmax = {k: v for k, v in zip(label_list, data_list_pmax_0)}
+    list_data.append(data_pmax)
+    data_pmin = {k: v for k, v in zip(label_list, data_list_pmin_1)}
+    list_data.append(data_pmin)
+    data_time_max = {k: v for k, v in zip(label_list, data_list_time_max_2)}
+    list_data.append(data_time_max)
+    data_time_min = {k: v for k, v in zip(label_list, data_list_time_min_3)}
+    list_data.append(data_time_min)
 
     file_result = 'DU_12_sub_analysis.xlsx'
     path_all_result = os.path.join(path_result, file_result)
     xls = pd.ExcelFile(path_all_result)
     df2 = xls.parse(xls.sheet_names[0])
-    df_data = df2[['sub', 'nome', 'P_max', 'P_min']].copy()
+    df_data = df2[['sub', 'nome', 'P_max', 'P_min','P_time_max', 'P_time_min']].copy()
     df_data['nome'] = df_data['nome'].str[5:-3]
 
     # result = df_data.to_dict(orient='records')
     label_list = df_data['nome'].values.tolist()
     label_list1 = df_data['sub'].values.tolist()
-    data_list = df_data['P_max'].values.tolist()
-    data_list2 = df_data['P_min'].values.tolist()
+    data_list_pmax_4 = df_data['P_max'].values.tolist()
+    data_list_pmax_5 = df_data['P_min'].values.tolist()
+    data_list_pmax_6 = df_data['P_time_max'].values.tolist()
+    data_list_pmax_7 = df_data['P_time_min'].values.tolist()
 
-    data = {k: v for k, v in zip(label_list, data_list)}
-    list_data.append(data)
-    data2 = {k: v for k, v in zip(label_list, data_list2)}
-    list_data.append(data2)
-    data3 = {k: v for k, v in zip(label_list, label_list1)}
-    list_data.append(data3)
+    data4 = {k: v for k, v in zip(label_list, data_list_pmax_4)}
+    list_data.append(data4)
+    data5 = {k: v for k, v in zip(label_list, data_list_pmax_5)}
+    list_data.append(data5)
+    data6 = {k: v for k, v in zip(label_list, data_list_pmax_6)}
+    list_data.append(data6)
+    data7 = {k: v for k, v in zip(label_list, data_list_pmax_7)}
+    list_data.append(data7)
+    data8 = {k: v for k, v in zip(label_list, label_list)}
+    list_data.append(data8)
+    data9 = {k: v for k, v in zip(label_list, label_list1)}
+    list_data.append(data9)
 
     return jsonify(list_data)
 
