@@ -118,11 +118,12 @@ class ElectricDataPort:
             '''
         self.trafo_mtmt = return_query_as_dataframe(query, engine)
 
-    def trafo_mtmt_find_capacitor(self, engine, ctmt):
+    def trafo_mtmt_find_segmentos(self, engine, ctmt):
 
         # leitura de trafos mt-mt.
         trafos_mt_mt = self.trafo_mtmt
         connected_segments = []
+        # TODO considera que existe apenas um trafo MT-MT para cada circuito. Verificar se isso é verdade!
         if not trafos_mt_mt.empty:
             tr_mt_mt = trafos_mt_mt.loc[trafos_mt_mt['ctmt'] == ctmt]
             pn_ini = trafos_mt_mt['PAC_2'][0]
@@ -135,13 +136,17 @@ class ElectricDataPort:
             sql = f"SELECT PAC_1, PAC_2, COD_ID, ctmt FROM SDE.UNSEMT Where ctmt='{ctmt}' and P_N_OPE='F' "
             unsemt_pacs = pd.read_sql_query(sql, engine)
 
+            # regulador MT
+            sql = f"SELECT PAC_1, PAC_2, COD_ID, ctmt FROM SDE.UNREMT Where ctmt='{ctmt}' "
+            unremt_pacs = pd.read_sql_query(sql, engine)
+
             # Transformadores MT
             sql = f"SELECT PAC_1, PAC_2, COD_ID, ctmt FROM SDE.UNTRMT Where ctmt='{ctmt}' and SIT_ATIV='AT' "
             untrmt_pacs = pd.read_sql_query(sql, engine)
 
             print(f"Total Trechos: {len(ssdmt_pacs)}, Chaves: {len(unsemt_pacs)}, Trafos: {len(untrmt_pacs)}")
 
-            total_seg = pd.concat([ssdmt_pacs, unsemt_pacs, untrmt_pacs], sort=False)
+            total_seg = pd.concat([ssdmt_pacs, unsemt_pacs, unremt_pacs, untrmt_pacs], sort=False)
             # Construir o grafo
             graph = cs.build_graph(total_seg, 'PAC_1', 'PAC_2')
             # Encontrar e ordenar segmentos conectados usando DFS
@@ -824,7 +829,7 @@ class ElectricDataPort:
 
     def voltage_bases(self, circ, df_voltage) -> list:
         # Valor da tensão do circuito para os casos de circuitos sem transformadores
-        voltagebases = [self.circuitos.loc[self.circuitos.index[0], ["TEN"]][0] / 1000]
+        voltagebases = [self.circuitos.loc[self.circuitos.index[0], "TEN"] / 1000]
 
         vbase = df_voltage[['TEN_PRI', 'TEN_SEC', 'TEN_TER']].copy()
 
@@ -1012,7 +1017,10 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
 
         # Grava arquivo DSS para o reguladores
         bdgd_read.query_reatores_mt(cod_circuito, engine=engine)
-        dss_adapter.get_lines_reguladores(bdgd_read.reatores, linhas_reatores_mt_dss)
+        bdgd_read.query_trafo_mt_mt(engine, cod_circuito)
+        bdgd_read.trafo_mtmt_find_segmentos(engine, cod_circuito)
+        dss_adapter.get_lines_reguladores(bdgd_read.reatores, bdgd_read.trafo_mtmt,
+                                       bdgd_read.trafo_mtmt_connected_segments, linhas_reatores_mt_dss)
         write_to_dss(dist, sub, cod_circuito, linhas_reatores_mt_dss, nome_arquivo_re_mt, dss_files_folder)
 
         # Grava arquivo DSS para o Transformadores MT
@@ -1043,8 +1051,8 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
 
         # Grava arquivo DSS para capacitors
         bdgd_read.query_capacitor(cod_circuito, engine=engine)
-        bdgd_read.query_trafo_mt_mt(engine, cod_circuito)
-        bdgd_read.trafo_mtmt_find_capacitor(engine, cod_circuito)
+        #bdgd_read.query_trafo_mt_mt(engine, cod_circuito)
+        #bdgd_read.trafo_mtmt_find_segmentos(engine, cod_circuito)
         dss_adapter.get_line_capacitor(bdgd_read.capacitors, bdgd_read.trafo_mtmt,
                                        bdgd_read.trafo_mtmt_connected_segments, linhas_capacitors_dss)
         write_to_dss(dist, sub, cod_circuito, linhas_capacitors_dss, nome_arquivo_capacitors, dss_files_folder)
@@ -1152,17 +1160,17 @@ def main():
                     'PTE', 'ROS', 'SAT', 'SBR', 'SJC', 'SKO', 'SLU', 'SLZ', 'SSC', 'SUZ', 'TAU', 'UNA', 'URB', 'USS', 'VGA',
                     'VHE', 'VJS', 'VSL']
 
-        
+        list_sub = ['USS']
         """
-        list_sub = ['CAC']
+
         # 'UBA' sem circuitos e transformadores
-        # 'GUL', 'IPO (104)'  CSO e USS Trafos 34,5 kv  SSC Sem info de TRAFO_AT  #JCE, PED ok dentro dos limites
+        # 'GUL', 'IPO (104)' CSO e USS Trafos 34,5 kv SSC Sem info de TRAFO_AT #JCE, PED ok dentro dos limites
 
         # Cosern = 40
         # list_sub = [ 'SBN', 'STO', 'MSU', 'NCR', 'JCT', 'CPG', 'AAF' ]
         # list_sub = ['MSU']
 
-        list_sub = ['ARA']
+        list_sub = ['USS']
 
         print(f'Ajusting CodBNC....')
         ajust_eqre_codbanc(dist, engine)

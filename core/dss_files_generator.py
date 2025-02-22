@@ -203,7 +203,7 @@ class DssFilesGenerator:
                     " r1=0.001 r0=0.001 x1=0 x0=0 c1=0 c0=0 length=0.001 switch=" + switch
             linhas_chaves_dss.append(linha)
 
-    def get_lines_reguladores(self, reatores, linhas_reguladores_dss):
+    def get_lines_reguladores(self, reatores, trafos_mt_mt, trafos_mt_mt_seg, linhas_reguladores_dss):
 
         linhas_reguladores_dss.clear()
         for index in range(reatores.shape[0]):
@@ -222,6 +222,8 @@ class DssFilesGenerator:
             ReatHL_per = reatores.loc[index]['XHL']
             dblPerdVz_per = reatores.loc[index]['PER_FER']
             dblPerdTtl_per = reatores.loc[index]['PER_TOT']
+            ctmt = reatores.loc[index]['CTMT']
+
 
             # obtido da relação do tp e será sempre tensão de fase
             dblkvREG = round(tens_regulador(dblTensaoPrimTrafo_kV), 4)
@@ -232,9 +234,22 @@ class DssFilesGenerator:
                 dblkvREG = vll = round(tens_regulador(dblTensaoPrimTrafo_kV) * np.sqrt(3), 4)  # 'tensão de linha'
 
             # análise de dados conflitantes
-            if strTipRegul in ('DF', 'DA') and intBanc == 1:  # considera indormação do DF ou DA sobre a codFas
+            if strTipRegul in ('DF', 'DA') and intBanc == 0:  # considera informação do DF ou DA sobre a codFas
                 # Usar tensão de linha
                 dblkvREG = ctmt_vll
+
+            # A tensão do regulador pode não ser a tensão do circuito (kv_nom) quando existir um
+            # transformador MT-MT no circuito. Neste caso se deve verificar se o capacitor está
+            # instalado a jusante ou a montante do transformador MT-MT.
+            if trafos_mt_mt_seg:
+                find_cap = list(filter(lambda x: strBus1 in x, trafos_mt_mt_seg))
+                if find_cap:
+                    # tensão do regulador é o do secundário do trafo MTMT
+                    tr_mt_mt = trafos_mt_mt.loc[trafos_mt_mt['ctmt'] == ctmt]
+                    if strTipRegul != 'T':
+                        dblkvREG = (tr_mt_mt['TEN_SEC'].values[0] / 1000)/np.sqrt(3)
+                    else:
+                        dblkvREG = tr_mt_mt['TEN_SEC'].values[0] / 1000
 
                 if strCodFasPrim in ('AN', 'A'):
                     strCodFasPrim = 'AB'
@@ -482,10 +497,10 @@ class DssFilesGenerator:
                 # curvas_carga[col_name_new_crv] = 0
                 # col_name_pot_index = f"{col_name_pot}{pot_idx:02}"
                 # linhas_curvas_carga_dss["COD_ID"] = curvas_carga.iloc[index][1]
-                curvas_carga_dss[col_name_new_crv] = (curvas_carga.iloc[index][4 + 4 * x] +
-                                                      curvas_carga.iloc[index][1 + 4 + 4 * x] +
-                                                      curvas_carga.iloc[index][2 + 4 + 4 * x] +
-                                                      curvas_carga.iloc[index][3 + 4 + 4 * x]) / 4
+                curvas_carga_dss[col_name_new_crv] = (curvas_carga.iloc[index,4 + 4 * x] +
+                                                      curvas_carga.iloc[index,1 + 4 + 4 * x] +
+                                                      curvas_carga.iloc[index,2 + 4 + 4 * x] +
+                                                      curvas_carga.iloc[index,3 + 4 + 4 * x]) / 4
 
             # Normaliza os pontos em relação ao máximo valor
             kw_max = max(curvas_carga_dss.values())
@@ -496,8 +511,8 @@ class DssFilesGenerator:
             # list contains a reference to the original dictionary, should do the trick copy().
             # all_curvas_carga_dss.append(curvas_carga_dss.copy())
 
-            linha = f'New "Loadshape.{curvas_carga.iloc[index][1].upper()}_' \
-                    f'{curvas_carga.iloc[index][3].upper()}" 24 1.0 mult=({multi})'
+            linha = f'New "Loadshape.{curvas_carga.iloc[index, 1].upper()}_' \
+                    f'{curvas_carga.iloc[index, 3].upper()}" 24 1.0 mult=({multi})'
             # print(linha)
             linhas_curvas_carga_dss.append(linha)
 
@@ -510,8 +525,8 @@ class DssFilesGenerator:
                     multi_list[idx] = '0'
             multi_GD = ', '.join(multi_list)
 
-            linha = f'New "Loadshape.{curvas_carga.iloc[index][1].upper()}_' \
-                    f'{curvas_carga.iloc[index][3].upper()}_GD" 24 1.0 mult=({multi_GD})'
+            linha = f'New "Loadshape.{curvas_carga.iloc[index, 1].upper()}_' \
+                    f'{curvas_carga.iloc[index, 3].upper()}_GD" 24 1.0 mult=({multi_GD})'
             linhas_curvas_carga_dss.append(linha)
 
         # Gerador curva tipica
@@ -1274,8 +1289,8 @@ class DssFilesGenerator:
             # instalado a jusante ou a montante do transformador MT-MT.
             if trafos_mt_mt_seg:
                 find_cap = list(filter(lambda x: str_pac in x, trafos_mt_mt_seg))
-                if not find_cap:
-                    # tensão do capacitor é o do secundario do trafo MTMT
+                if find_cap:
+                    # tensão do capacitor é o do secundário do trafo MTMT
                     tr_mt_mt = trafos_mt_mt.loc[trafos_mt_mt['ctmt'] == ctmt]
                     kv_nom = tr_mt_mt['TEN_SEC'].values[0] / 1000
 
