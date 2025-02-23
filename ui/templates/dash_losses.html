@@ -10,8 +10,8 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/1.1.1/chartjs-plugin-zoom.min.js"></script>
 
-<canvas id="myChart1" width="400" height="90"></canvas>
-
+<canvas id="myChart1" width="400" height="150"></canvas>
+<canvas id="myChart2" width="400" height="150"></canvas>
 <script>
     fetch('/data_losses')
         .then(response => response.json())
@@ -24,9 +24,10 @@
             for (const[key]  of Object.entries(data[1])) {
                 groupLabel1.push(key)
             }
-            console.log(groupLabel1)
-            console.log(groupLabel2)
+            //console.log(groupLabel1)
+            //console.log(groupLabel2)
             const ctx1 = document.getElementById('myChart1').getContext('2d');
+            const ctx2 = document.getElementById('myChart2').getContext('2d');
 
             const myChart1 = new Chart(ctx1, {
                 type: 'bar',
@@ -89,6 +90,66 @@
             myChart1.options.plugins.legend.align = 'end';
             myChart1.update();
 
+            const myChart2 = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Power loss (kWh)',
+                            data: data[3],
+                            backgroundColor: 'rgba(75,137,192, 0.2)',
+                            borderColor: 'rgb(75,137,192)',
+                            borderWidth: 1,
+                        },
+                    ]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            labels: groupLabel1,
+                        },
+                        x2: {
+                            labels: groupLabel2,
+                        },
+                         y: {
+                            beginAtZero: true,
+
+                        }
+                    },
+                    plugins: {
+                        zoom: {
+                            pan: {
+                                enabled: true,
+                                mode: 'x',
+                                onPanComplete: ({chart}) => {
+                                  console.log(`chart onPanComplete`)
+                                },
+                            },
+                            zoom: {
+                                wheel: {
+                                    enabled: true,
+                                },
+                                mode: 'x',
+                                onZoomComplete: ({chart}) => {
+                                  console.log(`chart onZoomComplete`)
+                                },
+                            }
+                        },
+
+                        title: {
+                            display: true,
+                            text: 'EDP-SP - Power Transformer Losses'
+                        },
+                        subtitle: {
+                            display: true,
+                            text: 'DU - 2022 - 12'
+                        }
+                    },
+                    responsive: true,
+                }
+            });
+            myChart1.options.plugins.legend.align = 'end';
+            myChart1.update();
         })
         .catch(error => console.error('Error loading chart data:', error));
 </script>

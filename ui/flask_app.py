@@ -45,22 +45,43 @@ def dash_losses():
 def render_data_losses():
     list_data = []
     path_result = 'static/scenarios/base/391'
-    file_result = 'DU_12_sub_losses.xlsx'
+    file_result = 'DO_12_sub_losses.xlsx'
     path_all_result = os.path.join(path_result, file_result)
-    xls = pd.ExcelFile(path_all_result)
-    df1 = xls.parse(xls.sheet_names[0])
-    df_data = df1[['SUB', 'circuit', 'losses']].copy()
-    label_list = df_data['circuit'].values.tolist()
-    label_list1 = df_data['SUB'].values.tolist()
-    data_list_losses = df_data['losses'].values.tolist()
-    data_losses = {k: v for k, v in zip(label_list, data_list_losses)}
-    list_data.append(data_losses)
-    data_label = {k: v for k, v in zip(label_list, label_list)}
-    list_data.append(data_label)
-    data_label1 = {k: v for k, v in zip(label_list, label_list1)}
-    list_data.append(data_label1)
 
-    return jsonify(list_data)
+    file_result_du = 'DU_12_sub_losses.xlsx'
+    path_all_result_du = os.path.join(path_result, file_result_du)
+
+    try:
+        xls = pd.ExcelFile(path_all_result)
+        df1 = xls.parse(xls.sheet_names[0])
+        df_data = df1[['SUB', 'circuit', 'losses']].copy()
+        label_list = df_data['circuit'].values.tolist()
+        label_list1 = df_data['SUB'].values.tolist()
+        data_list_losses = df_data['losses'].values.tolist()
+        data_losses = {k: v for k, v in zip(label_list, data_list_losses)}
+        list_data.append(data_losses)
+        data_label = {k: v for k, v in zip(label_list, label_list)}
+        list_data.append(data_label)
+        data_label1 = {k: v for k, v in zip(label_list, label_list1)}
+        list_data.append(data_label1)
+
+        xls = pd.ExcelFile(path_all_result_du)
+        df1 = xls.parse(xls.sheet_names[0])
+        df_data = df1[['SUB', 'circuit', 'losses']].copy()
+        label_list = df_data['circuit'].values.tolist()
+        label_list1 = df_data['SUB'].values.tolist()
+        data_list_losses = df_data['losses'].values.tolist()
+        data_losses = {k: v for k, v in zip(label_list, data_list_losses)}
+        list_data.append(data_losses)
+        data_label = {k: v for k, v in zip(label_list, label_list)}
+        list_data.append(data_label)
+        data_label1 = {k: v for k, v in zip(label_list, label_list1)}
+        list_data.append(data_label1)
+
+        return jsonify(list_data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 @server.route('/data')
 def render_data():
@@ -93,7 +114,7 @@ def render_data():
     path_all_result = os.path.join(path_result, file_result)
     xls = pd.ExcelFile(path_all_result)
     df2 = xls.parse(xls.sheet_names[0])
-    df_data = df2[['sub', 'nome', 'P_max', 'P_min','P_time_max', 'P_time_min']].copy()
+    df_data = df2[['sub', 'nome', 'P_max', 'P_min', 'P_time_max', 'P_time_min']].copy()
     df_data['nome'] = df_data['nome'].str[5:-3]
 
     # result = df_data.to_dict(orient='records')
@@ -1266,9 +1287,10 @@ def control_bus():
 @server.route('/list_scenarios')
 def list_scenarios():
     root = 'static/scenarios'
-
-    dir_list = os.listdir(root)
-
+    current = os.path.dirname(os.path.realpath(__file__))
+    scenarios_path = os.path.join(current, root).replace('\\', '/')
+    print(scenarios_path)
+    dir_list = os.listdir(scenarios_path)
     print(dir_list)
     return jsonify(dir_list), 200
 

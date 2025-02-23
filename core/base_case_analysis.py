@@ -14,7 +14,6 @@ from Tools.tools import circuit_by_bus, load_config, create_connection
 from electric_data import get_substations_list
 from multiprocessing import Pool, cpu_count
 
-
 matplotlib.use('TKAgg')
 # Configuração do logger
 logging.basicConfig(filename='base_case.log', level=logging.INFO,
@@ -30,7 +29,7 @@ master_month = "12"
 master_data_base = "2022"
 
 # set run multiprocess
-tip_process = 1
+tip_process = False
 
 config = load_config(dist)
 engine = create_connection(config)
@@ -71,7 +70,7 @@ def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
     for attribute, mesasurements in subs_losses.items():
         if attribute in ('SUB', 'circuit'):
             continue
-        offset =0.25 * multiplier
+        offset = 0.25 * multiplier
         rects = ax.bar(x + offset, mesasurements, 0.25, label=attribute)
         # ax.bar_label(rects, padding=3)
         multiplier += 1
@@ -86,6 +85,7 @@ def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
     plt.grid(axis='y')
     plt.savefig(f'{plt_path}/{tipo_dia}_{mes}_sub_losses_analysis.png', dpi=fig.dpi)
     plt.close()
+
 
 def substations_transformer_charge(dist, tipo_dia, ano, mes):
     """
@@ -246,7 +246,14 @@ class SimuladorOpendss:
             # self.dss.meters.sample() if snap mode
 
             meter_reg_index = [i for i, x in enumerate(self.dss.meters.register_names) if x == 'Zone Losses kWh'][0]
-            total_losses = self.dss.meters._register_values[meter_reg_index]
+            total_losses = self.dss.meters.register_values[meter_reg_index]
+            load_losses = self.dss.meters.register_values[16]  # Load Losses kWh
+            noload_losses = self.dss.meters.register_values[18]  # No Load Losses kWh
+            line_losses = self.dss.meters.register_values[22]  # Line Losses
+            trafo_losses = self.dss.meters.register_values[23]  # Transformer Losses
+            print(f'load_losses:{load_losses}  line_losses:{line_losses}  noload_losses:{noload_losses} trafo_losses:{trafo_losses}')
+            print(f'{total_losses}')
+            print(f'{line_losses + trafo_losses}')
 
             total_losses_dict = {'SUB': self.sub, 'circuit': self.dss.circuit.name.upper(),
                                  'meter': self.dss.meters.name, 'losses': total_losses}
@@ -370,9 +377,7 @@ class SimuladorOpendss:
 
             # plt.suptitle("Demanda máxima e Limite corrente")
 
-
             plt.savefig(f'{plt_path}/{self.dss.circuit.name.upper()}_Balance_M{nun_monit}.png')
-
 
             all_power_dict = {'SUB': self.sub, 'circuit': self.dss.circuit.name.upper(),
                               'monitor': self.dss.monitors.element,
@@ -381,7 +386,8 @@ class SimuladorOpendss:
 
             # descarta se os valores estão próximos de zero
             if sum(ypoints1) > 1:
-                all_power = pd.concat([all_power, pd.DataFrame.from_dict(all_power_dict)], ignore_index=True, sort=False)
+                all_power = pd.concat([all_power, pd.DataFrame.from_dict(all_power_dict)], ignore_index=True,
+                                      sort=False)
 
             # mng = plt.get_current_fig_manager()
             # mng.window.state("zoomed")
@@ -617,18 +623,18 @@ class SimuladorOpendss:
 
 if __name__ == '__main__':
 
-    control_sub_charge = True
+    control_sub_charge = False
 
     if control_sub_charge:
         # teste: análise de carregamento das subestações
-        substations_losses(dist,'DU','2022','12')
-        #substations_transformer_charge(dist, 'DU', '2022', '12')
-        #substations_transformer_charge(dist, 'DO', '2022', '12')
+        substations_losses(dist, 'DO', '2022', '12')
+        substations_losses(dist, 'DU', '2022', '12')
+        # substations_transformer_charge(dist, 'DU', '2022', '12')
+        # substations_transformer_charge(dist, 'DO', '2022', '12')
         exit()
 
-
     proc_time_ini = time.time()
-    if tip_process == 0:
+    if tip_process:
         """
         list_sub = [['APA'], ['ARA'], ['ASP'], ['AVP'], ['BCU'], ['BIR'], ['BON'], ['CAC'], ['CAR'], ['CMB'], ['COL'],
                     ['CPA'], ['CRU'], ['CSO'], ['DBE'],
@@ -665,8 +671,9 @@ if __name__ == '__main__':
                     'JCE', 'JUQ', 'KMA', 'LOR', 'MAP', 'MAS', 'MCI', 'MRE', 'MTQ', 'OLR', 'PED', 'PID', 'PIL', 'PME',
                     'PNO', 'POA', 'PRT', 'PTE', 'ROS', 'SAT', 'SBR', 'SJC', 'SKO', 'SLU', 'SLZ', 'SSC', 'SUZ', 'TAU',
                     'UNA', 'URB', 'USS', 'VGA', 'VHE', 'VJS', 'VSL']
-        list_sub = ['APA']
+        list_sub = ['USS']
         """
+        list_sub = ['USS']
         for nome_sub in list_sub:
             sub = nome_sub
             master_file = f"{master_type_day}_{master_month}_Master_substation_{dist}_{sub}.dss"
