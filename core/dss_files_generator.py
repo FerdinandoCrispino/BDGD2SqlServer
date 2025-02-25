@@ -656,7 +656,7 @@ class DssFilesGenerator:
                         strCodFas) + " model=3" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.7f}" +
                                              " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
 
-    def get_lines_cargas_mt_ssdmt(self, curvas_carga, cargas, cargas_fc, linhas_cargas_dss, mes, tipo_dia):
+    def get_lines_cargas_mt_ssdmt(self, curvas_carga,  trafos_mt_mt, trafos_mt_mt_seg, cargas, cargas_fc, linhas_cargas_dss, mes, tipo_dia):
 
         linhas_cargas_dss.clear()
 
@@ -683,6 +683,7 @@ class DssFilesGenerator:
             demand_mes = cargas.loc[index]['DEM_' + str(strmes)]
             ano_base = cargas.loc[index]['ANO_BASE']
             strCodFasSSDMT = cargas.loc[index]['FAS_CON_SSDMT']
+            ctmt = cargas.loc[index]['CTMT']
 
             # verifica a tensão do circuito relativo à tensão da carga MT
             if kv_ctmt != dblTensao_kV:
@@ -690,6 +691,20 @@ class DssFilesGenerator:
             if numero_fases_carga(strCodFas) == '1':  # fase da carga
                 if numero_fases_carga(strCodFasSSDMT) == '3':  # Fases da linha
                     dblTensao_kV = f'{kv_ctmt / math.sqrt(3):.4f}'
+
+            # A tensão pode não ser a tensão do circuito (kv_nom) quando existir um
+            # transformador MT-MT no circuito. Neste caso se deve verificar se a carga está
+            # instalado a jusante ou a montante do transformador MT-MT.
+            if trafos_mt_mt_seg:
+                find_cap = list(filter(lambda x: strBus in x, trafos_mt_mt_seg))
+                if find_cap:
+                    # tensão dA CARGA é a do secundário do trafo MTMT
+                    tr_mt_mt = trafos_mt_mt.loc[trafos_mt_mt['ctmt'] == ctmt]
+                    if numero_fases_carga(strCodFas) == '1':  # fase da carga
+                        if numero_fases_carga(strCodFasSSDMT) == '3':  # Fases da linha
+                            dblTensao_kV = (tr_mt_mt['TEN_SEC'].values[0] / 1000)/np.sqrt(3)
+                    else:
+                        dblTensao_kV = tr_mt_mt['TEN_SEC'].values[0] / 1000
 
             str_coments = ""
             if energy_mes == 0:

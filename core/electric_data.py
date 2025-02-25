@@ -1040,8 +1040,9 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
         # write_to_dss(dist, sub, cod_circuito, linhas_cargas_mt_dss, nome_arquivo_crg_mt)
         # ...conectados nos segmentos
         bdgd_read.query_cargas_mt_ssdmt(cod_circuito, engine=engine)
-        dss_adapter.get_lines_cargas_mt_ssdmt(bdgd_read.curvas_cargas, bdgd_read.cargas_mt_ssdmt, bdgd_read.carga_fc,
-                                              linhas_cargas_mt_dss, mes, tipo_dia)
+        dss_adapter.get_lines_cargas_mt_ssdmt(bdgd_read.curvas_cargas, bdgd_read.trafo_mtmt,
+                                              bdgd_read.trafo_mtmt_connected_segments, bdgd_read.cargas_mt_ssdmt,
+                                              bdgd_read.carga_fc, linhas_cargas_mt_dss, mes, tipo_dia)
         write_to_dss(dist, sub, cod_circuito, linhas_cargas_mt_dss, nome_arquivo_crg_mt, dss_files_folder)
 
         # Grava arquivo DSS para monitores
@@ -1098,14 +1099,14 @@ def main():
     engine = create_connection(config)
     dss_files_folder = config['dss_files_folder']
 
-    # Lista com os codigos das subestações
+    # Lista com os códigos das subestações
     list_sub = get_substations_list(engine)
     print(list_sub)
 
     # set 0 to multiprocessing
     tip_process = 1
 
-    mes_ini = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
+    mes_ini = 12  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
 
     if tip_process == 0:

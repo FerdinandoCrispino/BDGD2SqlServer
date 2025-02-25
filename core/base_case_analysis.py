@@ -22,7 +22,7 @@ logging.basicConfig(filename='base_case.log', level=logging.INFO,
 # False para rodar o master com todos os circuitos e os transformadores de alta ou
 # True para rodar um circuito de cada vez
 exec_by_circuit = True
-master_folder = os.path.expanduser('~\\dss')
+
 dist = "391"
 master_type_day = "DU"
 master_month = "12"
@@ -33,7 +33,8 @@ tip_process = False
 
 config = load_config(dist)
 engine = create_connection(config)
-dss_files_folder = config['dss_files_folder']
+
+master_folder = os.path.expanduser(config['dss_files_folder'])
 # Lista com os códigos das subestações
 list_sub = get_substations_list(engine)
 
@@ -205,7 +206,7 @@ class SimuladorOpendss:
 
     def _save_json(self, json_type, dados):
         dirname = os.path.dirname(__file__)
-        json_path = os.path.abspath(os.path.join(dirname, "../ui/static/scenarios/base/", self.dist, self.sub,
+        json_path = os.path.abspath(os.path.join(dirname, "../ui/static/scenarios/base", self.dist, self.sub,
                                                  self.dss.circuit.name.upper(), self.tipo_dia, self.database, self.mes))
         os.makedirs(json_path, exist_ok=True)
 
@@ -623,16 +624,6 @@ class SimuladorOpendss:
 
 if __name__ == '__main__':
 
-    control_sub_charge = False
-
-    if control_sub_charge:
-        # teste: análise de carregamento das subestações
-        substations_losses(dist, 'DO', '2022', '12')
-        substations_losses(dist, 'DU', '2022', '12')
-        # substations_transformer_charge(dist, 'DU', '2022', '12')
-        # substations_transformer_charge(dist, 'DO', '2022', '12')
-        exit()
-
     proc_time_ini = time.time()
     if tip_process:
         """
@@ -706,4 +697,14 @@ if __name__ == '__main__':
             else:
                 simul.executa_fluxo_potencia()
                 simul.plot_data_monitors()
+    
+    control_sub_charge = False
+    if control_sub_charge:
+        # teste: análise de carregamento das subestações
+        substations_losses(dist, 'DO', '2022', '12')
+        substations_losses(dist, 'DU', '2022', '12')
+        # substations_transformer_charge(dist, 'DU', '2022', '12')
+        # substations_transformer_charge(dist, 'DO', '2022', '12')
+
     print(f'Substation: process in {time.time() - proc_time_ini}.', flush=True)
+
