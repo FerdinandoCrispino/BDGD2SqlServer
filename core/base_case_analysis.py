@@ -40,6 +40,15 @@ list_sub = get_substations_list(engine)
 
 
 def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
+    """
+    Reune as informações das simulações já realizadas para apresentar um resumo das perdas de energia das subestações
+    :param dist: Código da distribuidora.
+    :param tipo_dia: Tipo de dia utilizado no cálculo do fluxo de potência.
+    :param ano: Ano utilizado no cálculo do fluxo de potência.
+    :param mes: Mês do ano utilizado no cálculo do fluxo de potência.
+    :param by_circ:
+    :return:
+    """
     subs_losses = pd.DataFrame()
     file_result = f'{tipo_dia}_{ano}_{mes}_losses.xlsx'
 
@@ -88,7 +97,7 @@ def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
     plt.close()
 
 
-def substations_transformer_charge(dist, tipo_dia, ano, mes):
+def substations_transformer_loading(dist, tipo_dia, ano, mes):
     """
     Reune as informações das simulações já realizadas para apresentar um resumo do carregamento das subestações para um
     determinado tipo de dia, ano e mes.
@@ -138,7 +147,7 @@ def substations_transformer_charge(dist, tipo_dia, ano, mes):
         multiplier += 1
 
     ax.set_ylabel('Apparent Power (p.u)')
-    ax.set_title(f'EDP-SP Power Transformer Charger - {tipo_dia} {ano} {mes}')
+    ax.set_title(f'EDP-SP Power Transformer Loading - {tipo_dia} {ano} {mes}')
     ax.set_xticks(x + 0.25, subs_power['sub'])
     ax.tick_params(axis='x', labelsize=8, labelrotation=90)
     ax.legend(loc='upper left', ncols=3)
@@ -150,6 +159,11 @@ def substations_transformer_charge(dist, tipo_dia, ano, mes):
 
 
 def run_multi(subs):
+    """
+    Função para execução do fluxo de potência para as subestações de uma distribuidora.
+    :param subs: Lista de subestações.
+    :return:
+    """
     list_sub = subs
 
     for nome_sub in list_sub:
@@ -205,6 +219,12 @@ class SimuladorOpendss:
         # print(self.dss_file)
 
     def _save_json(self, json_type, dados):
+        """
+        Função para salvar os dados num arquivo json.
+        :param json_type:
+        :param dados: Dados a serem salvos.
+        :return:
+        """
         dirname = os.path.dirname(__file__)
         json_path = os.path.abspath(os.path.join(dirname, "../ui/static/scenarios/base", self.dist, self.sub,
                                                  self.dss.circuit.name.upper(), self.tipo_dia, self.database, self.mes))
@@ -413,7 +433,7 @@ class SimuladorOpendss:
 
     def executa_fluxo_potencia(self) -> None:
         """
-        Função para solicitar execução do fluxo de potência ao OpenDSS.
+        Função para solicitar execução do fluxo de potência no OpenDSS.
         :return: None
         """
         erros = []
@@ -698,13 +718,13 @@ if __name__ == '__main__':
                 simul.executa_fluxo_potencia()
                 simul.plot_data_monitors()
     
-    control_sub_charge = False
-    if control_sub_charge:
+    control_sub_loading = False
+    if control_sub_loading:
         # teste: análise de carregamento das subestações
         substations_losses(dist, 'DO', '2022', '12')
         substations_losses(dist, 'DU', '2022', '12')
-        # substations_transformer_charge(dist, 'DU', '2022', '12')
-        # substations_transformer_charge(dist, 'DO', '2022', '12')
+        # substations_transformer_loading(dist, 'DU', '2022', '12')
+        # substations_transformer_loading(dist, 'DO', '2022', '12')
 
     print(f'Substation: process in {time.time() - proc_time_ini}.', flush=True)
 

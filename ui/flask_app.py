@@ -32,9 +32,11 @@ server.secret_key = "123456"
 GDB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'sin_data.gdb')
 
 
-@server.route('/dashboard')
+@server.route('/dashboard/')
 def render_dashboard():
-    return render_template('dash1.html')
+    dist = request.args.get('codigoDistribuidora')
+    print(dist)
+    return render_template('dash1.html', dist=dist)
 
 
 @server.route('/dash_losses')
@@ -45,73 +47,75 @@ def dash_losses():
 def render_data_losses():
     list_data = []
     path_result = 'static/scenarios/base/391'
-    file_result = 'DO_12_sub_losses.xlsx'
-    path_all_result = os.path.join(path_result, file_result)
-
-    file_result_du = 'DU_12_sub_losses.xlsx'
-    path_all_result_du = os.path.join(path_result, file_result_du)
+    file_results = ['DO_12_sub_losses.xlsx', 'DU_12_sub_losses.xlsx']
 
     try:
-        xls = pd.ExcelFile(path_all_result)
-        df1 = xls.parse(xls.sheet_names[0])
-        df_data = df1[['SUB', 'circuit', 'losses']].copy()
-        label_list = df_data['circuit'].values.tolist()
-        label_list1 = df_data['SUB'].values.tolist()
-        data_list_losses = df_data['losses'].values.tolist()
-        data_losses = {k: v for k, v in zip(label_list, data_list_losses)}
-        list_data.append(data_losses)
-        data_label = {k: v for k, v in zip(label_list, label_list)}
-        list_data.append(data_label)
-        data_label1 = {k: v for k, v in zip(label_list, label_list1)}
-        list_data.append(data_label1)
-
-        xls = pd.ExcelFile(path_all_result_du)
-        df1 = xls.parse(xls.sheet_names[0])
-        df_data = df1[['SUB', 'circuit', 'losses']].copy()
-        label_list = df_data['circuit'].values.tolist()
-        label_list1 = df_data['SUB'].values.tolist()
-        data_list_losses = df_data['losses'].values.tolist()
-        data_losses = {k: v for k, v in zip(label_list, data_list_losses)}
-        list_data.append(data_losses)
-        data_label = {k: v for k, v in zip(label_list, label_list)}
-        list_data.append(data_label)
-        data_label1 = {k: v for k, v in zip(label_list, label_list1)}
-        list_data.append(data_label1)
+        for file_result in file_results:
+            path_all_result = os.path.join(path_result, file_result)
+            xls = pd.ExcelFile(path_all_result)
+            df1 = xls.parse(xls.sheet_names[0])
+            df_data = df1[['SUB', 'circuit', 'losses']].copy()
+            label_list = df_data['circuit'].values.tolist()
+            label_list1 = df_data['SUB'].values.tolist()
+            data_list_losses = df_data['losses'].values.tolist()
+            data_losses = {k: v for k, v in zip(label_list, data_list_losses)}
+            list_data.append(data_losses)
+            data_label = {k: v for k, v in zip(label_list, label_list)}
+            list_data.append(data_label)
+            data_label1 = {k: v for k, v in zip(label_list, label_list1)}
+            list_data.append(data_label1)
 
         return jsonify(list_data)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-
-@server.route('/data')
-def render_data():
+@server.route('/data/<distribuidora>', methods=['GET'])
+def render_data(distribuidora):
+    print(f'route data: {distribuidora}')
     list_data = []
-    path_result = 'static/scenarios/base/391'
-    file_result = 'DO_12_sub_analysis.xlsx'
-    path_all_result = os.path.join(path_result, file_result)
-    xls = pd.ExcelFile(path_all_result)
-    df1 = xls.parse(xls.sheet_names[0])
-    df_data = df1[['nome', 'sub', 'P_max', 'P_min','P_time_max', 'P_time_min']].copy()
-    df_data['nome'] = df_data['nome'].str[5:-3]
+    path_result = 'static/scenarios/base'
+    tipo_dias = ['DO','DU']
 
-    label_list = df_data['nome'].values.tolist()
-    # label_list1 = df_data['sub'].values.tolist()
-    data_list_pmax_0 = df_data['P_max'].values.tolist()
-    data_list_pmin_1 = df_data['P_min'].values.tolist()
-    data_list_time_max_2 = df_data['P_time_max'].values.tolist()
-    data_list_time_min_3 = df_data['P_time_min'].values.tolist()
+    for tipo_dia in tipo_dias:
+        file_result = f'{tipo_dia}_12_sub_analysis.xlsx'
+        path_all_result = os.path.join(path_result, distribuidora, file_result)
+        print(path_all_result)
 
-    data_pmax = {k: v for k, v in zip(label_list, data_list_pmax_0)}
-    list_data.append(data_pmax)
-    data_pmin = {k: v for k, v in zip(label_list, data_list_pmin_1)}
-    list_data.append(data_pmin)
-    data_time_max = {k: v for k, v in zip(label_list, data_list_time_max_2)}
-    list_data.append(data_time_max)
-    data_time_min = {k: v for k, v in zip(label_list, data_list_time_min_3)}
-    list_data.append(data_time_min)
+        # Verifique se o caminho está correto
+        if not os.path.exists(path_all_result):
+            print(f"Erro: O arquivo '{path_all_result}' não existe. Verifique o caminho e tente novamente.")
+        else:
+            try:
+                xls = pd.ExcelFile(path_all_result)
+                df1 = xls.parse(xls.sheet_names[0])
+                df_data = df1[['nome', 'sub', 'P_max', 'P_min','P_time_max', 'P_time_min']].copy()
+                df_data['nome'] = df_data['nome'].str[5:-3]
+
+                label_list = df_data['nome'].values.tolist()
+                label_list1 = df_data['sub'].values.tolist()
+                data_list_pmax_0 = df_data['P_max'].values.tolist()
+                data_list_pmin_1 = df_data['P_min'].values.tolist()
+                data_list_time_max_2 = df_data['P_time_max'].values.tolist()
+                data_list_time_min_3 = df_data['P_time_min'].values.tolist()
+
+                data_pmax = {k: v for k, v in zip(label_list, label_list)}
+                list_data.append(data_pmax)
+                data_pmin = {k: v for k, v in zip(label_list, label_list1)}
+                list_data.append(data_pmin)
+
+                data_pmax = {k: v for k, v in zip(label_list, data_list_pmax_0)}
+                list_data.append(data_pmax)
+                data_pmin = {k: v for k, v in zip(label_list, data_list_pmin_1)}
+                list_data.append(data_pmin)
+                data_time_max = {k: v for k, v in zip(label_list, data_list_time_max_2)}
+                list_data.append(data_time_max)
+                data_time_min = {k: v for k, v in zip(label_list, data_list_time_min_3)}
+                list_data.append(data_time_min)
+            except Exception as e:
+                print(f"Erro ao carregar o arquivo Excel: {e}")
 
     file_result = 'DU_12_sub_analysis.xlsx'
-    path_all_result = os.path.join(path_result, file_result)
+    path_all_result = os.path.join(path_result, distribuidora, file_result)
     xls = pd.ExcelFile(path_all_result)
     df2 = xls.parse(xls.sheet_names[0])
     df_data = df2[['sub', 'nome', 'P_max', 'P_min', 'P_time_max', 'P_time_min']].copy()
@@ -1296,7 +1300,7 @@ def list_scenarios():
 
 
 if __name__ == '__main__':
-    server.run(use_reloader=False, debug=True)
+    server.run(host='0.0.0.0', use_reloader=False, debug=True)
 
     # Para rodar na linha de comando
     # C:\_BDGD2SQL\BDGD2SqlServer\venv\Scripts\activate.bat && python.exe C:\_BDGD2SQL\BDGD2SqlServer\ui\flask_app.py

@@ -77,7 +77,7 @@
 
                         title: {
                             display: true,
-                            text: 'EDP-SP - Power Transformer Losses'
+                            text: 'EDP-SP - Circuit Losses'
                         },
                         subtitle: {
                             display: true,
@@ -95,7 +95,7 @@
                 data: {
                     datasets: [
                         {
-                            label: 'Power loss (kWh)',
+                            label: 'Energy loss (kWh)',
                             data: data[3],
                             backgroundColor: 'rgba(75,137,192, 0.2)',
                             borderColor: 'rgb(75,137,192)',
@@ -138,7 +138,7 @@
 
                         title: {
                             display: true,
-                            text: 'EDP-SP - Power Transformer Losses'
+                            text: 'EDP-SP - Circuit Losses'
                         },
                         subtitle: {
                             display: true,
@@ -148,8 +148,8 @@
                     responsive: true,
                 }
             });
-            myChart1.options.plugins.legend.align = 'end';
-            myChart1.update();
+            myChart2.options.plugins.legend.align = 'end';
+            myChart2.update();
         })
         .catch(error => console.error('Error loading chart data:', error));
 </script>

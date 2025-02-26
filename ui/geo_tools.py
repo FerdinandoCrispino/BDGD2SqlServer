@@ -50,7 +50,7 @@ class GeoDataSIN:
 
             for feature in geojson_data.get("features", []):
                 voltage = feature['properties'].get("VN")
-                feature.setdefault("properties", {})["tipo"] = "SIN-Linhas"
+                feature.setdefault("properties", {})["tipo"] = "SIN-Lines"
                 feature.setdefault("properties", {})["cor"] = mapeamento.get(voltage, "LightBlue")
 
             return dict(geojson_data)
@@ -208,7 +208,7 @@ class GeoDataSIN:
                 concessao.append(concession)
                 extensao.append(ext)
                 nome_linha.append(name)
-                nome.append('SIN-Linhas')
+                nome.append('SIN-Lines')
                 cor.append(mapeamento.get(voltage, "LightBlue"))
             # Criar um GeoDataFrame com as geometrias e dados extras
             gdf = gpd.GeoDataFrame({'geometry': lines, 'VN': tensao, 'AGE_NOME': concessao, 'cor': cor,

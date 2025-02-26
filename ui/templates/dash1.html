@@ -15,15 +15,18 @@
 <canvas id="myChart3" width="400" height="90"></canvas>
 <canvas id="myChart4" width="400" height="90"></canvas>
 <script>
-    fetch('/data')
+    // Captura o valor do parâmetro 'dist' da URL
+    const dist = "{{ dist }}";
+
+    fetch(`/data/${dist}`)  // Atenção ao tipo de aspas - backticks
         .then(response => response.json())
         .then(data => {
             var groupLabel1 = []
             var groupLabel2 = []
-            for (const[key, val]  of Object.entries(data[9])) {
+            for (const[key, val]  of Object.entries(data[1])) {
                 groupLabel2.push(val)
             }
-            for (const[key]  of Object.entries(data[8])) {
+            for (const[key]  of Object.entries(data[0])) {
                 groupLabel1.push(key)
             }
             console.log(groupLabel1)
@@ -38,14 +41,14 @@
                     datasets: [
                         {
                             label: 'Max Power (p.u.)',
-                            data: data[0],
+                            data: data[2],
                             backgroundColor: 'rgba(75,137,192, 0.2)',
                             borderColor: 'rgb(75,137,192)',
                             borderWidth: 1,
                         },
                         {
                             label: 'Min Power (p.u.)',
-                            data: data[1],
+                            data: data[3],
                             backgroundColor: 'rgba(192,92,184, 0.2)',
                             borderColor: 'rgb(192,92,184)',
                             borderWidth: 1
@@ -89,7 +92,7 @@
 
                         title: {
                             display: true,
-                            text: 'EDP-SP - Power Transformer Charge'
+                            text: 'EDP-SP - Power Transformer Loading'
                         },
                         subtitle: {
                             display: true,
@@ -107,14 +110,14 @@
                     datasets: [
                         {
                             label: 'Max Power (p.u.)',
-                            data: data[4],
+                            data: data[8],
                             backgroundColor: 'rgba(75, 192, 192, 0.2)',
                             borderColor: 'rgba(75, 192, 192, 1)',
                             borderWidth: 1,
                         },
                         {
                             label: 'Min Power (p.u.)',
-                            data: data[5],
+                            data: data[9],
                             backgroundColor: 'rgba(175, 92, 192, 0.2)',
                             borderColor: 'rgba(175, 92, 192, 1)',
                             borderWidth: 1
@@ -151,7 +154,7 @@
                         },
                         title: {
                             display: true,
-                            text: 'EDP-SP - Power Transformer Charge'
+                            text: 'EDP-SP - Power Transformer Loading'
                         },
                         subtitle: {
                             display: true,
@@ -168,14 +171,14 @@
                     datasets: [
                         {
                             label: 'Time-Max-Power',
-                            data: data[2],
+                            data: data[4],
                             backgroundColor: 'rgba(46,69,142, 0.2)',
                             borderColor: 'rgb(46,69,142)',
                             borderWidth: 1,
                         },
                         {
                             label: 'Time-Min-Power',
-                            data: data[3],
+                            data: data[5],
                             backgroundColor: 'rgba(100,136,23, 0.2)',
                             borderColor: 'rgb(100,136,23)',
                             borderWidth: 1
@@ -215,7 +218,7 @@
                         },
                         title: {
                             display: true,
-                            text: 'EDP-SP - Power Transformer Charge - Time of Day of Occurrence'
+                            text: 'EDP-SP - Power Transformer Loading - Time of Day of Occurrence'
                         },
                         subtitle: {
                             display: true,
@@ -232,14 +235,14 @@
                     datasets: [
                         {
                             label: 'Time-Max-Power',
-                            data: data[6],
+                            data: data[10],
                             backgroundColor: 'rgba(46,69,142, 0.2)',
                             borderColor: 'rgb(46,69,142)',
                             borderWidth: 1,
                         },
                         {
                             label: 'Time-Min-Power',
-                            data: data[7],
+                            data: data[11],
                             backgroundColor: 'rgba(100,136,23, 0.2)',
                             borderColor: 'rgb(100,136,23)',
                             borderWidth: 1
@@ -279,7 +282,7 @@
                         },
                         title: {
                             display: true,
-                            text: 'EDP-SP - Power Transformer Charge - Time of Day of Occurrence'
+                            text: 'EDP-SP - Power Transformer Loading - Time of Day of Occurrence'
                         },
                         subtitle: {
                             display: true,

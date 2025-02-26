@@ -292,11 +292,9 @@
             //features.push(f);
             console.log(nome_camada)
             //console.log('++++++++' + features.length)
-            //if (nome_camada !== "UNTRMT" && nome_camada !== "UCMT" && nome_camada !== "UGMT" &&
-            //nome_camada !== "UNREMT" && nome_camada !== "UNCRMT") {
 
             var list_layers = ["segmentos", "SUB", "UNTRMT", "UNSEMT", "UNCRMT", "UNREMT", "UGMT", "UGBT", "UCBT", "UCMT",
-                                "SIN-Linhas", "SIN-Subs", "SIN-EOL", "AT_SSD", "GERADOR_AT"]
+                                "SIN-Lines", "SIN-Subs", "SIN-EOL", "AT_SSD", "GERADOR_AT"]
             if (list_layers.includes(nome_camada)){
                 selected = f;
                 return true;
@@ -439,7 +437,7 @@
                     popup1.setInfo(ucm1 + '<br> Power: ' + ucm2 + ' kW<br> Type: ' + ucm3 + '<br> Livre: ' +
                                    ucm4 + '<br> Phases: ' + ucm5 + '<br> CEG: ' + ucm6);
                     break;
-                case 'SIN-Linhas':
+                case 'SIN-Lines':
                     const sin1 = selected.get("NOMELONGO");
                     const sin2 = selected.get("VN");
                     const sin3 = selected.get("AGE_NOME");
@@ -599,7 +597,7 @@
         var req_func = '';
         if (tipo === 'linhas'){
             req_func = 'get_data_at';  // nome do metodo no flask
-            nome_layer = 'SIN-Linhas';
+            nome_layer = 'SIN-Lines';
             meu_estilo = ''
         } else if (tipo === 'subs'){
             req_func = 'get_data_at_sub';
@@ -693,6 +691,13 @@
         const distribuidora = this.value;
         const circuitoSelect = document.getElementById('circuito');
 
+
+        // Atualiza o link do Dashboard com o parâmetro distribuidora
+        var dashboardLink = document.querySelector('a[href="/dashboard"]');
+        if (dashboardLink) {
+            dashboardLink.href = `/dashboard?codigoDistribuidora=${distribuidora}`;
+        }
+
         fetch(`/api/subestacoes/${distribuidora}`)
             .then(response => response.json())
             .then(subestacoes => {
@@ -727,7 +732,7 @@
         const distribuidora = document.getElementById('distribuidora').value;
 
         var myGrpoupLayers = new ol.layer.Group({
-            title: 'Hight Voltage',
+            title: 'High Voltage',
             layers: []
         });
         map.addLayer(myGrpoupLayers); //this add a new layergroup
