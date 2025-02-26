@@ -242,14 +242,14 @@ class DssFilesGenerator:
             # transformador MT-MT no circuito. Neste caso se deve verificar se o capacitor está
             # instalado a jusante ou a montante do transformador MT-MT.
             if trafos_mt_mt_seg:
-                find_cap = list(filter(lambda x: strBus1 in x, trafos_mt_mt_seg))
-                if find_cap:
+                find_reg = list(filter(lambda x: strBus1 in x, trafos_mt_mt_seg))
+                if find_reg:
                     # tensão do regulador é o do secundário do trafo MTMT
                     tr_mt_mt = trafos_mt_mt.loc[trafos_mt_mt['ctmt'] == ctmt]
-                    if strTipRegul != 'T':
-                        dblkvREG = (tr_mt_mt['TEN_SEC'].values[0] / 1000)/np.sqrt(3)
+                    if strTipRegul in ('T', 'DF', 'DA'):
+                        dblkvREG = (tr_mt_mt['TEN_SEC'].values[0] / 1000)
                     else:
-                        dblkvREG = tr_mt_mt['TEN_SEC'].values[0] / 1000
+                        dblkvREG = (tr_mt_mt['TEN_SEC'].values[0] / 1000)/np.sqrt(3)
 
                 if strCodFasPrim in ('AN', 'A'):
                     strCodFasPrim = 'AB'
