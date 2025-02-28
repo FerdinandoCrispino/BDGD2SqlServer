@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+
+{% block title %}Lista de Dados{% endblock %}
+
+{% block content %}
+<h1>Conteúdo da Tabela</h1>
+<table id="data-table" class="table table-striped">
+    <thead>
+        <tr id="table-header"></tr>
+    </thead>
+    <tbody id="table-body"></tbody>
+</table>
+
+<script>
+    fetch('/api/list')
+        .then(response => response.json())
+        .then(data => {
+            const header = document.getElementById('table-header');
+            const body = document.getElementById('table-body');
+
+            // Adicionar cabeçalhos da tabela
+            if (data.length > 0) {
+                Object.keys(data[0]).forEach(key => {
+                    const th = document.createElement('th');
+                    th.textContent = key;
+                    header.appendChild(th);
+                });
+            }
+
+            // Adicionar linhas da tabela
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                Object.values(row).forEach(value => {
+                    const td = document.createElement('td');
+                    td.textContent = value;
+                    tr.appendChild(td);
+                });
+                body.appendChild(tr);
+            });
+        });
+</script>
+{% endblock %}

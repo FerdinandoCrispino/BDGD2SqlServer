@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="100" height="100" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+    <!-- Sol 3D com 12 pontas triangulares -->
+    <defs>
+        <radialGradient id="sunGradient" cx="50%" cy="50%" r="50%">
+            <stop offset="0%" stop-color="yellow" />
+            <stop offset="100%" stop-color="orange" />
+        </radialGradient>
+        <linearGradient id="rayGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="orange" />
+            <stop offset="100%" stop-color="red" />
+        </linearGradient>
+    </defs>
+    <circle cx="50" cy="50" r="20" fill="url(#sunGradient)" stroke="orange" stroke-width="2" />
+    
+    <!-- Raios do Sol em formato triangular -->
+    <g fill="url(#rayGradient)" stroke="orange" stroke-width="1">
+        <polygon points="50,5 45,25 55,25" />
+        <polygon points="50,95 45,75 55,75" />
+        <polygon points="5,50 25,45 25,55" />
+        <polygon points="95,50 75,45 75,55" />
+        
+        <polygon points="20,20 30,30 27,12" />
+        <polygon points="80,20 70,30 73,12" />
+        <polygon points="20,80 30,70 27,88" />
+        <polygon points="80,80 70,70 73,88" />
+        
+        <polygon points="5,35 25,40 15,30" />
+        <polygon points="5,65 25,60 15,70" />
+        <polygon points="95,35 75,40 85,30" />
+        <polygon points="95,65 75,60 85,70" />
+    </g>
+</svg>

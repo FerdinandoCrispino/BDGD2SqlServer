@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% set hide_navbar = true %}
+{% block title %}Página Inicial{% endblock %}
+
+{% block content %}
+<div class="jumbotron">
+    <h1 class="display-4">Welcome to DER Analysis</h1>
+    <p class="lead">This is an application for DER visualization and analysis using data from BDGD's electricity
+        distribution networks. Use the available filters to personalize your map experience.</p>
+    <hr class="my-4">
+    <p>You can explore the map with geospatial data and apply filters like Utility, Substation and Circuit to refine the results.</p>
+    <a class="btn btn-primary btn-lg" href="/map" role="button">Go to Mapa</a>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <h3>Application Features</h3>
+        <ul>
+            <li>Visualization of energy distribution networks on the map.</li>
+            <li>Dynamic filters for Distributors, Substations and Circuits.</li>
+            <li>Visualization of the geographic location of network elements.</li>
+        </ul>
+    </div>
+    <div class="col-md-4">
+        <h3>How to use</h3>
+        <ul>
+            <li>Go to the map section.</li>
+            <li>Select the desired filters from the side panel.</li>
+            <li>Select the scenarios.</li>
+            <li>View the power distribution networks on the map and the voltages and currents on buses.</li>
+        </ul>
+    </div>
+    <div class="col-md-4">
+        <h3>About</h3>
+        <p>The platform allows the user to view a graphical representation of the electric network, its geographic distribution, as well as electrical quantities such as busses voltages and currents and powers  transformers
+            This application was developed using OpenLayers, Flask and dynamic SQL Server database queries.</p>
+    </div>
+</div>
+{% endblock %}

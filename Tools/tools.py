@@ -2,7 +2,7 @@
 import math
 import os
 import time
-
+import holidays
 import pandas as pd
 import geopandas as gpd
 import logging
@@ -11,38 +11,45 @@ import fiona
 import yaml
 from sqlalchemy import create_engine
 
+pd.set_option('display.max_colwidth', None)
+pd.set_option('display.max_columns', None)
+
 list_names_tables = ['EQTRAT', 'EQTRMT', 'UNTRAT', 'UNTRMT']
 
-application_path = os.path.dirname(os.path.abspath(__file__))
-with open(os.path.join(application_path, r'../config_database.yml'), 'r') as file:
-    config_bdgd = yaml.load(file, Loader=yaml.BaseLoader)
 
-schema = config_bdgd['bancos']['schema']
+def load_config(dist, config_path="../config_database.yml"):
+    application_path = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(application_path, config_path), 'r') as file:
+        config = yaml.load(file, Loader=yaml.BaseLoader)
 
-print(os.path.expanduser(config_bdgd['dss_files_folder']))
+    config_bdgd = config.get("databases", {}).get(dist)
+    if not config_bdgd:
+        raise ValueError(f"Configurações para o banco de dados '{dist}' não foram encontradas.")
+
+    return config_bdgd
 
 
-def create_connection_pyodbc():
+def create_connection_pyodbc(config_bdgd):
     """Função para criar uma conexão com o banco de dados SQL Server"""
     conn_str = (
             'DRIVER={ODBC Driver 17 for SQL Server};'
-            'SERVER=' + config_bdgd['bancos']['server'] + ';'
-                                                          'DATABASE=' + config_bdgd['bancos']['database'] + ';'
-                                                                                                            'UID=' +
-            config_bdgd['bancos']['username'] + ';'
-                                                'PWD=' + config_bdgd['bancos']['password']
+            'SERVER=' + config_bdgd['databases']['server'] + ';'
+                                                             'DATABASE=' + config_bdgd['databases']['database'] + ';'
+                                                                                                                  'UID=' +
+            config_bdgd['databases']['username'] + ';'
+                                                   'PWD=' + config_bdgd['databases']['password']
     )
     return pyodbc.connect(conn_str)
 
 
-def create_connection():
+def create_connection(config_bdgd):
     """Função para criar uma conexão com o banco de dados SQL Server"""
 
     engine = create_engine(f"mssql+pyodbc://"
-                           f"{config_bdgd['bancos']['username']}:"
-                           f"{config_bdgd['bancos']['password']}@"
-                           f"{config_bdgd['bancos']['server']}/"
-                           f"{config_bdgd['bancos']['database']}?"
+                           f"{config_bdgd['username']}:"
+                           f"{config_bdgd['password']}@"
+                           f"{config_bdgd['server']}/"
+                           f"{config_bdgd['database']}?"
                            f"driver=ODBC+Driver+17+for+SQL+Server",
                            fast_executemany=True, pool_pre_ping=True)
 
@@ -144,7 +151,7 @@ def insert_BDGD_consolidada(conn, data_base, data_carga, dist, cod_bdgd):
                  f"values(2,1,'BASE',{data_base},{dist},{cod_bdgd},{data_carga},1,{data_base})")
 
 
-def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
+def process_gdb_files(gdb_file, engine, schema, data_base, data_carga, column_renames):
     """Função para processar arquivos GeoDatabase"""
     with engine.connect() as conn, conn.begin():
         # gdf = gpd.read_file(gdb_file)
@@ -197,7 +204,7 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
             while True:
                 proc_table_parse_time_ini = time.time()
 
-                df = gpd.read_file(gdb_file, driver="pyogrio", layer=table_name, rows=slice(row_ini, row_end, 1),
+                df = gpd.read_file(gdb_file, driver="pyogrio", layer=table_name, rows=slice(row_ini, row_end),
                                    ignore_geometry=False, use_arrow=True)
                 print(f"Leitura de {len(df.index)} reg. em {round(time.time() - proc_table_parse_time_ini, 3)} de "
                       f"{round(time.time() - proc_table_time_ini, 3)} segundos.")
@@ -216,17 +223,24 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
                 # df = df[['OBJECTID'] + [col for col in df.columns if col != 'OBJECTID']]
 
                 list_table_coords = ['PONNOT', 'SSDBT', 'SSDMT', 'SSDAT', 'UNTRMT', 'UNTRD',
-                                     'UNTRAT', 'UNTRS', 'UNSEMT', 'UNSEAT']
+                                     'UNTRAT', 'UNTRS', 'UNSEMT', 'UNSEAT', 'UNREMT', 'UNREAT',
+                                     'UNCRMT', 'UNCRAT', 'UNCRBT', 'SUB', 'UNSEBT']
+                # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4326")
                 if table_name_sql in list_table_coords:
                     if df.iloc[0]['geometry'].geom_type == 'Point':
                         df['POINT_Y'] = df['geometry'].y  # lat
                         df['POINT_X'] = df['geometry'].x  # lon
 
+                    if df.iloc[0]['geometry'].geom_type == 'MultiPolygon':
+                        df['POINT_Y'] = df['geometry'].centroid.y  # lat
+                        df['POINT_X'] = df['geometry'].centroid.x  # lon
+
                     if df.iloc[0]['geometry'].geom_type == 'MultiLineString':
-                        df['POINT_Y1'] = df['geometry'][0].bounds[0]
-                        df['POINT_X1'] = df['geometry'][0].bounds[1]
-                        df['POINT_Y2'] = df['geometry'][1].bounds[0]
-                        df['POINT_X2'] = df['geometry'][1].bounds[1]
+                        bounds = df.geometry.boundary.explode(index_parts=True).unstack()
+                        df['POINT_Y1'] = bounds[0].y
+                        df['POINT_X1'] = bounds[0].x
+                        df['POINT_Y2'] = bounds[1].y
+                        df['POINT_X2'] = bounds[1].x
 
                     df.drop('geometry', axis=1, inplace=True)
 
@@ -253,14 +267,14 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
                 try:
                     # df.to_sql(table_name, engine, index=False, if_exists="append", chunksize=20, method='multi')
                     print(table_name_sql)
-                    df.to_sql(table_name_sql, engine, schema=schema, index=False,
+                    df.to_sql(table_name_sql, con=conn, schema=schema, index=False,
                               if_exists="append", chunksize=None, method=None)
                     print(f"Concluído em {round(time.time() - proc_table_time_ini, 3)} segundos.")
                     logging.info(f"{table_name}: \tProc concluído em {time.time() - proc_table_time_ini} sec.")
 
                     if table_name_ori != "":
                         print(table_name_ori)
-                        df.to_sql(table_name_ori, engine, schema=schema, index=False,
+                        df.to_sql(table_name_ori, con=conn, schema=schema, index=False,
                                   if_exists="append", chunksize=None, method=None)
                         print(f"Concluído em {round(time.time() - proc_table_time_ini, 3)} segundos.")
                         logging.info(f"{table_name}: \tProc concluído em {time.time() - proc_table_time_ini} sec.")
@@ -272,10 +286,10 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
                     # muito tempo sem atividade.
                     if '08S01' in e.args[0]:
                         time.sleep(5)
-                        engine = create_connection()
+                        # engine = create_connection()
                         time.sleep(5)
                         df.to_sql(table_name_sql,
-                                  engine,
+                                  con=conn,
                                   schema=schema,
                                   index=False,
                                   if_exists="append",
@@ -291,8 +305,7 @@ def process_gdb_files(gdb_file, engine, data_base, data_carga, column_renames):
                 continue
 
 
-def return_query_as_dataframe(query: str) -> pd.DataFrame:
-    engine = create_connection()
+def return_query_as_dataframe(query: str, engine) -> pd.DataFrame:
     df = pd.DataFrame([])
     retry_flag = True
     retry_count = 0
@@ -307,15 +320,15 @@ def return_query_as_dataframe(query: str) -> pd.DataFrame:
     return df
 
 
-def exec_query(query: str):
-    engine = create_connection()
+def exec_query(query: str, engine):
     with engine.begin() as conn:  # TRANSACTION
         conn.execute(query)
 
 
-def write_to_dss(dist, sub, circuito, linhas_arquivos_list: list, nome_arquivo: str) -> bool:
+def write_to_dss(dist, sub, circuito, linhas_arquivos_list: list, nome_arquivo: str, dss_files_folder) -> bool:
     """
     Função que escreve arquivos DSS (OpenDSS) representativos dos objetos de rede carregada em memória.
+    :param dss_files_folder:
     :param nome_arquivo:
     :param circuito:
     :param sub:
@@ -323,9 +336,13 @@ def write_to_dss(dist, sub, circuito, linhas_arquivos_list: list, nome_arquivo: 
     :return: bool
     """
     # Escreve os arquivos DSS, sendo agrupados em um diretório para cada circuito
-    nome_arquivo += '_' + circuito
+    if circuito == '':
+        nome_arquivo += '_' + sub
+    else:
+        nome_arquivo += '_' + circuito
+
     try:
-        path_dss_files = os.path.expanduser(config_bdgd['dss_files_folder'])
+        path_dss_files = os.path.expanduser(dss_files_folder)
         # Verifica se existe diretório 'dss'
         if not os.path.isdir(path_dss_files):
             os.mkdir(path_dss_files)
@@ -497,7 +514,9 @@ def nos_com_neutro_trafo(strCodFas1, strCodFas2, strCodFas3, dblTensaoSecuTrafo_
             return ""
 
 
-def tap_trafo(strCodFas3, tap_pu) -> str:
+def tap_trafo(strCodFas3, tap_pu, tip_trafo=None) -> str:
+    if tip_trafo == 'DA':
+        tap_pu = "1.0"
     if strCodFas3 != "0":
         return "1 " + tap_pu + " " + tap_pu
     else:
@@ -573,7 +592,9 @@ def conexoes_trafo(strCodFas1, strCodFas2, strCodFas3) -> str:
 def kvas_trafo(strCodFas2, strCodFas3, dblPotNom_kVA) -> str:
     if strCodFas3 == "BN" or strCodFas3 == "CN" or strCodFas3 == "AN" or strCodFas2 == "ABN":
         return str(dblPotNom_kVA) + " " + str(dblPotNom_kVA) + " " + str(dblPotNom_kVA)
-    elif strCodFas3 == "0" or strCodFas2 == "AN" or strCodFas2 == "BN" or strCodFas2 == "CN" or strCodFas2 == "AB" or strCodFas2 == "BC" or strCodFas2 == "CA" or strCodFas2 == "AC" or strCodFas2 == "ABCN" or strCodFas2 == "ABC":
+    elif strCodFas3 == "0" or strCodFas2 == "AN" or strCodFas2 == "BN" or strCodFas2 == "CN" or \
+            strCodFas2 == "AB" or strCodFas2 == "BC" or strCodFas2 == "CA" or strCodFas2 == "AC" or \
+            strCodFas2 == "ABCN" or strCodFas2 == "ABC":
         return str(dblPotNom_kVA) + " " + str(dblPotNom_kVA)
     else:
         return ""
@@ -633,6 +654,13 @@ def nome_banco(intCodBnc) -> str:
         return ""
 
 
+def lig_trafo(str_lig):
+    if str_lig in ('1', '2', '3', '10'):
+        return "Wye"
+    else:
+        return "Delta"
+
+
 def ligacao_trafo(strCodFas) -> str:
     if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
             strCodFas == "CN" or strCodFas == "ABN" or strCodFas == "BCN" or strCodFas == "CAN" or strCodFas == "ABCN":
@@ -644,18 +672,30 @@ def ligacao_trafo(strCodFas) -> str:
 
 
 def tens_regulador(rel_tp_id):
-    if int(rel_tp_id) == 3:
+    if int(rel_tp_id) == 1:
+        ten_pri_eq = 138 / math.sqrt(3)
+    elif int(rel_tp_id) == 2:
+        ten_pri_eq = 69 / math.sqrt(3)
+    elif int(rel_tp_id) == 3:
         ten_pri_eq = 34.5 / math.sqrt(3)
     elif int(rel_tp_id) == 4:
         ten_pri_eq = 25 / math.sqrt(3)
+    elif int(rel_tp_id) == 5:
+        ten_pri_eq = 24.9
     elif int(rel_tp_id) == 6:
         ten_pri_eq = 23 / math.sqrt(3)
+    elif int(rel_tp_id) in (7, 8, 9):
+        ten_pri_eq = 14.4
     elif int(rel_tp_id) == 10:
         ten_pri_eq = 14.4 / math.sqrt(3)
     elif int(rel_tp_id) == 15:
         ten_pri_eq = 13.8 / math.sqrt(3)
+    elif int(rel_tp_id) == 16:
+        ten_pri_eq = 7.6
     elif int(rel_tp_id) == 17:
         ten_pri_eq = 7.6 / math.sqrt(3)
+    elif int(rel_tp_id) == 18:
+        ten_pri_eq = 92 / math.sqrt(3)
     elif int(rel_tp_id) == 19:
         ten_pri_eq = 34.5
     elif int(rel_tp_id) == 20:
@@ -714,22 +754,22 @@ def get_tipo_trafo(codi_tipo_trafo):
 def kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo):
     intFase = numero_fases(strCodFas)
     kVCarga = 0.0
-    if intTipTrafo == 4: # trafo trifasico
-        if intFase == 1: # carga monofasica
+    if intTipTrafo == 4:  # trafo trifasico
+        if intFase == 1:  # carga monofasica
             kVCarga = f"{(dblTenSecu_kV / math.sqrt(3)):.3f}"
         else:
             kVCarga = str(dblTenSecu_kV)
 
-    if intTipTrafo == 3 or intTipTrafo == 5 or intTipTrafo == 6:  # trafo bifasico
-        if intFase == 1: # carga monofasica
+    if intTipTrafo == 3 or intTipTrafo == 5 or intTipTrafo == 6:  # trafo bifasico ou delta aberto
+        if intFase == 1:  # carga monofasica
             kVCarga = f"{(dblTenSecu_kV / 2):.3f}"
         else:
             kVCarga = str(dblTenSecu_kV)
 
-    elif intTipTrafo == 1:   # trafo monofasico
+    elif intTipTrafo == 1:  # trafo monofasico
         kVCarga = str(dblTenSecu_kV)
 
-    elif intTipTrafo == 2:   # MRT
+    elif intTipTrafo == 2:  # MRT
         if intFase == 1:
             kVCarga = str(dblTenSecu_kV / 2)
         else:
@@ -749,7 +789,11 @@ def numero_fases_carga_dss(strFases):
         return ""
 
 
-def ligacao_gerador(strCodFas):
+def ligacao_gerador(strCodFas, tip_trafo=None):
+    # Para gerador bt ligado no secundario do transformador, caso o transformador for tipo Delta Aberto
+    # e o gerador trifasico a conexão do gerador deverá ser Delta
+    if strCodFas == "ABCN" and tip_trafo == 'DA':
+        return "Delta"
     if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
             strCodFas == "CN" or strCodFas == "ABCN":
         return "Wye"
@@ -760,7 +804,208 @@ def ligacao_gerador(strCodFas):
         return "Delta"
 
 
-def ajust_eqre_codbanc(dist):
+def get_coord_load(dist, load):
+    config = load_config(dist)
+    engine = create_connection(config)
+
+    # coordenadas a aprtir dos dados dos geradores na mesma instalação do consumidor bt
+    query_coods = f''' select POINT_X as x, POINT_Y as y
+                       from sde.UCBT               
+                       where COD_ID = '{load}'           
+                    '''
+    with engine.connect() as conn:
+        coords = conn.execute(query_coods)
+
+    return coords
+
+
+def set_coords(dist):
+    config = load_config(dist)
+    engine = create_connection(config)
+    proc_time_ini = time.time()
+
+    # Atualiza coordenadas UCAT
+    query_ucat_ponnot = f'''
+                Update sde.ucat set [POINT_Y] = q.Y, [POINT_X] = q.x
+                FROM (
+                    select  uc.cod_id, pn.[POINT_Y] as Y ,pn.[POINT_X] as X
+                    from sde.UCAT uc
+                    inner join sde.ponnot pn on pn.COD_ID = uc.PN_CON 
+                    ) q
+                where sde.UCAT.COD_ID = q.cod_id
+                  '''
+    with engine.connect() as conn:
+        result = conn.execute(query_ucat_ponnot)
+        print(f'coords UCAT: {result.rowcount}')
+
+    # Atualiza coordenadas UGAT
+    query_ugat_ponnot = f'''
+                Update sde.UGAT set [POINT_Y] = q.Y, [POINT_X] = q.x
+                FROM (
+                    select  ug.cod_id, pn.[POINT_Y] as Y ,pn.[POINT_X] as X
+                    from sde.UGAT ug
+                    inner join sde.ponnot pn on pn.COD_ID = ug.PN_CON 
+                    ) q
+                where sde.UGAT.COD_ID = q.cod_id
+                  '''
+    result = engine.execute(query_ugat_ponnot)
+    print(f'coords UGAT: {result.rowcount}')
+
+    # busca coordenadas da subestação conectado ao gerador
+    query_ugat_ponnot = f'''
+                    Update sde.UGAT set [POINT_Y] = q.Y, [POINT_X] = q.x
+                    FROM (
+                        select  ug.cod_id, pn.[POINT_Y] as Y ,pn.[POINT_X] as X
+                        from sde.UGAT ug
+                        inner join sde.ponnot pn on pn.COD_ID = ug.sub 
+                        ) q
+                    where sde.UGAT.COD_ID = q.cod_id
+                      '''
+    result = engine.execute(query_ugat_ponnot)
+    print(f'coords UGAT by sub: {result.rowcount}')
+
+    query_ucmt_ponnot = f'''
+              update sde.ucmt set [POINT_Y] = q.Y, [POINT_X] = q.x
+                  FROM (
+                      select  uc.cod_id, pn.[POINT_Y] as Y ,pn.[POINT_X] as X
+                      from sde.ucmt uc
+                      inner join sde.ponnot pn on pn.COD_ID = uc.PN_CON 
+                  ) q
+              where sde.ucmt.cod_id = q.cod_id
+              '''
+    result = engine.execute(query_ucmt_ponnot)
+    print(f'coords UCMT: {result.rowcount}')
+
+    "Verifica se existem consumidores com coordenadas nulas e utiliza o segmento para associar as cordenadas deles"
+    query_coods_ucmt_ssdmt = f'''  
+            update sde.ucmt set [POINT_Y] = q.Y, [POINT_X] = q.x
+                FROM (
+                    select  uc.cod_id, pn.[POINT_Y1] as Y ,pn.[POINT_X1] as X
+                    from sde.ucmt uc
+                    inner join sde.SSDMT pn on pn.PAC_1 = uc.PAC OR pn.PAC_2=UC.PAC
+                    WHERE UC.POINT_X IS NULL
+                ) q
+            where sde.ucmt.cod_id = q.cod_id
+            '''
+    result = engine.execute(query_coods_ucmt_ssdmt)
+    print(f'coords UCMT_ssdmt: {result.rowcount}')
+
+    query_coods_ugmt_ponnot = f'''
+             update sde.ugmt set [POINT_Y] = q.Y, [POINT_X] = q.x
+                FROM (
+                    select  ug.cod_id, pn.[POINT_Y] as Y ,pn.[POINT_X] as X
+                    from sde.ugmt ug
+                    inner join sde.ponnot pn on pn.COD_ID = ug.PN_CON 
+                ) q
+                where sde.ugmt.cod_id = q.cod_id
+             '''
+    result = engine.execute(query_coods_ugmt_ponnot)
+    print(f'coords UGMT: {result.rowcount}')
+
+    query_coods_ugbt_ponnot = f'''
+            update sde.ugbt set [POINT_Y] = q.Y, [POINT_X] = q.x
+                FROM (
+                    select  ugbt.cod_id, pn.[POINT_Y] as Y ,pn.[POINT_X] as X
+                    from sde.ugbt ugbt
+                    inner join sde.ponnot pn on pn.COD_ID = ugbt.PN_CON 
+                ) q
+                where sde.ugbt.cod_id = q.cod_id
+             '''
+    result = engine.execute(query_coods_ugbt_ponnot)
+    print(f'coords UGBT: {result.rowcount}')
+
+    query_coods_ucbt_ponnot = f'''
+            update sde.ucbt set [POINT_Y] = q.Y, [POINT_X] = q.x
+                FROM (
+                    select  ucbt.cod_id, pn.[POINT_Y] as Y ,pn.[POINT_X] as X
+                    from sde.ucbt ucbt
+                    inner join sde.ponnot pn on pn.COD_ID = ucbt.PN_CON 
+                ) q
+                where sde.ucbt.cod_id = q.cod_id
+             '''
+    result = engine.execute(query_coods_ucbt_ponnot)
+    print(f'coords UCBT: {result.rowcount}')
+
+    # coordenadas a aprtir dos dados dos geradores na mesma instalação do consumidor bt
+    query_coods_ucbt_ugbt = f'''
+        update sde.ucbt set [POINT_Y] = q.Y, [POINT_X] = q.x
+            FROM (
+                select g.POINT_X as x, g.POINT_Y as y, c.sub, c.COD_ID from sde.ucbt c
+                inner join sde.ugbt g on c.CEG=g.CEG
+                where c.POINT_X is null
+            ) as q
+        WHERE sde.ucbt.cod_id = q.cod_id 
+    '''
+    x = engine.execute(query_coods_ucbt_ugbt)
+    print(f'coords UCBT_UGBT: {x.rowcount} - time:{round(time.time() - proc_time_ini, 2)} seg')
+
+    "Verifica se existem consumidores BT com coordenadas nulas e utiliza o segmento BT para associar suas cordenadas"
+    subs = return_query_as_dataframe("select cod_id from sde.sub where pos='PD' order by cod_id", engine)
+    for sub in subs['cod_id']:
+        query_coods_ucbt_ssdmt = f'''  
+            WITH CTE_UCBT AS (
+                SELECT
+                    cod_id,
+                    PAC
+                FROM
+                    sde.ucbt
+                WHERE
+                    POINT_X IS NULL and sub='{sub}'
+            ),
+            CTE_RAMLIG AS (
+                SELECT
+                    PAC_1,
+                    PAC_2
+                FROM
+                    sde.ramlig where sub='{sub}'
+            ),
+            CTE_SSDBT AS (
+                SELECT
+                    PAC_1,
+                    PAC_2,
+                    POINT_X1,
+                    POINT_Y1
+                FROM
+                    sde.SSDBT where sub='{sub}'
+            )
+            update sde.ucbt set [POINT_Y] = q.Y, [POINT_X] = q.x
+               FROM (
+            SELECT
+                uc.cod_id,
+                pn.POINT_Y1 as y,
+                pn.POINT_X1 as x
+            FROM
+                CTE_UCBT uc
+            INNER JOIN
+                CTE_RAMLIG rm
+                ON rm.PAC_1 = uc.PAC OR rm.PAC_2 = uc.PAC			
+            INNER JOIN
+                CTE_SSDBT pn
+                ON pn.PAC_1 IN (rm.PAC_1, rm.PAC_2) OR pn.PAC_2 IN (rm.PAC_1, rm.PAC_2)					
+            ) q
+            where sde.ucbt.cod_id = q.cod_id
+            '''
+        x = engine.execute(query_coods_ucbt_ssdmt)
+        print(f'coords UCBT_SSDBT: {sub} - {x.rowcount} - {time.time() - proc_time_ini}')
+
+        query_ucbt_untrmt = f"""
+                update sde.ucbt set [POINT_Y] = q.Y, [POINT_X] = q.x
+                    FROM (
+                        select tr.POINT_X as x, tr.POINT_Y as y, uc.sub, uc.COD_ID, uc.PAC, rm.PAC_2
+                        from sde.ucbt uc
+                        inner join sde.RAMLIG rm ON rm.PAC_1 = uc.PAC OR rm.PAC_2 = uc.PAC
+                        inner join sde.UNTRMT tr ON rm.pac_1 = tr.PAC_2 or rm.PAC_2 = tr.PAC_2
+                        where uc.POINT_X is null and uc.sub = '{sub}'
+                    ) as q
+                WHERE sde.ucbt.cod_id = q.cod_id 
+                """
+        result = engine.execute(query_ucbt_untrmt)
+        print(f'coords UCBT_untrmt: {sub} - {result.rowcount} - {time.time() - proc_time_ini}')
+
+    print(f"Processo concluído em {time.time() - proc_time_ini}")
+
+
+def ajust_eqre_codbanc(dist, engine):
     """
     Obtém os valores de CodBNC a partir da sequencia de dados da UNREMT
     :return: Dicionário com os codi_id da tabela EQRE com os respectivos valores de CodBNC
@@ -774,7 +1019,7 @@ def ajust_eqre_codbanc(dist):
          (c.pac_1 = e.pac_1 or c.pac_2 = e.pac_2 or c.pac_1 = e.pac_2 or c.pac_2 = e.pac_1) order by c.[COD_ID]
          ;
     '''
-    eqre_data = return_query_as_dataframe(query)
+    eqre_data = return_query_as_dataframe(query, engine)
     # codbanc_re = []
     i = 0
     unremt_id = ''
@@ -790,7 +1035,7 @@ def ajust_eqre_codbanc(dist):
         # codbanc_re.append(strcodbanc_re)
 
         sql = f"update SDE.EQRE SET codBNC={i} where COD_ID='{eqre_id}'"
-        exec_query(sql)
+        exec_query(sql, engine)
 
     # return codbanc_re
 
@@ -807,3 +1052,202 @@ def add_id_banc_to_dataframe(df, df_column_ref):
             i += 1
         ref_count = df.loc[index][df_column_ref]
         df.at[index, 'ID_BANC'] = i
+
+
+def calc_du_sa_do_mes(ano, mes) -> dict:
+    # Gerar intervalo de datas para o mês especificado
+    data_inicial = f'{ano}-{mes:02d}-01'
+    data_final = pd.Period(f'{ano}-{mes:02d}').end_time.strftime('%Y-%m-%d')
+    dias = pd.date_range(start=data_inicial, end=data_final)
+
+    # Criar um conjunto de feriados para São Paulo, Brasil
+    feriados_brasil = holidays.Brazil(state='SP')
+
+    # Inicializar contadores
+    uteis = 0
+    sabados = 0
+    domingos = 0
+    feriados = 0
+
+    for dia in dias:
+        if dia in feriados_brasil:
+            # Contar como feriado, mesmo que caia em sábado ou domingo
+            feriados += 1
+        elif dia.weekday() == 5:  # Sábado
+            sabados += 1
+        elif dia.weekday() == 6:  # Domingo
+            domingos += 1
+        else:  # Dias úteis
+            uteis += 1
+
+    return {
+        'DU': uteis,
+        'SA': sabados,
+        'DO': domingos + feriados
+    }
+
+
+def circuit_by_bus(pac: str, dist):
+    config = load_config(dist)
+    engine = create_connection(config)
+    pac = pac.upper()
+    query = f'''
+         SELECT DISTINCT CTMT
+         FROM SDE.SSDMT 
+         WHERE pac_1 = '{pac}' or pac_2 = '{pac}'
+         ;
+    '''
+    ctmt = return_query_as_dataframe(query, engine)
+    if ctmt.empty:
+        ctmt["CTMT"] = [pac]
+    return ctmt
+
+
+def municipio_from_load(load, dist):
+    """
+    Obtem o cod do munício onde está instalada uma carga.
+    :return:
+    """
+    config = load_config(dist)
+    engine = create_connection(config)
+    # load = load.upper()
+    tabelas = ["UCBT", "UCMT"]
+    for table in tabelas:
+        query = f'''
+             SELECT distinct MUN FROM SDE.{table} 
+             WHERE COD_ID = '{load}' 
+             ;
+        '''
+
+        mun = return_query_as_dataframe(query, engine)
+        if not mun.empty:
+            return mun['MUN'].iloc[0]
+
+    return False
+
+
+def irrad_by_municipio(cod_municipio, mes,  dist):
+    config = load_config(dist)
+    engine = create_connection(config)
+    query = f'''
+                SELECT avg([GT(I)_MEAN]) as irrad, avg([GT(I)_STD]) as irrad_std, hora
+                FROM [IRRADIANCIA].SDE.IRRAD 
+                WHERE cod_municipio = '{cod_municipio}' and mes = '{mes}'
+                group by COD_MUNICIPIO, hora
+                order by hora
+                ;
+            '''
+    irrad = return_query_as_dataframe(query, engine)
+    return irrad['irrad'].tolist()
+
+
+def temp_amb_by_municipio(cod_municipio, mes,  dist):
+    config = load_config(dist)
+    engine = create_connection(config)
+    query = f'''
+            SELECT avg(T2M_MEAN) as temperatura, avg(T2M_STD) as temp_std, hora
+            FROM [IRRADIANCIA].SDE.IRRAD 
+            WHERE cod_municipio = '{cod_municipio}' and mes = '{mes}'
+            group by COD_MUNICIPIO, hora
+            order by hora
+            ;
+        '''
+    temp_ta = return_query_as_dataframe(query, engine)
+    return temp_ta['temperatura'].tolist()
+
+
+def temp_amb_to_temp_pv(crv_g=None, crv_ta=None) -> dict:
+    """
+    Converte a curva de temperatura ambiente em curva de temperatura na superficie do painel solar
+    LASNIER, F.; ANG, T. G. Photovoltaic Engineering Handbook, New York, Adam Hilger, pp: 258, 1990.
+    𝑇𝑐 = 30.006 + 0.0175(𝐺 −300)+1.14(𝑇𝑎 −25)
+    Ta = Temperatura ambiente em oC
+    G  = Irradiância total em W/m²
+
+    Schott, T., 1985. Operation temperatures of PV 78: 163-176.
+    modules. Proceedings of the sixth E.C. photovoltaic 24. Mondol, J.D., Y.G. Yohanis and B. Norton, 2007a.
+    solar energy conference, London, UK, pp: 392-396.
+    Tc = Ta + (0.028 × G) – 1
+
+    :return: dict
+    """
+    if crv_g is None or not crv_g:
+        # valor default para quando não existir dados de irradiação solar
+        crv_g = [0, 0, 0, 0, 0, 0, 53.84, 186.42, 371.93, 491.11, 634.01, 722.82, 795.12, 736.89, 641.51, 476.68,
+                 252.55, 121.78, 32.7, 0, 0, 0, 0, 0]
+    if crv_ta is None or not crv_ta:
+        # valor default para quando não existir dados de temperatura ambiente
+        crv_ta = [21.81, 21.48, 21.24, 20.98, 20.78, 20.62, 20.59, 21.88, 23.21, 24.36, 25.36, 26.17, 26.76, 27.2,
+                  27.61, 28.73, 27.11, 26.03, 25.25, 24.32, 23.6, 23.45, 22.82, 22.22]
+
+    # Verifica se as listas são do mesmo tamanho
+    if len(crv_g) != len(crv_ta):
+        raise ValueError("As listas de temp. ambiente e de irradiação devem ter o mesmo tamanho.")
+
+    data = {'crv_ta': crv_ta,
+            'crv_g': crv_g,
+            'crv_g_norm': [round(irrad / max(crv_g), 6) for irrad in crv_g],
+            'crv_t_pv_1': [round(30.006 + 0.0175 * (crv_g[i] - 300) + 1.14 * (crv_ta[i] - 25), 2)
+                           for i in range(len(crv_g))],
+            'crv_t_pv_2': [round(crv_ta[i] + (0.028 * crv_g[i]) - 1, 2) for i in range(len(crv_g))]
+            }
+    return data
+
+
+def fator_autoconsumo(classe):
+    """
+    Fatores tipicos de autoconsumo definido pela EPE
+    :param classe:
+    :return:
+    """
+    if classe == 1:  # residencial
+        return 0.4
+    if classe == 2:  # comercial bt
+        return 0.5
+    if classe == 3:  # comercial at
+        return 0.8
+
+
+def list_substation(dist):
+    """
+    Busta a lista de codigos de subestações proprias de uma distribuidora.
+    :param dist:
+    :return:
+    """
+    config = load_config(dist)
+    engine = create_connection(config)
+    query = f'''
+                SELECT COD_ID 
+                FROM SDE.SUB 
+                WHERE dist = {dist}  and POS = 'PD"              
+                order by sub
+                ;
+            '''
+    list_sub = return_query_as_dataframe(query, engine)
+
+    return list_sub['COD_ID'].tolist()
+
+
+if __name__ == "__main__":
+    """
+    import matplotlib.pyplot as plt
+    import matplotlib
+    matplotlib.use('TKAgg')
+    t = temp_amb_by_municipio('3539806', 7, '391')
+    print(t)
+
+    ir = irrad_by_municipio('3539806', 7, '391')
+    print(ir)
+
+    test = temp_amb_to_temp_pv(ir, t)  # teste temperatura ambiente para temperatura do pv.
+    print(test['crv_t_pv_1'])
+    print(test['crv_t_pv_2'])
+    print(test['crv_g_norm'])
+
+    plt.plot(t)
+    plt.plot(test['crv_t_pv_1'])
+    plt.plot(test['crv_t_pv_2'])
+    plt.show()
+    """
+
+    set_coords('391')

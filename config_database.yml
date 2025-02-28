@@ -1,22 +1,48 @@
-# Configurações de conexão com o SQLServer
-bancos:
-    server: 'localhost'
-    database: 'GEO_SIGR_PERDAS'
-    username: 'usr_GeoPerdas'
-    password: '123456'
-    schema: 'SDE'
-
-tipo_arquivo: "gdb"    # gbd ou dbf
-dbf_directory: 'D:\\Doutorado\\PD\dados\\BDGD\\Energisa\\Shapefile'
-
-#gdb_directory: 'D:\\Doutorado\\PD\dados\\BDGD\\Energisa'
-#gdb_file: 'Energisa_MS_404_2022-12-31_V11_20231219-1342.gdb'
-
-gdb_directory: 'D:\Doutorado\PD\dados\BDGD\EDP_SP_391_2022-12-31_V11_20231030-1400.gdb'
-gdb_file: 'EDP_SP_391_2022-12-31_V11_20231030-1400.gdb'
-data_base: "2022-12-31"
-dist: '391'
-cod_BDGD: '1400'
-
-# diretório dos arquivos do openDSS (user folder)
-dss_files_folder: '~\dss'
+# arquivo de configurações
+databases:
+    '391':
+        server: 'localhost'
+        database: 'GEO_SIGR_PERDAS_EDP_SP'
+        username: 'usr_GeoPerdas'
+        password: '123456'
+        schema: 'SDE'
+        dbf_directory: ''
+        gdb_directory: 'D:\Doutorado\PD\dados\BDGD\EDP_SP_391_2022-12-31_V11_20231030-1400.gdb'
+        gdb_file: 'EDP_SP_391_2022-12-31_V11_20231030-1400.gdb'
+        data_base: "2022-12-31"
+        cod_BDGD: '1400'
+        dist: '391'
+        dss_files_folder: '~\dss'
+    '404':
+        server: 'localhost'
+        database: 'GEO_SIGR_PERDAS'
+        username: 'usr_GeoPerdas'
+        password: '123456'
+        schema: 'SDE'
+        dbf_directory: 'D:\\Doutorado\\PD\dados\\BDGD\\Energisa\\Shapefile'
+        gdb_directory: 'D:\\Doutorado\\PD\dados\\BDGD\\Energisa'
+        gdb_file: 'Energisa_MS_404_2022-12-31_V11_20231219-1342.gdb'
+        data_base: "2022-12-31"
+        cod_BDGD: '1342'
+        dist: '404'
+        dss_files_folder: '~\dss'
+    '40':
+        server: 'localhost'
+        database: 'GEO_SIGR_PERDAS_COSERN_2023'
+        username: 'usr_GeoPerdas'
+        password: '123456'
+        schema: 'SDE'
+        dbf_directory: ''
+        gdb_directory: 'D:\Doutorado\PD\dados\BDGD\Neoenergia_Cosern_40_2023-12-31_V11_20240614-1651.gdb'
+        gdb_file: 'Neoenergia_Cosern_40_2023-12-31_V11_20240614-1651.gdb'
+        data_base: "2023-12-31"
+        cod_BDGD: '1651'
+        dist: '40'
+        dss_files_folder: '~\dss' # diretório dos arquivos do openDSS (user folder)
+    'Irradiance':
+        server: 'localhost'
+        database: 'IRRADIANCIA'
+        username: 'usr_GeoPerdas'
+        password: '123456'
+        schema: 'SDE'
+        irrad_directory: 'C:\BDGD2SqlServer\Irradiance_SP'

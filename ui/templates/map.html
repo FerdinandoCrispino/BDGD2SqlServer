@@ -1,0 +1,1585 @@
+{% extends 'base.html' %}
+
+{% block title %}Mapa{% endblock %}
+
+{% block content %}
+
+<div style="display: flex;">
+    <!-- Menu lateral -->
+    <div id="sidebar" style="width: 250px; padding: 8px; font-size:12px;">
+
+        <label for="distribuidora">Utility:</label>
+        <select id="distribuidora" name="distribuidora" style="float:right;width:110px">
+            <option value="">Select</option>
+            <option value="391">EDP_SP 2022</option>
+            <option value="404">Energisa_MS 2022</option>
+            <option value="40">COSERN 2023</option>
+        </select><br>
+
+        <label for="subestacao">Substation:</label>
+        <select id="subestacao" name="subestacao" style="float:right;width:110px">
+            <option value="">Select</option>
+        </select><br>
+
+        <label for="circuito">Circuit:</label>
+        <select id="circuito" name="circuito" style="float:right;width:110px">
+            <option value="">Select</option>
+        </select>
+
+        <div>
+            <input type="checkbox" id="HVC" name="opt[]" value="HVC" />
+            <label for="HVC">High Voltage Circuits</label>
+        </div>
+        <hr>
+
+        <label for="scenarios">Scenario:</label>
+        <select id="scenarios" name="scenarios" style="float:right;width:110px">
+        </select><br>
+
+        <label for="tipo_dia">Type of Day:</label>
+        <select id="tipo_dia" name="tipo_dia" style="float:right;width:110px">
+            <option value="DU">Workdays (DU)</option>
+            <option value="SA">Saturday (SA)</option>
+            <option value="DO">Sunday/Holidays (DO)</option>
+        </select><br>
+        <label for="meses">Month:</label>
+        <select id="meses" name="meses" style="float:right;width:110px">
+        </select><br>
+
+        <div class="slidecontainer">
+          <input type="range" min="1" max="24" value="1" class="slider" id="myRange">
+            <p>Hour: <span id="hour"></span></p>
+        </div>
+        <div>
+            <button id="applyFilters" style="margin:auto; display:block;">Apply</button>
+        </div>
+        <hr>
+        <fieldset>
+          <div>
+            <input type="checkbox" id="summary" name="opt[]" value="summary" />
+            <label for="summary">Summary</label>
+          </div>
+          <hr>
+          <div>
+            <input type="checkbox" id="sub" name="opt[]" value="substations" />
+            <label for="sub"><i class="fa-solid fa-tower-observation"></i> Substations</label>
+          </div>
+          <div>
+            <input type="checkbox" id="trafos" name="opt[]" value="tranformadores" />
+              <label for="trafos"><span class="tr_icon"> Transformers</span></label>
+          </div>
+          <div>
+            <input type="checkbox" id="unsemt" name="opt[]" value="chaves" />
+            <label for="unsemt"><span class="sec_icon"> Switches</span></label>
+          </div>
+          <div>
+            <input type="checkbox" id="unremt" name="opt[]" value="reguladores" />
+            <label for="unremt"><span class="reg_icon"> Regulators</span></label>
+          </div>
+          <div>
+            <input type="checkbox" id="uncrmt" name="opt[]" value="capacitores" />
+            <label for="uncrmt"><span class="cap_icon">Capacitors</span></label>
+          </div>
+          <div>
+            <input type="checkbox" id="ugmt" name="opt[]" value="UGMT" />
+              <label for="ugmt"><span class ="ugmt_font_awesome"><i class="fa-solid fa-solar-panel"></i></span> UGMT</label>
+          </div>
+          <div>
+            <input type="checkbox" id="ugbt" name="opt[]" value="UGBT" />
+            <label for="ugbt"><span class="ugbt_font_awesome"><i class="fa-solid fa-solar-panel"></i></span> UGBT</label>
+          </div>
+          <div>
+            <input type="checkbox" id="ucmt" name="opt[]" value="UCMT" />
+            <label for="ucmt"><span class ="ucmt_font_awesome"><i class="fa-solid fa-industry"></i></span> UCMT</label>
+          </div>
+          <div>
+            <input type="checkbox" id="ucbt" name="opt[]" value="UCBT" />
+            <label for="ucbt"><span class ="ucbt_font_awesome"><i class="fa-brands fa-houzz"></i></span> UCBT</label>
+          </div>
+        </fieldset>
+    </div>
+
+    <!-- Mapa -->
+    <div id="map" style="width: 100%; height: 600px;"></div>
+
+</div>
+
+    <table id="data-table_0" class="table table-sm">
+        <thead>
+            <tr id="table-header_0" style="font-size: 0.8em; background-Color: #04AA6D"></tr>
+        </thead>
+        <tbody id="table-body_0" style="font-size: 0.8em;"></tbody>
+    </table>
+    <table id="data-table_1" class="table table-sm">
+        <thead>
+            <tr id="table-header_1" style="font-size: 0.8em;"></tr>
+        </thead>
+        <tbody id="table-body_1" style="font-size: 0.8em;"></tbody>
+    </table>
+    <table id="data-table_2" class="table table-sm">
+        <thead>
+            <tr id="table-header_2" style="font-size: 0.8em;"></tr>
+        </thead>
+        <tbody id="table-body_2" style="font-size: 0.8em;"></tbody>
+    </table>
+    <table id="data-table_3" class="table table-sm">
+        <thead>
+            <tr id="table-header_3" style="font-size: 0.8em;"></tr>
+        </thead>
+        <tbody id="table-body_3" style="font-size: 0.8em;"></tbody>
+    </table>
+
+<!-- <script src="https://cdn.rawgit.com/openlayers/openlayers.github.io/master/en/v5.3.0/build/ol.js"></script> -->
+<script src="https://cdn.jsdelivr.net/npm/ol@v10.2.1/dist/ol.js"></script>
+<script type="text/javascript" src="https://viglino.github.io/ol-ext/dist/ol-ext.js"></script>
+<script type="text/javascript" src="//cdn.rawgit.com/Viglino/ol-ext/master/dist/extra/FontAwesomeDef.js"></script>
+
+<link href="https://cdn.jsdelivr.net/npm/ol-geocoder/dist/ol-geocoder.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/ol-geocoder/dist/ol-geocoder.js"></script>
+
+<script>
+    var slider = document.getElementById("myRange");
+    var hour = document.getElementById("hour");
+    hour.innerHTML = slider.value;
+
+    slider.oninput = function() {
+        hour.innerHTML = this.value;
+        var distribuidora = document.getElementById('distribuidora').value;
+        var subestacao = document.getElementById('subestacao').value;
+        var circuito = document.getElementById('circuito').value;
+        if (subestacao){
+            var link = document.getElementById('applyFilters');
+            link.click();
+        }
+    }
+
+    // preenche combo com a lista de tipos de scenarios ============================================================
+    const scenariosSelect = document.getElementById("scenarios");
+    function populateScenarios(){
+        fetch('/list_scenarios')
+            .then(response => response.json())
+            .then(list_scenarios => {
+                console.log(list_scenarios)
+                for(let i = 0; i < list_scenarios.length; i++){
+                    const option = document.createElement('option');
+                    option.textContent = list_scenarios[i].toUpperCase();
+                    option.value = list_scenarios[i];
+                    scenariosSelect.appendChild(option);
+                }
+            });
+    };
+    populateScenarios();
+
+
+    const monthSelect = document.getElementById("meses");
+    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October',
+    'November', 'December'];
+    //Months are always the same
+    (function populateMonths(){
+        for(let i = 1; i <= months.length; i++){
+            const option = document.createElement('option');
+            option.textContent = months[i-1];
+            option.value = i;
+            monthSelect.appendChild(option);
+        }
+        monthSelect.value = "1";
+    })();
+    monthSelect.onchange = function() {
+        //populateDays(monthSelect.value);
+    }
+
+    // Verifica se existe o arquivo
+    function fileExists(url) {
+        if(url){
+            var req = new XMLHttpRequest();
+            req.open('GET', url, false);
+            req.send();
+            return req.status==200;
+        } else {
+            return false;
+        }
+    }
+
+    // eventos do menu
+    var mapatipo = 'color'
+    var userSelection = document.getElementsByClassName('dropdown-item')
+    for(let i = 0; i < userSelection.length; i++) {
+        userSelection[i].addEventListener("click", function() {
+            switch (userSelection[i].id) {
+                case 'map_circuito':
+                    mapatipo = 'colorbycircuit'
+                    var link = document.getElementById('applyFilters');
+                    link.click();
+                    break;
+                case 'map_vll':
+                    mapatipo = 'color'
+                    var link = document.getElementById('applyFilters');
+                    link.click();
+                    break;
+            }
+            console.log("Clicked index: " + i);
+            console.log(mapatipo);
+        })
+    }
+
+    // Popup overlay
+    var popup = new ol.Overlay.Popup ({
+        popupClass: "default", //"tooltips", "warning" "black" "default", "tips", "shadow",
+        closeBox: true,
+        onshow: function(){ console.log("You opened the box"); },
+        onclose: function(){ console.log("You close the box"); },
+        positioning: 'auto',
+        autoPan: {
+          animation: { duration: 250 }
+        }
+    });
+
+    // Add a popup to display voltage
+    var popup1 = new ol.Overlay.Tooltip();
+
+
+    var selectedStyle = new ol.style.Style({
+        stroke: new ol.style.Stroke({
+          color: '#f00',
+          width: 1,
+        }),
+        fill: new ol.style.Fill({
+          color: 'rgba(255,0,0,0.1)',
+        }),
+    });
+
+    var map = new ol.Map({
+        target: 'map',
+        layers: [
+            new ol.layer.Tile({
+                name: 'Mapa Base',
+                source: new ol.source.OSM(),
+                opacity: 0.75  // 0 até 1
+            })
+        ],
+        view: new ol.View({
+            center: ol.proj.fromLonLat([-50.0, -15.0]),  // Coordenada central inicial
+            zoom: 4,
+            minZoom: 2,
+            maxZoom: 20
+        }),
+        overlays: [popup]
+    });
+
+    var switcher = new ol.control.LayerSwitcher();
+    map.addControl(switcher)
+    map.addInteraction(new ol.interaction.Select({
+        condition : function(event) {
+        return ol.events.condition.pointerMove(event);
+        }
+    }));
+
+    // Control Select
+    var select = new ol.interaction.Select({});
+    map.addInteraction(select);
+
+    map.addOverlay(popup1)
+    let selected = null;
+
+    map.on('pointermove', function(e) {
+        if (selected !== null) {
+            selected.setStyle(undefined);
+            selected = null;
+        }
+        //var featrures=[];
+        map.forEachFeatureAtPixel(e.pixel, function (f, layer) {
+            var nome_camada = f.get("tipo")
+            //features.push(f);
+            console.log(nome_camada)
+            //console.log('++++++++' + features.length)
+
+            var list_layers = ["segmentos", "SUB", "UNTRMT", "UNSEMT", "UNCRMT", "UNREMT", "UGMT", "UGBT", "UCBT", "UCMT",
+                                "SIN-Lines", "SIN-Subs", "SIN-EOL", "AT_SSD", "GERADOR_AT"]
+            if (list_layers.includes(nome_camada)){
+                selected = f;
+                return true;
+            }
+        });
+        if (selected) {
+            console.log(selected)
+            hora = document.getElementById("myRange").value
+            switch (selected.get("tipo")) {
+                case 'SUB':
+                    const h = selected.get("nome");
+                    popup1.setInfo('SE ' + h );
+                    //console.log('===================' + h)
+                    break;
+                case 'segmentos':
+                    const h5 = selected.get("pac")
+                    let h1 = selected.get("bus1")
+                    if (h1) {
+                        h1 = (selected.get("bus1")).toLocaleString(
+                              undefined, // leave undefined to use the visitor's browser
+                                         // locale or a string like 'en-US' to override it.
+                              { minimumFractionDigits: 5 }
+                            );
+                        };
+                    let h2 = selected.get("bus2")
+                    if (h2) {
+                        h2 = (selected.get("bus2")).toLocaleString(
+                              undefined, // leave undefined to use the visitor's browser
+                                         // locale or a string like 'en-US' to override it.
+                              { minimumFractionDigits: 5 }
+                            );
+                        };
+                    let h3 = selected.get("bus3")
+                    if (h3) {
+                        h3 = (selected.get("bus3")).toLocaleString(
+                              undefined, // leave undefined to use the visitor's browser
+                                         // locale or a string like 'en-US' to override it.
+                              { minimumFractionDigits: 5 }
+                            );
+                        };
+                    let h4 = (selected.get("ctmt")).toLocaleString(
+                              undefined, // leave undefined to use the visitor's browser
+                                         // locale or a string like 'en-US' to override it.
+                              { minimumFractionDigits: 5 }
+                            );
+                    console.log('++++++++++++++' + h4)
+                    //const result = h1 || h2 || h3;  //seleciona o primeiro valido (nao nulo ou vazio)
+                    if (h1 && h2 && h3) {
+                        popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Va: '+ h1 +' pu <br> Vb: ' + h2 + ' pu <br> Vc: ' + h3 +' pu' );
+                    } else if (h1 && h2 && !h3) {
+                        popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Va: '+ h1 +' pu');
+                    } else if (!h1 && h2 && h3) {
+                        popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Vb: '+ h2 +' pu');
+                    } else if (h1 && !h2 && h3) {
+                        popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Vc: '+ h3 +' pu');
+                    } else if (h1) {
+                        popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Va: '+ h1 +' pu');
+                    } else if (h2) {
+                        popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Vb: '+ h2 +' pu');
+                    } else if (h3) {
+                        popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Vc: '+ h3 +' pu');
+                    }
+                    break;
+                case 'UNTRMT':
+                    const t1 = selected.get("pot");
+                    const t2 = selected.get("v_lin_se");
+                    const t3 = selected.get("tip");
+                    const t4 = selected.get("v_prim");
+                    const t5 = selected.get("cod_id");
+                    const t6 = selected.get("tip_tr");
+                    //console.log ('-------------' + t1)
+                    popup1.setInfo('TR: ' + t5 + '<br> Power: '+ t1 + ' kW <br> V<sub>p</sub>: ' + t4 +
+                                   ' kV <br> V<sub>s</sub>: ' + t2 + ' kV <br> Type: ' + t6 );
+                    break;
+                case 'UNSEMT':
+                    const s1 = selected.get("ctmt");
+                    const s2 = selected.get("ope");
+                    const s3 = selected.get("cor_nom");
+                    const s4 = selected.get("cap_elo");
+                    //console.log ('----++++++---------' + selected.length )
+                    popup1.setInfo(s1 + '<br> Switch: ' + s2 + '<br> Cor_nom: ' + s3 +
+                                   ' A <br> Cap_Elo: ' + s4);
+                    break;
+                case 'UGMT':
+                    const gmt1 = selected.get("ctmt");
+                    const gmt2 = selected.get("ceg");
+                    const gmt3 = selected.get("pot_inst");
+                    const gmt4 = selected.get("voltage");
+                    const gmt5 = selected.get("demanda");
+                    //console.log ('----++++++---------' + selected.length )
+                    popup1.setInfo(gmt1 + '<br> CEG: ' + gmt2 + '<br> Power: ' + gmt3 +
+                                   ' kW <br> Voltage: ' + gmt4 + ' V <br> Demand: ' + gmt5 + ' kW');
+                    break;
+                case 'UGBT':
+                    const gbt1 = selected.get("ctmt");
+                    const gbt2 = selected.get("ceg");
+                    const gbt3 = selected.get("pot_inst");
+                    const gbt4 = selected.get("voltage");
+                    //console.log ('----++++++---------' + selected.length )
+                    popup1.setInfo(gbt1 + '<br> CEG: ' + gbt2 + '<br> Power: ' + gbt3 +
+                                    ' kW <br> Voltage: ' + gbt4 + ' V');
+                    break;
+                case 'UCBT':
+                    const cbt1 = selected.get("ctmt");
+                    const cbt2 = selected.get("ceg");
+                    const cbt3 = selected.get("tip_cc");
+                    const cbt4 = selected.get("voltage");
+                    const cbt5 = selected.get("uni_tr_mt");
+                    const cbt6 = selected.get("car_inst");
+                    //console.log ('----++++++---------' + selected.length )
+                    popup1.setInfo(cbt1 + '<br> CEG: ' + cbt2 + '<br> Power: ' + cbt6 +
+                                   ' kW <br> Voltage: ' + cbt4 + ' V <br> TR: ' + cbt5 +
+                                   '<br> CRV: ' + cbt3);
+                    break;
+                case 'UNCRMT':
+                    const cr1 = selected.get("ctmt");
+                    const cr2 = selected.get("banc");
+                    const cr3 = selected.get("pot");
+                    //console.log ('----++++++---------' + selected.length )
+                    popup1.setInfo(cr1 + '<br> Power: ' + cr3 + ' kW <br> Bank: ' + cr2  );
+                    break;
+                case 'UNREMT':
+                    const re1 = selected.get("ctmt");
+                    const re2 = selected.get("fas_con");
+                    const re3 = selected.get("tip_regu");
+                    const re4 = selected.get("banc");
+                    const re5 = selected.get("ten_reg");
+                    //console.log ('----++++++---------' + selected.length )
+                    popup1.setInfo(re1 + '<br> Phases: ' + re2 + '<br> Type: ' + re3 + '<br> Bank: ' + re4 +
+                                   '<br> Regul: ' + re5 + ' pu');
+                    break;
+                case 'UCMT':
+                    const ucm1 = selected.get("ctmt");
+                    const ucm2 = selected.get("pot_inst");
+                    const ucm3 = selected.get("gru_tar");
+                    const ucm4 = selected.get("livre");
+                    const ucm5 = selected.get("fas_con");
+                    const ucm6 = selected.get("ceg");
+                    //console.log ('----++++++---------' + selected.length )
+                    popup1.setInfo(ucm1 + '<br> Power: ' + ucm2 + ' kW<br> Type: ' + ucm3 + '<br> Livre: ' +
+                                   ucm4 + '<br> Phases: ' + ucm5 + '<br> CEG: ' + ucm6);
+                    break;
+                case 'SIN-Lines':
+                    const sin1 = selected.get("NOMELONGO");
+                    const sin2 = selected.get("VN");
+                    const sin3 = selected.get("AGE_NOME");
+                    const sin4 = selected.get("EXT");
+                    popup1.setInfo(sin1 + ' <br> Voltage: ' + sin2 + ' kV<br> Concession: ' + sin3 +
+                                   '<br> Extension: ' +  sin4 + ' km');
+                    break;
+                case 'SIN-Subs':
+                    const sin_s1 = selected.get("nome_sub");
+                    const sin_s2 = selected.get("voltage");
+                    const sin_s3 = selected.get("concessao");
+                    const sin_s4 = selected.get("opera");
+                    popup1.setInfo(sin_s1 + ' <br> Voltage: ' + sin_s2 + ' kV<br> Concession: ' + sin_s3 +
+                                    ' <br> Operação: ' +sin_s4);
+                    break;
+                case 'SIN-EOL':
+                    const eol1 = selected.get("nome_eol");
+                    const eol2 = selected.get("power");
+                    const eol3 = selected.get("ceg");
+                    const eol4 = selected.get("prop");
+                    const eol5 = selected.get("ini_oper");
+
+                    popup1.setInfo(eol1 + ' <br> Power: ' + eol2 + ' kW<br> CEG: ' + eol3 +
+                                    ' <br> Owner: ' +eol4 + ' <br> Operação: ' + eol5);
+                    break;
+                case 'AT_SSD':
+                    const at_s1 = selected.get("linha");
+                    //const at_s2 = selected.get("nome");
+                    const at_s3 = selected.get("voltage");
+
+                    popup1.setInfo('Linha: '+ at_s1 + '<br>'+ at_s3 + ' kV' );
+                    break;
+                case 'GERADOR_AT':
+                    const at_g1 = selected.get("sub");
+                    const at_g2 = selected.get("ceg");
+                    const at_g3 = selected.get("voltage");
+                    const at_g4 = selected.get("power");
+                    const at_g5 = selected.get("ctat");
+
+                    popup1.setInfo('Gerador: <br>'+ at_g4 + ' kW<br> '+ at_g3 + ' kV <br>' + at_g2 );
+                    break;
+            }
+        } else {
+            popup1.setInfo();
+        }
+    });
+
+
+    // On selected => show/hide popup
+    select.getFeatures().on(['add'], function(e) {
+        const feature = e.element;
+        let nome_camada = feature.get("tipo")
+        const dist = document.getElementById("distribuidora");
+        const select_dist = dist.options[dist.selectedIndex].text;
+        const ano = select_dist.split(" ")[1]
+        console.log(nome_camada)
+        var content = "";
+        if (nome_camada == "segmentos") {
+            var path_gr = "static/scenarios/" +  document.getElementById('scenarios').value +
+                          "/" + document.getElementById('distribuidora').value +
+                          "/" + document.getElementById('subestacao').value + "/" + feature.get("ctmt") +
+                          "/" + document.getElementById('tipo_dia').value +
+                          "/" + ano +
+                          "/" + document.getElementById('meses').value +
+                          "/" + feature.get("ctmt") + "_Balance_m1.png"
+            console.log (path_gr);
+            if (fileExists(path_gr)) {
+                content += "<img alt = 'Imagem não encontrada.' src=" + path_gr + " style='width:750px; height:300px;'/>";
+                popup.show(feature.getGeometry().getFirstCoordinate(), content);
+            } else {
+                console.log('arquivo não existe!!!!' );
+            }
+        } else if (nome_camada == "SUB") {
+            var num_trafos = feature.get("num_trafos");
+            //console.log (num_trafos);
+            var path_sub_gr = [];
+            for (let i = 1; i <= num_trafos; i++) {
+                path_sub_gr[i] = "static/scenarios/" + document.getElementById('scenarios').value +
+                    "/" + document.getElementById('distribuidora').value +
+                    "/" + document.getElementById('subestacao').value +
+                    "/SUB_" + document.getElementById('subestacao').value +
+                    "/" + document.getElementById('tipo_dia').value +
+                    "/" + ano +
+                    "/" + document.getElementById('meses').value +
+                    "/SUB_" + document.getElementById('subestacao').value + "_Balance_m" + i + ".png"
+
+                    //console.log (path_sub_gr);
+                    if (fileExists(path_sub_gr[i])) {
+                        content += "<img alt = 'Imagem não encontrada.' src=" + path_sub_gr[i] + " style='width:500px; height:230px;'/><p>";
+                    } else {
+                        console.log('arquivo não existe!!!!' );
+                    }
+            }
+            if (content != "") {
+                popup.show(feature.getGeometry().getFirstCoordinate(), content);
+            }
+        } else {
+            nome_camada = "undefined";
+            geocoder.getSource().clear();
+            console.log('removed')
+        }
+
+    });
+    select.getFeatures().on(['remove'], function(e) {
+        popup.hide();
+    })
+
+
+    // hvc: controle de vizualização do sistema AT
+    document.getElementById('HVC').addEventListener('click', function() {
+        const layers = [...map.getLayers().getArray()]
+        console.log(layers)
+        let layerAT = false
+        if (document.getElementById('HVC').checked  === true) {
+            // Carrega os dados das subestações e das linhas do SIN
+            // TODO Verificar outras informações de geradores conectados no SIN
+            layers.forEach(function(layer, i) {
+                if (typeof(layer.get("name")) == "undefined"){
+                    if (layer.get("title").includes("SIN")){
+                        layer.setVisible(true);
+                        layerAT = true;
+                    }
+                } else {
+                    if (layer.get("name").includes("SIN")){
+                        layer.setVisible(true);
+                        layerAT = true;
+                    }
+                }
+            });
+
+            if (layerAT === false && document.getElementById('distribuidora').value != '') {
+                loadSSDAT();
+                loadSIN('subs');
+                loadSIN('linhas');
+                loadSIN('EOL');
+                loadSIN('UFV');
+
+            }
+        } else {
+            layers.forEach(function(layer, i) {
+                console.log(i, layer.get("name"), layer)
+                if (typeof(layer.get("name")) == "undefined"){
+                    if (layer.get("title").includes("SIN")) layer.setVisible(false);
+                } else {
+                    if (layer.get("name").includes("SIN")) layer.setVisible(false);
+                }
+            });
+        }
+    });
+
+
+    // Função carrega dados do SIN Sistema Interligado Nacional (EPE)
+    function loadSIN(tipo){
+        var nome_layer = '';
+        var nome_stilo = '';
+        var meu_estilo
+        var req_func = '';
+        if (tipo === 'linhas'){
+            req_func = 'get_data_at';  // nome do metodo no flask
+            nome_layer = 'SIN-Lines';
+            meu_estilo = ''
+        } else if (tipo === 'subs'){
+            req_func = 'get_data_at_sub';
+            nome_layer = 'SIN-Subs';
+            meu_estilo = new ol.style.Style({
+                image: new ol.style.Circle({
+                    radius: 3,
+                    fill: new ol.style.Fill({color: "red"}),
+                    stroke: new ol.style.Stroke({
+                        color: [255,0,0], width: 2
+                    })
+                })
+            });
+        } else if (tipo === 'EOL') {
+            req_func = '/get_data_at_EOL';
+            nome_layer = 'SIN-EOL';
+            meu_estilo = new ol.style.Style({
+                    image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            color: '#ff8c00',
+                            anchor: [0.5, 0.5],
+                            anchorXUnits: 'fraction',
+                            anchorYUnits: 'pixels',
+                            scale: 0.06,
+                            src: 'static/icon/eol2.png'
+                        }))
+                    });
+
+        } else if (tipo === 'UFV') {
+            req_func = '/get_data_at_UFV';
+            nome_layer = 'SIN-UFV';
+            meu_estilo = new ol.style.Style({
+                    image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+
+                            anchor: [0, 0],
+                            scale: 0.25,
+                            src: 'static/icon/ufv.svg'
+                        }))
+                    });
+
+        }
+        //console.log(req_func);
+        fetch(req_func)
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    console.error(data.error);
+                    return;
+                }
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+
+                if (tipo === 'linhas') {
+                    // Função para adicionar estilos baseados na cor de cada feature
+                    function linha_estilo(feature) {
+                        return new ol.style.Style({
+                            stroke: new ol.style.Stroke({
+                                color: feature.get('cor'), // Cor da feature do GeoJSON
+                                width: 1
+                            })
+                        });
+                    }
+                    var vectorLayer = new ol.layer.Vector({
+                        name: nome_layer,
+                        source: vectorSource,
+                        style: linha_estilo
+                    });
+                } else {
+                    var vectorLayer = new ol.layer.Vector({
+                        name: nome_layer,
+                        source: vectorSource,
+                        style: meu_estilo
+                    });
+                }
+
+                map.addLayer(vectorLayer);
+                const extent = vectorSource.getExtent();
+                //map.getView().fit(extent, { duration: 500 });
+            });
+    }
+
+
+    // Função para carregar subestações com base na distribuidora selecionada
+    document.getElementById('distribuidora').addEventListener('change', function() {
+        const distribuidora = this.value;
+        const circuitoSelect = document.getElementById('circuito');
+
+
+        // Atualiza o link do Dashboard com o parâmetro distribuidora
+        var dashboardLink = document.querySelector('a[href="/dashboard"]');
+        if (dashboardLink) {
+            dashboardLink.href = `/dashboard?codigoDistribuidora=${distribuidora}`;
+        }
+
+        fetch(`/api/subestacoes/${distribuidora}`)
+            .then(response => response.json())
+            .then(subestacoes => {
+                var subestacaoSelect = document.getElementById('subestacao');
+                subestacaoSelect.innerHTML = '<option value="">Select</option>';
+                subestacoes.forEach(function(subestacao) {
+                    subestacaoSelect.innerHTML += `<option value="${subestacao[0]}">${subestacao[2]}</option>`;
+                });
+                circuitoSelect.innerHTML = '<option value="">Select</option>';
+            });
+    });
+
+    // Função para carregar circuitos com base na subestação selecionada
+    document.getElementById('subestacao').addEventListener('change', function() {
+        var subestacao = this.value;
+        var sub = subestacao.split(",");
+        fetch(`/api/circuitos/${subestacao}`)
+            .then(response => response.json())
+            .then(circuitos => {
+                var circuitoSelect = document.getElementById('circuito');
+                circuitoSelect.innerHTML = '<option value="">All</option>';
+                circuitos.forEach(function(circuito) {
+                    circuitoSelect.innerHTML += `<option value="${circuito[1]}">${circuito[0]}</option>`;
+                });
+            });
+    });
+
+
+    //loadSSDAT
+    function loadSSDAT() {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+        const distribuidora = document.getElementById('distribuidora').value;
+
+        var myGrpoupLayers = new ol.layer.Group({
+            title: 'High Voltage',
+            layers: []
+        });
+        map.addLayer(myGrpoupLayers); //this add a new layergroup
+
+        fetch(`/api/ssdat?distribuidora=${distribuidora}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloSSDAT(feature) {
+                    return new ol.style.Style({
+                        stroke: new ol.style.Stroke({
+                            color: "DarkSlateBlue", // Cor da feature do GeoJSON
+                            width: 2
+                        })
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: "SSDAT",
+                    source: vectorSource,
+                    style: estiloSSDAT
+                });
+                myGrpoupLayers.getLayers().push(vectorLayer);
+
+            })
+            .catch(error => {
+                document.body.style.cursor = 'default';  // Cursor normal em caso de erro
+                console.error("Erro ao carregar SSDAT:", error);
+            });
+
+        fetch(`/api/subat?distribuidora=${distribuidora}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+
+                var vectorSource2 = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                var stroke = new ol.style.Stroke({color: 'black', width: 2});
+                var fill = new ol.style.Fill({color: 'red'});
+                function estiloSUBAT(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.RegularShape({
+                                fill: fill,
+                                stroke: stroke,
+                                points: 3,
+                                radius: 8,
+                                rotation: Math.PI / 4,
+                                angle: 0
+                        })
+                    });
+                }
+
+                var vectorLayer2 = new ol.layer.Vector({
+                    name: "Substations",
+                    source: vectorSource2,
+                    style: estiloSUBAT
+                });
+                myGrpoupLayers.getLayers().push(vectorLayer2);
+
+        fetch(`/api/gerador_at?distribuidora=${distribuidora}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+
+                var vectorSource3 = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloGERAT(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Circle({
+                            radius: 5,
+                            fill: new ol.style.Fill({color: [60,179,113]}),
+                            stroke: new ol.style.Stroke({
+                                color: [60,179,113], width: 2
+                            })
+                        })
+                    });
+                }
+
+                var vectorLayer3 = new ol.layer.Vector({
+                    name: "Generators",
+                    source: vectorSource3,
+                    style: estiloGERAT
+                });
+
+                myGrpoupLayers.getLayers().push(vectorLayer3);
+                const extent = vectorSource3.getExtent();
+                map.getView().fit(extent, { duration: 800 });
+            })
+
+
+            document.body.style.cursor = 'default';  // Cursor normal
+
+            })
+            .catch(error => {
+                document.body.style.cursor = 'default';  // Cursor normal em caso de erro
+                console.error("Erro ao carregar SSDAT:", error);
+            });
+    }
+
+    // Função para carregar segmentos de reta no mapa com base nos filtros
+    function loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes, hora) {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+
+        const url = `/api/segments?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}&scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}&hora=${hora}`
+        console.log(url)
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloSegmento(feature) {
+                    return new ol.style.Style({
+                        stroke: new ol.style.Stroke({
+                            color: feature.get(mapatipo), // Cor da feature do GeoJSON
+                            width: 2
+                        })
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: subestacao,
+                    source: vectorSource,
+                    style: estiloSegmento
+                });
+
+                var checkboxes = document.getElementsByName('opt[]');
+                  for(var i=0, n=checkboxes.length;i<n;i++) {
+                    checkboxes[i].checked = false;
+                  }
+                map.addLayer(vectorLayer);
+
+                const extent = vectorSource.getExtent();
+                map.getView().fit(extent, { duration: 1000 });
+
+
+            document.body.style.cursor = 'default';  // Cursor normal
+            })
+            .catch(error => {
+                document.body.style.cursor = 'default';  // Cursor normal em caso de erro
+                console.error("Erro ao carregar os segmentos:", error);
+            });
+    }
+
+    // Carregar os segmentos de reta ao clicar no botão de aplicar filtros
+    document.getElementById('applyFilters').addEventListener('click', function() {
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
+        const scenario = document.getElementById('scenarios').value;
+        const tipo_dia = document.getElementById('tipo_dia').value;
+        const mes = document.getElementById('meses').value;
+        const dist = document.getElementById("distribuidora");
+        const select_dist = dist.options[dist.selectedIndex].text;
+        const ano = select_dist.split(" ")[1]
+        const hora = document.getElementById("myRange").value;
+
+        loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes, hora);
+    });
+
+    // Subestações  =========================================================================================
+    document.getElementById('sub').addEventListener('click', function() {
+        if (document.getElementById('sub').checked  === false) {
+            map.getLayers().forEach(function(layer, i) {
+                console.log(layer.get('name'))
+                if (i > 0 && layer.get('name') === 'SUB') {
+                    map.removeLayer(layer);  // Remove camada
+                }
+            });
+            return;
+        }
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
+        console.log(subestacao)
+        if (subestacao){
+            loadSUB(distribuidora, subestacao, circuito);
+        }
+    });
+
+    // Função para carregar subestações no mapa com base nos filtros
+    function loadSUB(distribuidora, subestacao, circuito) {
+        document.body.style.cursor = 'progress';  // Cursor de espera
+
+        fetch(`/api/SUB?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloSUB(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            color: '#ff8c00',
+                            anchor: [0.5, 0.5],
+                            anchorXUnits: 'fraction',
+                            anchorYUnits: 'pixels',
+                            scale: 0.09,
+                            src: 'static/icon/home.png'
+                        }))
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: 'SUB',
+                    source: vectorSource,
+                    style: estiloSUB
+                });
+                map.addLayer(vectorLayer);
+
+                const extent = vectorSource.getExtent();
+                map.getView().fit(extent, {size:map.getSize(), maxZoom:16, duration: 1000 });
+            });
+        document.body.style.cursor = 'default';  // Cursor normal
+    }
+
+
+    // Chaves Gerador BT  =========================================================================================
+    document.getElementById('ugbt').addEventListener('click', function() {
+        if (document.getElementById('ugbt').checked  === false) {
+            map.getLayers().forEach(function(layer, i) {
+                console.log(layer.get('name'))
+                if (i > 0 && layer.get('name') === 'UGBT') {
+                    map.removeLayer(layer);  // Remove camada
+                }
+            });
+            return;
+        }
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
+        if (subestacao){
+            loadUGBT(distribuidora, subestacao, circuito);
+        }
+    });
+
+    // Função para carregar os GERADORES BT no mapa com base nos filtros
+    function loadUGBT(distribuidora, subestacao, circuito) {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+
+        fetch(`/api/UGBT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloUGBT(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            color: 'green',
+                            crossOrigin: 'anonymous',
+                            anchor: [1.0, 1.0],
+                            scale: 0.095,
+                            src: 'static/icon/pv.svg'
+                        }))
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: 'UGBT',
+                    source: vectorSource,
+                    style: estiloUGBT
+                });
+                map.addLayer(vectorLayer);
+
+                const extent = vectorSource.getExtent();
+                map.getView().fit(extent, { duration: 1000 });
+
+            });
+        document.body.style.cursor = 'default';  // Cursor normal
+
+    }
+
+
+    // Chaves secionadoras de Media  =========================================================================================
+    document.getElementById('unsemt').addEventListener('click', function() {
+        if (document.getElementById('unsemt').checked  === false) {
+            map.getLayers().forEach(function(layer, i) {
+                console.log(layer.get('name'))
+                if (i > 0 && layer.get('name') === 'UNSEMT') {
+                    map.removeLayer(layer);  // Remove camada
+                }
+            });
+            return;
+        }
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
+        if (subestacao){
+            loadUNSEMT(distribuidora, subestacao, circuito);
+        }
+    });
+
+    // Função para carregar as seccionadoras no mapa com base nos filtros
+    function loadUNSEMT(distribuidora, subestacao, circuito) {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+
+        fetch(`/api/UNSEMT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloUNSEMT(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            color: '#cc3b5b',
+                            crossOrigin: 'anonymous',
+                            anchor: [1.0, 1.0],
+                            scale: 0.04,
+                            src: 'static/icon/switch.png'
+                        }))
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: 'UNSEMT',
+                    source: vectorSource,
+                    style: estiloUNSEMT
+                });
+                map.addLayer(vectorLayer);
+
+                const extent = vectorSource.getExtent();
+                map.getView().fit(extent, { duration: 1000 });
+            });
+        document.body.style.cursor = 'default';  // Cursor normal
+    }
+
+
+    // Capacitores de Media  =========================================================================================
+    document.getElementById('uncrmt').addEventListener('click', function() {
+        if (document.getElementById('uncrmt').checked  === false) {
+            map.getLayers().forEach(function(layer, i) {
+                console.log(layer.get('name'))
+                if (i > 0 && layer.get('name') === 'UNCRMT') {
+                    map.removeLayer(layer);  // Remove camada
+                }
+            });
+            return;
+        }
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
+        console.log(subestacao)
+        if (subestacao){
+            loadUNCRMT(distribuidora, subestacao, circuito);
+        }
+    });
+
+    // Função para carregar capacitores no mapa com base nos filtros
+    function loadUNCRMT(distribuidora, subestacao, circuito) {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+
+        fetch(`/api/UNCRMT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloUNCRMT(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            color: '#ff8c00',
+                            crossOrigin: 'anonymous',
+                            anchor: [1.0, 1.0],
+                            scale: 0.04,
+                            src: 'static/icon/cap1.png'
+                        }))
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: 'UNCRMT',
+                    source: vectorSource,
+                    style: estiloUNCRMT
+                });
+                map.addLayer(vectorLayer);
+
+                const extent = vectorSource.getExtent();
+                map.getView().fit(extent, { duration: 1000 });
+            });
+        document.body.style.cursor = 'default';  // Cursor normal
+    }
+
+    // Reguladores de Média =====================================================================================
+    document.getElementById('unremt').addEventListener('click', function() {
+        if (document.getElementById('unremt').checked  === false) {
+            map.getLayers().forEach(function(layer, i) {
+                console.log(layer.get('name'))
+                if (i > 0 && layer.get('name') === 'UNREMT') {
+                    map.removeLayer(layer);  // Remove camada
+                }
+            });
+            return;
+        }
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
+        console.log(subestacao)
+        if (subestacao){
+            loadRegu(distribuidora, subestacao, circuito);
+        }
+    });
+
+    // Função para carregar reguladores no mapa com base nos filtros
+    function loadRegu(distribuidora, subestacao, circuito) {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+
+        fetch(`/api/UNREMT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloUNREMT(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            color: '##ff8c00',
+                            crossOrigin: 'anonymous',
+                            anchor: [1.0, 1.0],
+                            scale: 0.11,
+                            src: 'static/icon/regu.svg'
+                        }))
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: 'UNREMT',
+                    source: vectorSource,
+                    style: estiloUNREMT
+                });
+                map.addLayer(vectorLayer);
+
+                const extent = vectorSource.getExtent();
+                map.getView().fit(extent, {size:map.getSize(), maxZoom:16, duration: 1000 });
+                document.body.style.cursor = 'default';  // Cursor normal
+            })
+            .catch(error => {
+              console.log('Error:', error);
+              document.body.style.cursor = 'default';  // Cursor normal
+            });
+    }
+
+
+    // UGMT  =========================================================================================
+    document.getElementById('ugmt').addEventListener('click', function() {
+        if (document.getElementById('ugmt').checked  === false) {
+            map.getLayers().forEach(function(layer, i) {
+                if (i > 0 && layer.get('name') === 'UGMT') {
+                    map.removeLayer(layer);  // Remove camada
+                }
+            });
+            return;
+        }
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
+        console.log(subestacao)
+        if (subestacao){
+            loadUGMT(distribuidora, subestacao, circuito);
+        }
+    });
+
+    // Função para carregar geradores de media tensão no mapa com base nos filtros
+    function loadUGMT(distribuidora, subestacao, circuito) {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+
+        fetch(`/api/UGMT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
+            .then(response => response.json())
+            .catch(err => console.error(err))
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloUGMT(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+
+                            crossOrigin: 'anonymous',
+                            anchor: [1.0, 1.0],
+                            scale: 0.095,
+                            src: 'static/icon/pv.svg'
+                        }))
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: 'UGMT',
+                    source: vectorSource,
+                    style: estiloUGMT
+                });
+                map.addLayer(vectorLayer);
+
+                const extent = vectorSource.getExtent();
+                map.getView().fit(extent, { duration: 1000 });
+                document.body.style.cursor = 'default';  // Cursor normal
+            })
+            .catch(error => {
+              console.log('Error:', error);
+              document.body.style.cursor = 'default';  // Cursor normal
+            });
+    }
+
+    // UCMT  =========================================================================================
+    document.getElementById('ucmt').addEventListener('click', function() {
+        if (document.getElementById('ucmt').checked  === false) {
+            map.getLayers().forEach(function(layer, i) {
+                if (i > 0 && layer.get('name') === 'UCMT') {
+                    map.removeLayer(layer);  // Remove camada
+                }
+            });
+            return;
+        }
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
+        console.log(subestacao)
+        if (subestacao) {
+            loadUCMT(distribuidora, subestacao, circuito);
+        }
+    });
+
+    // Função para carregar consumidores de media tensão no mapa com base nos filtros
+    function loadUCMT(distribuidora, subestacao, circuito) {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+
+        fetch(`/api/UCMT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloUCMT(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+
+                            crossOrigin: 'anonymous',
+                            anchor: [0, 0],
+                            scale: 0.07,
+                            src: 'static/icon/ind.svg'
+                        }))
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: 'UCMT',
+                    source: vectorSource,
+                    style: estiloUCMT
+                });
+                map.addLayer(vectorLayer);
+
+                const extent = vectorSource.getExtent();
+                map.getView().fit(extent, { duration: 1000 });
+                document.body.style.cursor = 'default';  // Cursor normal
+            })
+            .catch(error => {
+              console.log('Error:', error);
+              document.body.style.cursor = 'default';  // Cursor normal
+            });
+    }
+
+
+    // UCBT  =========================================================================================
+    document.getElementById('ucbt').addEventListener('click', function() {
+        if (document.getElementById('ucbt').checked  === false) {
+            map.getLayers().forEach(function(layer, i) {
+                if (i > 0 && layer.get('name') === 'UCBT') {
+                    map.removeLayer(layer);  // Remove camada
+                }
+            });
+            return;
+        }
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
+        console.log(subestacao)
+        if (subestacao) {
+            loadUCBT(distribuidora, subestacao, circuito);
+        }
+    });
+
+    // Função para carregar consumidores de baixA tensão no mapa com base nos filtros
+    function loadUCBT(distribuidora, subestacao, circuito) {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+
+        fetch(`/api/UCBT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloUCBT(feature) {
+                    return new ol.style.Style({
+                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+
+                            crossOrigin: 'anonymous',
+                            anchor: [0, 0],
+                            scale: 0.30,
+                            src: 'static/icon/resid.jpg'
+                        }))
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: 'UCBT',
+                    source: vectorSource,
+                    style: estiloUCBT
+                });
+                map.addLayer(vectorLayer);
+
+                const extent = vectorSource.getExtent();
+                map.getView().fit(extent, { duration: 1000 });
+                document.body.style.cursor = 'default';  // Cursor normal
+            })
+            .catch(error => {
+              console.log('Error:', error);
+              document.body.style.cursor = 'default';  // Cursor normal
+            });
+    }
+
+    // trafos  =========================================================================================
+    document.getElementById('trafos').addEventListener('click', function() {
+
+        if (document.getElementById('trafos').checked  === false) {
+            map.getLayers().forEach(function(layer, i) {
+                if (i > 0 && layer.get('name') === 'trasformadores') {
+                    map.removeLayer(layer);  // Remove camada
+                }
+            });
+            return;
+        }
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
+        console.log(subestacao)
+        if (subestacao) {
+            loadTrafos(distribuidora, subestacao, circuito);
+        }
+    });
+
+    // Função para carregar trafos no mapa com base nos filtros
+    function loadTrafos(distribuidora, subestacao, circuito) {
+        document.body.style.cursor = 'wait';  // Cursor de espera
+        console.log(document.body.style.cursor)
+        fetch(`/api/trafos?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
+            .then(response => response.json())
+            .then(data => {
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para adicionar estilos baseados na cor de cada feature
+                function estiloTrafos(feature) {
+                    c = 'white'
+                    if (feature.get('tip') === '54') {
+                        c = '#ff0000';
+                    }
+                    return new ol.style.Style({
+                        image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            color: c,
+                            crossOrigin: 'anonymous',
+                            anchor: [0.5, 1],
+                            scale: 0.026,
+                            src: 'static/icon/tr.png'
+
+                        }))
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: 'trasformadores',
+                    source: vectorSource,
+                    style: estiloTrafos
+                });
+                map.addLayer(vectorLayer);
+
+                const extent = vectorSource.getExtent();
+                map.getView().fit(extent, { duration: 1000 });
+                document.body.style.cursor = 'default';  // Cursor normal
+            })
+            .catch(error => {
+              console.log('Error:', error);
+              document.body.style.cursor = 'default';  // Cursor normal
+            });
+    }
+
+
+    // summary
+    document.getElementById('summary').addEventListener('click', function() {
+        if (document.getElementById('summary').checked  === false) {
+            tabela = document.getElementById('table-header_0');
+            tabela.innerHTML = "";
+            tabela = document.getElementById('table-header_1');
+            tabela.innerHTML = "";
+            tabela = document.getElementById('table-header_2');
+            tabela.innerHTML = "";
+            tabela = document.getElementById('table-header_3');
+            tabela.innerHTML = "";
+            document.querySelectorAll("table tbody tr").forEach(function(e){e.remove()})
+
+            return;
+        }
+        const distribuidora = document.getElementById('distribuidora').value;
+        const subestacao = document.getElementById('subestacao').value;
+        const circuito = document.getElementById('circuito').value;
+
+        for (let i = 0; i < 4; i++) {
+            fetch(`/api/list?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}&idSummary=${i}`)
+                .then(response => response.json())
+                .then(data => {
+                    const header = document.getElementById('table-header_'+i);
+                    header.style.backgroundColor = '#d9d9d9'
+                    const body = document.getElementById('table-body_'+i);
+
+                    // Adicionar cabeçalhos da tabela
+                    if (data.length > 0) {
+                        Object.keys(data[0]).forEach(key => {
+                            const th = document.createElement('th');
+                            th.textContent = key;
+                            header.appendChild(th);
+                        });
+                    }
+
+                    // Adicionar linhas da tabela
+                    data.forEach(row => {
+                        const tr = document.createElement('tr');
+                        Object.values(row).forEach(value => {
+                            const td = document.createElement('td');
+                            td.textContent = value;
+                            tr.appendChild(td);
+                        });
+                        body.appendChild(tr);
+                    });
+                });
+        }
+    });
+
+
+    // localização por endereço
+    const geocoder = new Geocoder('nominatim', {
+        provider: 'mapquest',
+        key: '__some_key__',
+        lang: 'pt-BR', //en-US, fr-FR
+        placeholder: 'Search for ...',
+        //targetType: 'text-input',
+        limit: 5,
+        keepOpen: false,
+        debug: false
+    });
+    map.addControl(geocoder);
+
+    geocoder.on('addresschosen', (evt) => {
+        const feature = evt.feature,
+            coord = evt.coordinate,
+            address = evt.address;
+        geocoder.getSource().clear();
+        geocoder.getSource().addFeature(feature);
+
+        console.log(address.formatted)
+      // some popup solution
+      //content.innerHTML = '<p>' + address.formatted + '</p>';
+      //overlay.setPosition(coord);
+      //app.addMarker(feature, coord);
+    });
+
+
+
+</script>
+{% endblock %}
