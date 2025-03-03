@@ -1221,6 +1221,15 @@ def list_substation(dist):
 
     return list_sub['COD_ID'].tolist()
 
+def exec_sp_atualiza_v10(dist, data_base, engine):
+    query = f'''
+    DECLARE #return_value int
+    EXEC @return_value = [sde].[_ATUALIZA_V1.0] 
+        @dist = N'{dist}', 
+        @data_base = '{data_base}'
+    SELECT 'Return Value' = @return_value
+    '''
+    exec_query(query, engine)
 
 if __name__ == "__main__":
     """

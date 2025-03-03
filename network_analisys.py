@@ -20,7 +20,7 @@ def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
     :return:
     """
     with engine.connect() as conn:
-        ctmt_pac_ini = pd.read_sql_query(f"SELECT PAC, SUB, cod_id FROM SDE.CTMT Where SUB='{sub}'", conn)
+        ctmt_pac_ini = pd.read_sql_query(f"SELECT PAC_INI, SUB, cod_id FROM SDE.CTMT Where SUB='{sub}'", conn)
         for i in range(len(ctmt_pac_ini)):
             pac_ini = ctmt_pac_ini.iloc[i, 0]
             ctmt = ctmt_pac_ini.iloc[i, 2]
@@ -50,9 +50,15 @@ def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
             sql = f"SELECT PAC_1, PAC_2, COD_ID, ctmt FROM SDE.UNTRMT Where ctmt='{ctmt}' and SIT_ATIV='AT' "
             untrmt_pacs = pd.read_sql_query(sql, conn)
 
-            print(f"Total Trechos: {len(ssdmt_pacs)}, Chaves: {len(unsemt_pacs)}, Trafos: {len(untrmt_pacs)}")
+            # Reguladores MT
+            sql = f"SELECT PAC_1, PAC_2, COD_ID, ctmt FROM SDE.UNREMT Where ctmt='{ctmt}' and SIT_ATIV='AT' "
+            unremt_pacs = pd.read_sql_query(sql, conn)
 
-            total_seg = pd.concat([ssdmt_pacs, unsemt_pacs, untrmt_pacs], sort=False)
+
+            print(f"Total Trechos: {len(ssdmt_pacs)}, Chaves: {len(unsemt_pacs)}, "
+                  f"Trafos: {len(untrmt_pacs)} Reguladores: {len(untrmt_pacs)}")
+
+            total_seg = pd.concat([ssdmt_pacs, unsemt_pacs, untrmt_pacs, unremt_pacs], sort=False)
             # Construir o grafo
             graph = cs.build_graph(total_seg, start, end)
             # Encontrar e ordenar segmentos conectados usando DFS
@@ -65,7 +71,7 @@ def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
             print(f"Não conectados: {len(unconnected_segments)}")
             print(unconnected_segments)
 
-            print(ctmt + '\n')
+            print(f'CTMT: {ctmt} \n')
 
     print('Fim')
 

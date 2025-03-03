@@ -3,7 +3,7 @@ from datetime import datetime
 import time
 import os
 import logging
-from Tools.tools import load_config, create_connection, process_gdb_files, set_coords
+from Tools.tools import load_config, create_connection, process_gdb_files, set_coords, exec_sp_atualiza_v10
 
 # Configuração do logger
 logging.basicConfig(filename='processamento_dados.log', level=logging.INFO,
@@ -42,4 +42,9 @@ if __name__ == "__main__":
     # preenche as coordenadas para UGMT, UCMT, UGBT, UCBT
     print(f"Preenchendo coordenadas para UGMT, UCMT, UGBT, UCBT")
     set_coords(config_bdgd['dist'])
+    print(f"Processo concluído!")
+
+    # Executa a stored procedure de atualização da versão 10
+    print(f"Executando stored procedure de atualização da versão 1.0 da base de dados da BDGD")
+    exec_sp_atualiza_v10(config_bdgd['dist'])
     print(f"Processo concluído!")

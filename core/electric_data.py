@@ -211,7 +211,8 @@ class ElectricDataPort:
                             e.PER_FER, e.PER_TOT, e.R, e.XHL, e.CODBNC, e.GRU_TEN, e.COD_ID AS EQRE_COD_ID
                         FROM SDE.UNREMT AS c
                         INNER JOIN SDE.EQRE AS e 
-                            ON (c.PAC_1 = e.PAC_1 OR c.PAC_2 = e.PAC_2 OR c.PAC_1 = e.PAC_2 OR c.PAC_2 = e.PAC_1)
+                            ON (c.PAC_1 = e.PAC_1 OR c.PAC_2 = e.PAC_2 OR c.PAC_1 = e.PAC_2 OR c.PAC_2 = e.PAC_1) or 
+                            c.COD_ID = e.UN_RE
                         INNER JOIN [GEO_SIGR_DDAD_M10].sde.TPOTAPRT AS p ON p.COD_ID = e.POT_NOM
                         WHERE c.DIST = '{self.dist}' and c.sub='{self.sub}'  AND c.SIT_ATIV = 'AT'
                     ) AS g
@@ -228,7 +229,8 @@ class ElectricDataPort:
                             e.PER_FER, e.PER_TOT, e.R, e.XHL, e.CODBNC, e.GRU_TEN, e.COD_ID AS EQRE_COD_ID
                         FROM SDE.UNREMT AS c
                         INNER JOIN SDE.EQRE AS e 
-                            ON (c.PAC_1 = e.PAC_1 OR c.PAC_2 = e.PAC_2 OR c.PAC_1 = e.PAC_2 OR c.PAC_2 = e.PAC_1)
+                            ON (c.PAC_1 = e.PAC_1 OR c.PAC_2 = e.PAC_2 OR c.PAC_1 = e.PAC_2 OR c.PAC_2 = e.PAC_1) or 
+                            c.COD_ID = e.UN_RE
                         INNER JOIN [GEO_SIGR_DDAD_M10].sde.TPOTAPRT AS p ON p.COD_ID = e.POT_NOM
                         WHERE c.DIST = '{self.dist}' and c.sub='{self.sub}' and c.ctmt='{ctmt}' AND c.SIT_ATIV = 'AT'
                     ) AS g
@@ -1103,13 +1105,13 @@ def main():
     list_sub = get_substations_list(engine)
     print(list_sub)
 
-    # set 0 to multiprocessing
-    tip_process = 1
+    # set multiprocessing
+    run_multiprocess = False
 
     mes_ini = 12  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
 
-    if tip_process == 0:
+    if run_multiprocess:
         """
         list_sub = [['APA'], ['ARA'], ['ASP'], ['AVP'], ['BCU'], ['BIR'], ['BON'], ['CAC'], ['CAR'], ['CMB'], ['COL'],
                     ['CPA'], ['CRU'], ['CSO'], ['DBE'],
