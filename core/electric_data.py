@@ -517,7 +517,8 @@ class ElectricDataPort:
                 SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN, v.TEN, 
                      p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
                      p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12, 
-                     t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                     t.TIP_TRAFO, t.MRT, t.COD_ID as TR_COD_ID, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, 
+                     year(t.DATA_BASE) as ANO_BASE
                 FROM sde.PIP P  
                 inner join [GEO_SIGR_DDAD_M10].sde.tten as v on p.TEN_FORN = v.COD_ID
                 INNER JOIN sde.UNTRMT T
@@ -531,7 +532,8 @@ class ElectricDataPort:
                 SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN, v.TEN, 
                      p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
                      p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12, 
-                     t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                     t.TIP_TRAFO, t.MRT, t.COD_ID as TR_COD_ID, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, 
+                     year(t.DATA_BASE) as ANO_BASE
                 FROM sde.PIP P  
                 inner join [GEO_SIGR_DDAD_M10].sde.tten as v on p.TEN_FORN = v.COD_ID
                 INNER JOIN sde.UNTRMT T

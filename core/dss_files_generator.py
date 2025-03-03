@@ -77,15 +77,15 @@ class DssFilesGenerator:
             # Add transformer AT
             PerdaFerroTrafo_per = PerdaFerroTrafo
             PerdaCobreTrafo_per = PerdaTotalTrafo - PerdaFerroTrafo
-            # todos os circuits de um transformador AT deveriam ter a mesma tensão de operação!!!!
+            # Todos os circuits de um transformador AT deveriam ter a mesma tensão de operação!!!!
             # NA BDGD foram obtidos valores diferentes para cada circuito assim será adota o menor valor de operação.
-            # Pode existir um TR_AT sem circuitos associados (TR RESERVA) adotar ten_ope_pu = 1.0
+            # Pode existir um TR_AT sem circuitos associados (TR RESERVA) adotar ten_ope_pu=1.0
             if tr_name in set(circuits['UNI_TR_AT']):
                 ten_ope_pu = min(circuits[circuits['UNI_TR_AT'] == tr_name]['TEN_OPE'])
             else:
                 ten_ope_pu = '1.0'
 
-            # com acrescimo do regulador a tensão de operação do transformador AT deve ser 1.0 pu
+            # com acréscimo do regulador a tensão de operação do transformador AT deve ser 1.0 pu
             linhas_substation_dss.append(f'New Transformer.{tr_name} phases={numero_fases_transformador(lig_fas_p)} '
                                          f'windings={quantidade_enrolamentos(lig_fas_t, lig_fas_s)} '
                                          f'buses=[{nos_com_neutro_trafo(lig_fas_p, lig_fas_s, lig_fas_t, ten_lin_sec, tr_pac_1, tr_pac_2)}] '
@@ -125,7 +125,7 @@ class DssFilesGenerator:
                                          f'r1=0.001 r0=0.001 x1=0 x0=0 c1=0 c0=0 length=0.001 units=km switch=T')
 
             # Add monitor in start of circuit
-            # Não é necessario, pois esta sendo criado no arquivo monitor.dss de cada circuito
+            # Não é necessário, pois esta sendo criado no arquivo monitor.dss de cada circuito
             # linhas_substation_dss.append(f'New monitor.{cir_name}_m1  element=Line.SW_{cir_name} '
             #                             f'terminal=2 mode=1 ppolar=no')
 
@@ -168,7 +168,7 @@ class DssFilesGenerator:
         if tensao_operacao is None:
             tensao_operacao = '1.00'
 
-        # sem controle de tensão no inicio do circuito, não converge em alguns casos
+        # sem controle de tensão no início do circuito, não converge em alguns casos
         if f'{tensao_operacao:.2f}' == '1.00':
             comando = f'new "circuit.{codigo}" pu={tensao_operacao} basekv={str(base_kv)} bus1="{cod_barra_ini}"'
             # comando = comando + f" mvasc3=600 mvasc1=400"
@@ -297,7 +297,7 @@ class DssFilesGenerator:
         trafos.reset_index(drop=True, inplace=True)
 
         for index in range(trafos.shape[0]):
-            mrt = trafos.loc[index]['MRT']  # 1 indica transformador monofasico com retorno por terra
+            mrt = trafos.loc[index]['MRT']  # 1 indica transformador monofásico com retorno por terra
             circ = trafos.loc[index]['CTMT']
             codigo = trafos.loc[index]['COD_ID']
             lig_fas_eq = trafos.loc[index]['FAS_CON']
@@ -388,13 +388,10 @@ class DssFilesGenerator:
                                                           ten_lin_sec,
                                                           pac1,
                                                           pac2) + ']' \
-                                                                  ' conns=[' + conexoes_trafo(lig_fas_p, lig_fas_s,
-                                                                                              lig_fas_t) + ']' \
-                                                                                                           ' kvs=(' + kvs_trafo(
-                    tipo_trafo, lig_fas_p, lig_fas_s, lig_fas_t, float(kv1),
-                    float(ten_lin_sec)) + ')' \
-                                          ' kvas=(' + kvas_trafo(lig_fas_s, lig_fas_t, float(kva_nom)) + ')' \
-                                                                                                         ' %loadloss=' + f'{PerdaCobreTrafo_per:.6f}' + \
+                        ' conns=[' + conexoes_trafo(lig_fas_p, lig_fas_s, lig_fas_t) + ']' \
+                        ' kvs=(' + kvs_trafo(tipo_trafo, lig_fas_p, lig_fas_s, lig_fas_t, float(kv1), float(ten_lin_sec)) + ')' \
+                        ' kvas=(' + kvas_trafo(lig_fas_s, lig_fas_t, float(kva_nom)) + ')' \
+                        ' %loadloss=' + f'{PerdaCobreTrafo_per:.6f}' + \
                         ' %noloadloss=' + f'{PerdaFerroTrafo_per:.6f}'
 
                 linhas_trafos_dss.append(linha)
@@ -413,15 +410,11 @@ class DssFilesGenerator:
                                                           ten_lin_sec,
                                                           pac1,
                                                           pac2) + ']' \
-                                                                  ' conns=[' + conexoes_trafo(lig_fas_p, lig_fas_s,
-                                                                                              lig_fas_t) + ']' \
-                                                                                                           ' kvs=[' + kvs_trafo(
-                    tipo_trafo, lig_fas_p, lig_fas_s, lig_fas_t, float(kv1),
-                    float(ten_lin_sec)) + ']' \
-                                          ' taps=[' + tap_trafo(lig_fas_t, str(tap), codi_tipo_trafo) + ']' \
-                                                                                                        ' kvas=[' + kvas_trafo(
-                    lig_fas_s, lig_fas_t, float(kva_nom)) + ']' \
-                                                            ' %loadloss=' + f"{PerdaCobreTrafo_per:.6f}" + \
+                        ' conns=[' + conexoes_trafo(lig_fas_p, lig_fas_s, lig_fas_t) + ']' \
+                        ' kvs=[' + kvs_trafo(tipo_trafo, lig_fas_p, lig_fas_s, lig_fas_t, float(kv1), float(ten_lin_sec)) + ']' \
+                        ' taps=[' + tap_trafo(lig_fas_t, str(tap), codi_tipo_trafo) + ']' \
+                        ' kvas=[' + kvas_trafo(lig_fas_s, lig_fas_t, float(kva_nom)) + ']' \
+                        ' %loadloss=' + f"{PerdaCobreTrafo_per:.6f}" + \
                         ' %noloadloss=' + f"{PerdaFerroTrafo_per:.6f}"
                 linhas_trafos_dss.append(linha)
 
@@ -456,7 +449,7 @@ class DssFilesGenerator:
         """
         Utilizado para a caracterização das cargas de baixa e media tensão.
         Calcula a proporção de energia para um tipo de dia (DU, DO ou SA) e um tipo de curva de carga
-        esse valor é utilizado para calcular o valor de potencia da carga a partir da sua energia.
+        esse valor é utilizado para calcular o valor de potência da carga a partir da sua energia.
         :param curvas_carga:
         :param tipo_dia:
         :param tipo_curva:
@@ -542,7 +535,7 @@ class DssFilesGenerator:
         (caso tenha habilitado para “Neutralizar redes de terceiros”)
 
         O transformador é comentado no arquivo *.DSS (caso habilite a opção “Eliminar transformadores a vazio”),
-        e toda a rede BT a jusante dele também é comentada. (ainda nao implementadoa eliminação da rede a jusante!)
+        e toda a rede BT a jusante dele também é comentada. (ainda nao implementado eliminação da rede a jusante!)
         """
         linhas_trechos_dss.clear()
         linha = ''
@@ -620,21 +613,21 @@ class DssFilesGenerator:
                 linhas_cargas_dss.append('New "Load.MT_' + strName + '_M1" bus1="' + strBus + nos(
                     strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
                     strCodFas) + " model=2" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.5f}" +
-                                         " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+                    " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
                 linhas_cargas_dss.append('New "Load.MT_' + strName + '_M2" bus1="' + strBus + nos(
                     strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
                     strCodFas) + " model=3" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.5f}" +
-                                         " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+                    " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
             else:
                 if energy_mes == 0:
                     linhas_cargas_dss.append('!New "Load.MT_' + strName + '_M1" bus1="' + strBus + nos(
                         strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
                         strCodFas) + " model=2" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.5f}" +
-                                             " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+                        " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
                     linhas_cargas_dss.append('!New "Load.MT_' + strName + '_M2" bus1="' + strBus + nos(
                         strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
                         strCodFas) + " model=3" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.5f}" +
-                                             " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+                        " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
                 else:
                     # colocar o numero de dias de cada mes
                     num_dias = calendar.monthrange(ano_base, mes)[1]
@@ -650,11 +643,11 @@ class DssFilesGenerator:
                     linhas_cargas_dss.append('New "Load.MT_' + strName + '_M1" bus1="' + strBus + nos(
                         strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
                         strCodFas) + " model=2" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.7f}" +
-                                             " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+                        " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
                     linhas_cargas_dss.append('New "Load.MT_' + strName + '_M2" bus1="' + strBus + nos(
                         strCodFas) + '"' + " phases=" + numero_fases_carga(strCodFas) + " conn=" + ligacao_carga(
                         strCodFas) + " model=3" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.7f}" +
-                                             " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
+                        " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
 
     def get_lines_cargas_mt_ssdmt(self, curvas_carga,  trafos_mt_mt, trafos_mt_mt_seg, cargas, cargas_fc, linhas_cargas_dss, mes, tipo_dia):
 
@@ -789,7 +782,7 @@ class DssFilesGenerator:
             # if cargas_bt.loc[index]['CEG_GD'].strip() != '':
             #    ceg_gd = "_GD"
 
-            # No OpenDSS cargas nonofasicas ligadas a transformador em Delta Aberto dever ser a dois fios
+            # No OpenDSS cargas monofásicas ligadas em transformador em Delta Aberto dever ser a dois fios
             if codi_tipo_trafo == "DA":
                 if strCodFas == "AN" or strCodFas == "BN":
                     strCodFas = "ABN"
@@ -814,7 +807,7 @@ class DssFilesGenerator:
                     if len(strCodFas) == len(strCodFas_medidor):  # mesmo numero de fases
                         strCodFas = strCodFas_medidor
 
-            # casos onde a tensão do secundario vem zerada, então utilizar a tensão da carga
+            # casos onde a tensão do secundário vem zerada, então utilizar a tensão da carga
             if dblTenSecu_kV == 0:
                 if strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN':
                     dblTenSecu_kV = dblTen_carga * math.sqrt(3)
@@ -908,8 +901,10 @@ class DssFilesGenerator:
             strBus = cargas_pip.loc[index]['PAC_2']  # ligar as cargas PIP no secundario do transformador
             energy_mes = cargas_pip.loc[index]['ENE_' + str(strmes)]
             dblTenSecu_kV = cargas_pip.loc[index]['TEN_LIN_SE']
-            pip_dblTen = cargas_pip.loc[index]['TEN']
+            pip_dblTen = cargas_pip.loc[index]['TEN']/1000
             codi_tipo_trafo = cargas_pip.loc[index]['TIP_TRAFO']
+            trafo_mrt = cargas_pip.loc[index]['MRT']
+            trafo_id = cargas_pip.loc[index]['TR_COD_ID']
             dblDemMaxTrafo_kW = cargas_pip.loc[index]['POT_NOM'] * 0.92  # kVA
             ano_base = cargas_pip.loc[index]['ANO_BASE']
 
@@ -920,23 +915,23 @@ class DssFilesGenerator:
 
             intTipTrafo = get_tipo_trafo(codi_tipo_trafo)
 
-            # casos onde a tensão do secundario vem zerada, então utilizar a tensão da carga
+            # casos onde a tensão do secundário vem zerada, então utilizar a tensão da carga
             if dblTenSecu_kV == 0:
-                if intTipTrafo == 1:  # transformador Monofasico
+                if intTipTrafo == 1:  # transformador Monofásico
                     dblTenSecu_kV = pip_dblTen
                 if intTipTrafo == 2:  # Transformador MRT
                     if strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN':
                         dblTenSecu_kV = pip_dblTen * 2
                     else:
                         dblTenSecu_kV = pip_dblTen
-                if intTipTrafo == 3:  # transformador bifasico
+                if intTipTrafo == 3:  # transformador bifásico
                     dblTenSecu_kV = pip_dblTen
-                if intTipTrafo == 4:  # transformador trifasico
+                if intTipTrafo == 4:  # transformador trifásico
                     if strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN':
                         dblTenSecu_kV = pip_dblTen * math.sqrt(3)
                     else:
                         dblTenSecu_kV = pip_dblTen
-                if intTipTrafo == 5:  # transformador Monofasico
+                if intTipTrafo == 5:  # transformador Monofásico
                     dblTenSecu_kV = pip_dblTen
                 if intTipTrafo == 6:  # transformador delta aberto
                     if strCodFas == 'AN':
@@ -945,7 +940,7 @@ class DssFilesGenerator:
                         strCodFas = 'AB'
                     if strCodFas == 'CN':
                         strCodFas = 'CA'
-                    dblTenSecu_kV = pip_dblTen  # possivel problema
+                    dblTenSecu_kV = pip_dblTen  # TODO possível problema!
 
             num_dias = calendar.monthrange(ano_base, mes)[1]
 
@@ -1332,6 +1327,7 @@ class DssFilesGenerator:
         """ Função para gerar os Medidores do arquivo MEDIDORES>DSS """
         linha_medidores_dss.clear()
         momitors_dict = monitors.to_dict('records')
+        # TODO verifiar a possibilidade de remover o medidor da chave
         for medidor in momitors_dict:
             if medidor['ELEM'] == 'SSDMT':
                 tipo_elem = 'SEGMMT'

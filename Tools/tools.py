@@ -34,10 +34,9 @@ def create_connection_pyodbc(config_bdgd):
     conn_str = (
             'DRIVER={ODBC Driver 17 for SQL Server};'
             'SERVER=' + config_bdgd['databases']['server'] + ';'
-                                                             'DATABASE=' + config_bdgd['databases']['database'] + ';'
-                                                                                                                  'UID=' +
-            config_bdgd['databases']['username'] + ';'
-                                                   'PWD=' + config_bdgd['databases']['password']
+            'DATABASE=' + config_bdgd['databases']['database'] + ';'
+            'UID=' + config_bdgd['databases']['username'] + ';'
+            'PWD=' + config_bdgd['databases']['password']
     )
     return pyodbc.connect(conn_str)
 
@@ -226,8 +225,11 @@ def process_gdb_files(gdb_file, engine, schema, data_base, data_carga, column_re
                         df['POINT_X'] = df['geometry'].x  # lon
 
                     if df.iloc[0]['geometry'].geom_type == 'MultiPolygon':
-                        df['POINT_Y'] = df['geometry'].centroid.y  # lat
-                        df['POINT_X'] = df['geometry'].centroid.x  # lon
+                        # df['POINT_Y'] = df['geometry'].centroid.y  # lat
+                        # df['POINT_X'] = df['geometry'].centroid.x  # lon
+                        # CRS SISGRAS 2000
+                        df['POINT_Y'] = df['geometry'].to_crs('EPSG:4674').centroid.to_crs(df.crs).y
+                        df['POINT_X'] = df['geometry'].to_crs('EPSG:4674').centroid.to_crs(df.crs).x
 
                     if df.iloc[0]['geometry'].geom_type == 'MultiLineString':
                         bounds = df.geometry.boundary.explode(index_parts=True).unstack()
@@ -326,10 +328,10 @@ def write_to_dss(dist, sub, circuito, linhas_arquivos_list: list, nome_arquivo: 
     :param nome_arquivo:
     :param circuito:
     :param sub:
-    :param linhas_arquivos_list: lista de dicionários, sendo um referente a cada circuito.
+    :param linhas_arquivos_list: Lista de dicionários, sendo um referente a cada circuito.
     :return: bool
     """
-    # Escreve os arquivos DSS, sendo agrupados em um diretório para cada circuito
+    # Escreve os arquivos DSS, sendo agrupados num diretório para cada circuito
     if circuito == '':
         nome_arquivo += '_' + sub
     else:
@@ -597,7 +599,7 @@ def kvas_trafo(strCodFas2, strCodFas3, dblPotNom_kVA) -> str:
 def tensao_enrolamento(strCodFas, dblTensao_kV):
     """
     Uma vez que o manual da BDGD aponta que esta tensão já é a tensão do equipamento em si,
-     basta adotar estão tensão informada, sem precisar divir por raiz de 3.
+     basta adotar estão tensão informada, sem precisar dividir por raiz de 3.
     :param strCodFas:
     :param dblTensao_kV:
     :return:
@@ -784,8 +786,8 @@ def numero_fases_carga_dss(strFases):
 
 
 def ligacao_gerador(strCodFas, tip_trafo=None):
-    # Para gerador bt ligado no secundario do transformador, caso o transformador for tipo Delta Aberto
-    # e o gerador trifasico a conexão do gerador deverá ser Delta
+    # Para gerador bt ligado no secundário do transformador, caso o transformador for tipo Delta Aberto
+    # e o gerador trifásico a conexão do gerador deverá ser Delta
     if strCodFas == "ABCN" and tip_trafo == 'DA':
         return "Delta"
     if strCodFas == "A" or strCodFas == "B" or strCodFas == "C" or strCodFas == "AN" or strCodFas == "BN" or \
@@ -802,7 +804,7 @@ def get_coord_load(dist, load):
     config = load_config(dist)
     engine = create_connection(config)
 
-    # coordenadas a aprtir dos dados dos geradores na mesma instalação do consumidor bt
+    # coordenadas a partir dos dados dos geradores na mesma instalação do consumidor bt
     query_coods = f''' select POINT_X as x, POINT_Y as y
                        from sde.UCBT               
                        where COD_ID = '{load}'           
@@ -870,7 +872,7 @@ def set_coords(dist):
     result = engine.execute(query_ucmt_ponnot)
     print(f'coords UCMT: {result.rowcount}')
 
-    "Verifica se existem consumidores com coordenadas nulas e utiliza o segmento para associar as cordenadas deles"
+    "Verifica se existem consumidores com coordenadas nulas e utiliza o segmento para associar as coordenadas deles"
     query_coods_ucmt_ssdmt = f'''  
             update sde.ucmt set [POINT_Y] = q.Y, [POINT_X] = q.x
                 FROM (
@@ -920,7 +922,7 @@ def set_coords(dist):
     result = engine.execute(query_coods_ucbt_ponnot)
     print(f'coords UCBT: {result.rowcount}')
 
-    # coordenadas a aprtir dos dados dos geradores na mesma instalação do consumidor bt
+    # coordenadas a partir dos dados dos geradores na mesma instalação do consumidor bt
     query_coods_ucbt_ugbt = f'''
         update sde.ucbt set [POINT_Y] = q.Y, [POINT_X] = q.x
             FROM (
@@ -933,7 +935,7 @@ def set_coords(dist):
     x = engine.execute(query_coods_ucbt_ugbt)
     print(f'coords UCBT_UGBT: {x.rowcount} - time:{round(time.time() - proc_time_ini, 2)} seg')
 
-    "Verifica se existem consumidores BT com coordenadas nulas e utiliza o segmento BT para associar suas cordenadas"
+    "Verifica se existem consumidores BT com coordenadas nulas e utiliza o segmento BT para associar suas coordenadas"
     subs = return_query_as_dataframe("select cod_id from sde.sub where pos='PD' order by cod_id", engine)
     for sub in subs['cod_id']:
         query_coods_ucbt_ssdmt = f'''  
@@ -1001,17 +1003,18 @@ def set_coords(dist):
 
 def ajust_eqre_codbanc(dist, engine):
     """
-    Obtém os valores de CodBNC a partir da sequencia de dados da UNREMT
-    :return: Dicionário com os codi_id da tabela EQRE com os respectivos valores de CodBNC
+    Obtém os valores de CodBNC a partir da sequência de dados da UNREMT
+    :return: Dicionário com os codi_id da tabela EQRE com os respetivos valores de CodBNC
     """
     query = f'''
-         SELECT c.COD_ID, c.PAC_1, c.PAC_2, c.Sub, c.TIP_REGU, c.BANC, c.FAS_CON, c.CTMT,
-                e.cod_id as COD_ID_RE, e.[POT_NOM], e.[TEN_REG], e.[LIG_FAS_P], e.[LIG_FAS_S], e.[COR_NOM], 
-                e.[REL_TP], e.[REL_TC], e.[PER_FER], e.[PER_TOT], e.[R], e.[XHL], e.[CodBnc], e.[GRU_TEN]
-         FROM SDE.UNREMT as c, SDE.EQRE as e 
-         WHERE c.dist = '{dist}' and c.SIT_ATIV = 'AT' and 
-         (c.pac_1 = e.pac_1 or c.pac_2 = e.pac_2 or c.pac_1 = e.pac_2 or c.pac_2 = e.pac_1) order by c.[COD_ID]
-         ;
+        SELECT c.COD_ID, c.PAC_1, c.PAC_2, c.Sub, c.TIP_REGU, c.BANC, c.FAS_CON, c.CTMT,
+            e.cod_id as COD_ID_RE, e.[POT_NOM], e.[TEN_REG], e.[LIG_FAS_P], e.[LIG_FAS_S], e.[COR_NOM], 
+            e.[REL_TP], e.[REL_TC], e.[PER_FER], e.[PER_TOT], e.[R], e.[XHL], e.[CodBnc], e.[GRU_TEN]
+        FROM SDE.UNREMT as c, SDE.EQRE as e 
+        WHERE c.dist = '{dist}' and c.SIT_ATIV = 'AT' and 
+        (c.pac_1 = e.pac_1 or c.pac_2 = e.pac_2 or c.pac_1 = e.pac_2 or c.pac_2 = e.pac_1) or c.COD_ID = e.UN_RE
+        Order by c.[COD_ID] 
+        ;
     '''
     eqre_data = return_query_as_dataframe(query, engine)
     # codbanc_re = []
@@ -1190,7 +1193,7 @@ def temp_amb_to_temp_pv(crv_g=None, crv_ta=None) -> dict:
 
 def fator_autoconsumo(classe):
     """
-    Fatores tipicos de autoconsumo definido pela EPE
+    Fatores típicos de autoconsumo definido pela EPE
     :param classe:
     :return:
     """
@@ -1204,7 +1207,7 @@ def fator_autoconsumo(classe):
 
 def list_substation(dist):
     """
-    Busta a lista de codigos de subestações proprias de uma distribuidora.
+    Busca a lista de códigos de subestações próprias de uma distribuidora.
     :param dist:
     :return:
     """
@@ -1222,6 +1225,13 @@ def list_substation(dist):
     return list_sub['COD_ID'].tolist()
 
 def exec_sp_atualiza_v10(dist, data_base, engine):
+    """
+    Executa stored procedure no banco de dados para atualização de pacs.
+    :param dist:
+    :param data_base:
+    :param engine:
+    :return:
+    """
     query = f'''
     DECLARE #return_value int
     EXEC @return_value = [sde].[_ATUALIZA_V1.0] 
