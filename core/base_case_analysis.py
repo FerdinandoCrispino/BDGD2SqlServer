@@ -29,7 +29,7 @@ master_month = "12"
 master_data_base = "2022"
 
 # set run multiprocess
-tip_process = False
+run_multiprocess = False
 
 config = load_config(dist)
 engine = create_connection(config)
@@ -645,7 +645,7 @@ class SimuladorOpendss:
 if __name__ == '__main__':
 
     proc_time_ini = time.time()
-    if tip_process:
+    if run_multiprocess:
         """
         list_sub = [['APA'], ['ARA'], ['ASP'], ['AVP'], ['BCU'], ['BIR'], ['BON'], ['CAC'], ['CAR'], ['CMB'], ['COL'],
                     ['CPA'], ['CRU'], ['CSO'], ['DBE'],

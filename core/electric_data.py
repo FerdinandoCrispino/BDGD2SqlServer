@@ -211,7 +211,8 @@ class ElectricDataPort:
                             e.PER_FER, e.PER_TOT, e.R, e.XHL, e.CODBNC, e.GRU_TEN, e.COD_ID AS EQRE_COD_ID
                         FROM SDE.UNREMT AS c
                         INNER JOIN SDE.EQRE AS e 
-                            ON (c.PAC_1 = e.PAC_1 OR c.PAC_2 = e.PAC_2 OR c.PAC_1 = e.PAC_2 OR c.PAC_2 = e.PAC_1)
+                            ON (c.PAC_1 = e.PAC_1 OR c.PAC_2 = e.PAC_2 OR c.PAC_1 = e.PAC_2 OR c.PAC_2 = e.PAC_1) or 
+                            c.COD_ID = e.UN_RE
                         INNER JOIN [GEO_SIGR_DDAD_M10].sde.TPOTAPRT AS p ON p.COD_ID = e.POT_NOM
                         WHERE c.DIST = '{self.dist}' and c.sub='{self.sub}'  AND c.SIT_ATIV = 'AT'
                     ) AS g
@@ -228,7 +229,8 @@ class ElectricDataPort:
                             e.PER_FER, e.PER_TOT, e.R, e.XHL, e.CODBNC, e.GRU_TEN, e.COD_ID AS EQRE_COD_ID
                         FROM SDE.UNREMT AS c
                         INNER JOIN SDE.EQRE AS e 
-                            ON (c.PAC_1 = e.PAC_1 OR c.PAC_2 = e.PAC_2 OR c.PAC_1 = e.PAC_2 OR c.PAC_2 = e.PAC_1)
+                            ON (c.PAC_1 = e.PAC_1 OR c.PAC_2 = e.PAC_2 OR c.PAC_1 = e.PAC_2 OR c.PAC_2 = e.PAC_1) or 
+                            c.COD_ID = e.UN_RE
                         INNER JOIN [GEO_SIGR_DDAD_M10].sde.TPOTAPRT AS p ON p.COD_ID = e.POT_NOM
                         WHERE c.DIST = '{self.dist}' and c.sub='{self.sub}' and c.ctmt='{ctmt}' AND c.SIT_ATIV = 'AT'
                     ) AS g
@@ -515,7 +517,8 @@ class ElectricDataPort:
                 SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN, v.TEN, 
                      p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
                      p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12, 
-                     t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                     t.TIP_TRAFO, t.MRT, t.COD_ID as TR_COD_ID, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, 
+                     year(t.DATA_BASE) as ANO_BASE
                 FROM sde.PIP P  
                 inner join [GEO_SIGR_DDAD_M10].sde.tten as v on p.TEN_FORN = v.COD_ID
                 INNER JOIN sde.UNTRMT T
@@ -529,7 +532,8 @@ class ElectricDataPort:
                 SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN, v.TEN, 
                      p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
                      p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12, 
-                     t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                     t.TIP_TRAFO, t.MRT, t.COD_ID as TR_COD_ID, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, 
+                     year(t.DATA_BASE) as ANO_BASE
                 FROM sde.PIP P  
                 inner join [GEO_SIGR_DDAD_M10].sde.tten as v on p.TEN_FORN = v.COD_ID
                 INNER JOIN sde.UNTRMT T
@@ -1103,13 +1107,13 @@ def main():
     list_sub = get_substations_list(engine)
     print(list_sub)
 
-    # set 0 to multiprocessing
-    tip_process = 1
+    # set multiprocessing
+    run_multiprocess = False
 
     mes_ini = 12  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
 
-    if tip_process == 0:
+    if run_multiprocess:
         """
         list_sub = [['APA'], ['ARA'], ['ASP'], ['AVP'], ['BCU'], ['BIR'], ['BON'], ['CAC'], ['CAR'], ['CMB'], ['COL'],
                     ['CPA'], ['CRU'], ['CSO'], ['DBE'],
