@@ -189,18 +189,17 @@ class DssFilesGenerator:
         """ Função para gerar as linhas (DSS) referentes às chaves de um determinado circuito """
         linhas_chaves_dss.clear()
         switch = ''
+        switch_coments = ''
         for index in range(chaves.shape[0]):
             sw = chaves.loc[index]['P_N_OPE']
-            if sw == 'F':  # chave fechada
-                switch = 'T'
-            elif sw == 'A':  # chave aberta
-                switch = 'F'
+            if sw == 'A':  # chave aberta
+                switch_coments = '!' # comentar a criação da chave no arquivo OpenDSS quando a chave for aberta.
 
-            linha = 'New "Line.CMT_' + chaves.loc[index]['COD_ID'] + '"' + " phases=" + \
+            linha = switch_coments + 'New "Line.CMT_' + chaves.loc[index]['COD_ID'] + '"' + " phases=" + \
                     numero_fases_segmento(chaves.loc[index]['FAS_CON']) + \
                     " bus1=" + '"' + chaves.loc[index]['PAC_1'] + nos_com_neutro(chaves.loc[index]['FAS_CON']) + '"' + \
                     " bus2=" + '"' + chaves.loc[index]['PAC_2'] + nos_com_neutro(chaves.loc[index]['FAS_CON']) + '"' + \
-                    " r1=0.001 r0=0.001 x1=0 x0=0 c1=0 c0=0 length=0.001 switch=" + switch
+                    " r1=0.001 r0=0.001 x1=0 x0=0 c1=0 c0=0 length=0.001 Switch=y "
             linhas_chaves_dss.append(linha)
 
     def get_lines_reguladores(self, reatores, trafos_mt_mt, trafos_mt_mt_seg, linhas_reguladores_dss):
