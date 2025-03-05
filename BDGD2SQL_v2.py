@@ -45,6 +45,6 @@ if __name__ == "__main__":
     print(f"Processo concluído!")
 
     # Executa a stored procedure de atualização da versão 10
-    print(f"Executando stored procedure de atualização da versão 1.0 da base de dados da BDGD")
-    exec_sp_atualiza_v10(config_bdgd['dist'])
+    print(f"Executando stored procedure de atualização da versão 1.0 da base de dados da BDGD {config_bdgd['dist']}")
+    exec_sp_atualiza_v10(config_bdgd['dist'], data_base, engine)
     print(f"Processo concluído!")

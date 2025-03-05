@@ -1224,6 +1224,7 @@ def list_substation(dist):
 
     return list_sub['COD_ID'].tolist()
 
+
 def exec_sp_atualiza_v10(dist, data_base, engine):
     """
     Executa stored procedure no banco de dados para atualização de pacs.
@@ -1233,13 +1234,29 @@ def exec_sp_atualiza_v10(dist, data_base, engine):
     :return:
     """
     query = f'''
-    DECLARE #return_value int
+    DECLARE @return_value int
     EXEC @return_value = [sde].[_ATUALIZA_V1.0] 
         @dist = N'{dist}', 
         @data_base = '{data_base}'
     SELECT 'Return Value' = @return_value
     '''
-    exec_query(query, engine)
+    connection = engine.raw_connection()
+    sleep = 0
+    timeout = 200
+    try:
+        cursor = connection.cursor()
+        cursor.execute(query)
+        while cursor.nextset():
+            if sleep >= timeout:
+                break
+            time.sleep(1)
+            sleep += 1
+        # print(sleep)
+        cursor.close()
+        connection.commit()
+    finally:
+        connection.close()
+
 
 if __name__ == "__main__":
     """
