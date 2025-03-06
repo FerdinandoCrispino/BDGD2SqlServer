@@ -11,7 +11,7 @@ import json
 import logging
 import time
 from Tools.tools import circuit_by_bus, load_config, create_connection
-from electric_data import get_substations_list
+from core.electric_data import get_substations_list
 from multiprocessing import Pool, cpu_count
 
 matplotlib.use('TKAgg')
