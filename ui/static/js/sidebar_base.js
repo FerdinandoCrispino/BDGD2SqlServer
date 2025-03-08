@@ -45,15 +45,20 @@ document.getElementById('distribuidora').addEventListener('change', function() {
 document.getElementById('subestacao').addEventListener('change', function() {
     var subestacao = this.value;
     var sub = subestacao.split(",");
-    fetch(`/api/circuitos/${subestacao}`)
-        .then(response => response.json())
-        .then(circuitos => {
-            var circuitoSelect = document.getElementById('circuito');
-            circuitoSelect.innerHTML = '<option value="">All</option>';
-            circuitos.forEach(function(circuito) {
-                circuitoSelect.innerHTML += `<option value="${circuito[1]}">${circuito[0]}</option>`;
+    var circuitoSelect = document.getElementById('circuito');
+    console.log(subestacao)
+    if (subestacao == '') {
+        circuitoSelect.innerHTML = '<option value="">Select</option>';
+    } else {
+        fetch(`/api/circuitos/${subestacao}`)
+            .then(response => response.json())
+            .then(circuitos => {
+                circuitoSelect.innerHTML = '<option value="">All</option>';
+                circuitos.forEach(function (circuito) {
+                    circuitoSelect.innerHTML += `<option value="${circuito[1]}">${circuito[0]}</option>`;
+                });
             });
-        });
+    }
 });
 
 // Função para carregar os meses no combo de seleção de meses

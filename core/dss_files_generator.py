@@ -189,8 +189,9 @@ class DssFilesGenerator:
         """ Função para gerar as linhas (DSS) referentes às chaves de um determinado circuito """
         linhas_chaves_dss.clear()
         switch = ''
-        switch_coments = ''
+
         for index in range(chaves.shape[0]):
+            switch_coments = ''
             sw = chaves.loc[index]['P_N_OPE']
             if sw == 'A':  # chave aberta
                 switch_coments = '!' # comentar a criação da chave no arquivo OpenDSS quando a chave for aberta.
