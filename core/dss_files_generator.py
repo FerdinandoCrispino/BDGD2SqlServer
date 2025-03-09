@@ -230,16 +230,19 @@ class DssFilesGenerator:
             if dblkvREG != round(ctmt_vll/np.sqrt(3), 4):
                 dblkvREG = round(ctmt_vll/np.sqrt(3), 4)
 
-            if strTipRegul == 'T' and numero_fases_transformador(strCodFasPrim) == 3:
+            # Para os casos abaixo será adotado a tensão de linha para o regulador de tensão
+            if strTipRegul == 'T' and numero_fases(strCodFasPrim) == 3:
                 dblkvREG = vll = round(tens_regulador(dblTensaoPrimTrafo_kV) * np.sqrt(3), 4)  # 'tensão de linha'
-
+            # no regulador o numero de fases do primário deve ser igual ao número de fases do secundário
+            if strTipRegul  == 'DF' and numero_fases(strCodFasPrim) == 2:
+                dblkvREG = ctmt_vll
             # análise de dados conflitantes
             if strTipRegul in ('DF', 'DA') and intBanc == 0:  # considera informação do DF ou DA sobre a codFas
                 # Usar tensão de linha
                 dblkvREG = ctmt_vll
 
             # A tensão do regulador pode não ser a tensão do circuito (kv_nom) quando existir um
-            # transformador MT-MT no circuito. Neste caso se deve verificar se o capacitor está
+            # transformador MT-MT no circuito. Neste caso se deve verificar se o regulador está
             # instalado a jusante ou a montante do transformador MT-MT.
             if trafos_mt_mt_seg:
                 find_reg = list(filter(lambda x: strBus1 in x, trafos_mt_mt_seg))

@@ -1,7 +1,7 @@
 
 
 function daily_load(dist, sub, circ, scenario) {
-    document.body.style.cursor = 'wait';  // Cursor de espera
+    document.body.style.cursor = 'progress';  // Cursor de espera
     fetch(`/daily_power_circuit?distribuidora=${dist}&subestacao=${sub}&circuito=${circ}&scenario=${scenario}`)  // Atenção ao tipo de aspas - backticks
         .then(response => response.json())
         .then(data => {
@@ -531,6 +531,7 @@ function losses(dist) {
                     ]
                 },
                 options: {
+                    maintainAspectRatio: false,
                     scales: {
                         x: {
                             labels: groupLabel1,
@@ -592,6 +593,7 @@ function losses(dist) {
                     ]
                 },
                 options: {
+                    maintainAspectRatio: false,
                     scales: {
                         x: {
                             labels: groupLabel1,

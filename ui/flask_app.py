@@ -86,7 +86,7 @@ def daily_power_circuit():
 
     if not list_data:
         print(f'Dados inexistentes {path_conf}')
-        return jsonify({"error": str(e)}), 404
+        return jsonify("error Dados inexistentes"), 404
 
     list_data = sorted(list_data, key=lambda x: (x['tipo_dia'], x['ctmt']))
     return jsonify(list_data)
