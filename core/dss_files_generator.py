@@ -234,7 +234,7 @@ class DssFilesGenerator:
             if strTipRegul == 'T' and numero_fases(strCodFasPrim) == 3:
                 dblkvREG = vll = round(tens_regulador(dblTensaoPrimTrafo_kV) * np.sqrt(3), 4)  # 'tensão de linha'
             # no regulador o numero de fases do primário deve ser igual ao número de fases do secundário
-            if strTipRegul  == 'DF' and numero_fases(strCodFasPrim) == 2:
+            if strTipRegul  in ('DF', 'DA') and numero_fases(strCodFasPrim) == 2:
                 dblkvREG = ctmt_vll
             # análise de dados conflitantes
             if strTipRegul in ('DF', 'DA') and intBanc == 0:  # considera informação do DF ou DA sobre a codFas

@@ -1,17 +1,11 @@
 {% extends 'base.html' %}
 
-{% block title %}Mapa{% endblock %}
+{% block title %}DER Analysis Mapa{% endblock %}
 
 {% block content %}
 
 {% include 'nav_dash.html' %}
 
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/1.1.1/chartjs-plugin-zoom.min.js"></script>
-
-<canvas id="myChart1" width="400" height="150"></canvas>
-<canvas id="myChart2" width="400" height="150"></canvas>
 <script>
     fetch('/data_losses')
         .then(response => response.json())
@@ -43,6 +37,7 @@
                     ]
                 },
                 options: {
+                    maintainAspectRatio: false,
                     scales: {
                         x: {
                             labels: groupLabel1,
@@ -104,6 +99,7 @@
                     ]
                 },
                 options: {
+                    maintainAspectRatio: false,
                     scales: {
                         x: {
                             labels: groupLabel1,
