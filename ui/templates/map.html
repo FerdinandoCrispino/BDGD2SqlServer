@@ -137,6 +137,8 @@
 <link href="https://cdn.jsdelivr.net/npm/ol-geocoder/dist/ol-geocoder.min.css" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/ol-geocoder/dist/ol-geocoder.js"></script>
 
+<script src="{{url_for('static', filename='js/sidebar_base.js') }}"></script>
+
 <script>
     var slider = document.getElementById("myRange");
     var hour = document.getElementById("hour");
@@ -151,41 +153,6 @@
             var link = document.getElementById('applyFilters');
             link.click();
         }
-    }
-
-    // preenche combo com a lista de tipos de scenarios ============================================================
-    const scenariosSelect = document.getElementById("scenarios");
-    function populateScenarios(){
-        fetch('/list_scenarios')
-            .then(response => response.json())
-            .then(list_scenarios => {
-                console.log(list_scenarios)
-                for(let i = 0; i < list_scenarios.length; i++){
-                    const option = document.createElement('option');
-                    option.textContent = list_scenarios[i].toUpperCase();
-                    option.value = list_scenarios[i];
-                    scenariosSelect.appendChild(option);
-                }
-            });
-    };
-    populateScenarios();
-
-
-    const monthSelect = document.getElementById("meses");
-    const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October',
-    'November', 'December'];
-    //Months are always the same
-    (function populateMonths(){
-        for(let i = 1; i <= months.length; i++){
-            const option = document.createElement('option');
-            option.textContent = months[i-1];
-            option.value = i;
-            monthSelect.appendChild(option);
-        }
-        monthSelect.value = "1";
-    })();
-    monthSelect.onchange = function() {
-        //populateDays(monthSelect.value);
     }
 
     // Verifica se existe o arquivo
@@ -252,7 +219,7 @@
         target: 'map',
         layers: [
             new ol.layer.Tile({
-                name: 'Mapa Base',
+                name: 'Base Map',
                 source: new ol.source.OSM(),
                 opacity: 0.75  // 0 até 1
             })
@@ -686,46 +653,6 @@
     }
 
 
-    // Função para carregar subestações com base na distribuidora selecionada
-    document.getElementById('distribuidora').addEventListener('change', function() {
-        const distribuidora = this.value;
-        const circuitoSelect = document.getElementById('circuito');
-
-
-        // Atualiza o link do Dashboard com o parâmetro distribuidora
-        var dashboardLink = document.querySelector('a[href="/dashboard"]');
-        if (dashboardLink) {
-            dashboardLink.href = `/dashboard?codigoDistribuidora=${distribuidora}`;
-        }
-
-        fetch(`/api/subestacoes/${distribuidora}`)
-            .then(response => response.json())
-            .then(subestacoes => {
-                var subestacaoSelect = document.getElementById('subestacao');
-                subestacaoSelect.innerHTML = '<option value="">Select</option>';
-                subestacoes.forEach(function(subestacao) {
-                    subestacaoSelect.innerHTML += `<option value="${subestacao[0]}">${subestacao[2]}</option>`;
-                });
-                circuitoSelect.innerHTML = '<option value="">Select</option>';
-            });
-    });
-
-    // Função para carregar circuitos com base na subestação selecionada
-    document.getElementById('subestacao').addEventListener('change', function() {
-        var subestacao = this.value;
-        var sub = subestacao.split(",");
-        fetch(`/api/circuitos/${subestacao}`)
-            .then(response => response.json())
-            .then(circuitos => {
-                var circuitoSelect = document.getElementById('circuito');
-                circuitoSelect.innerHTML = '<option value="">All</option>';
-                circuitos.forEach(function(circuito) {
-                    circuitoSelect.innerHTML += `<option value="${circuito[1]}">${circuito[0]}</option>`;
-                });
-            });
-    });
-
-
     //loadSSDAT
     function loadSSDAT() {
         document.body.style.cursor = 'wait';  // Cursor de espera
@@ -740,6 +667,8 @@
         fetch(`/api/ssdat?distribuidora=${distribuidora}`)
             .then(response => response.json())
             .then(data => {
+                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'
@@ -775,6 +704,8 @@
         fetch(`/api/subat?distribuidora=${distribuidora}`)
             .then(response => response.json())
             .then(data => {
+                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'
@@ -810,6 +741,8 @@
         fetch(`/api/gerador_at?distribuidora=${distribuidora}`)
             .then(response => response.json())
             .then(data => {
+                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'
@@ -862,6 +795,8 @@
         fetch(url)
             .then(response => response.json())
             .then(data => {
+                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'
@@ -891,6 +826,13 @@
                   for(var i=0, n=checkboxes.length;i<n;i++) {
                     checkboxes[i].checked = false;
                   }
+
+                map.getLayers().forEach(function(layer, i) {
+                    console.log(layer.get('name'))
+                    if (layer.get('name') === subestacao) {
+                        map.removeLayer(layer);  // Remove camada existente
+                    }
+                });
                 map.addLayer(vectorLayer);
 
                 const extent = vectorSource.getExtent();
@@ -948,6 +890,8 @@
         fetch(`/api/SUB?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
             .then(response => response.json())
             .then(data => {
+                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'
@@ -1009,8 +953,16 @@
         document.body.style.cursor = 'wait';  // Cursor de espera
 
         fetch(`/api/UGBT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 404) {
+                    console.error("Erro 404: Recurso não encontrado.");
+                    return;
+                }
+                return response.json();
+            })
             .then(data => {
+                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'
@@ -1072,8 +1024,16 @@
         document.body.style.cursor = 'wait';  // Cursor de espera
 
         fetch(`/api/UNSEMT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 404) {
+                    console.error("Erro 404: Recurso não encontrado.");
+                    return;
+                }
+                return response.json();
+            })
             .then(data => {
+                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'
@@ -1134,8 +1094,16 @@
         document.body.style.cursor = 'wait';  // Cursor de espera
 
         fetch(`/api/UNCRMT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 404) {
+                    console.error("Erro 404: Recurso não encontrado.");
+                    return;
+                }
+                return response.json();
+            })
             .then(data => {
+                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'
@@ -1195,8 +1163,16 @@
         document.body.style.cursor = 'wait';  // Cursor de espera
 
         fetch(`/api/UNREMT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
-            .then(response => response.json())
+            .then(response => {
+                if (response.status === 404) {
+                    console.error("Erro 404: Recurso não encontrado.");
+                    return;
+                }
+                return response.json();
+            })
             .then(data => {
+                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'
@@ -1260,9 +1236,16 @@
         document.body.style.cursor = 'wait';  // Cursor de espera
 
         fetch(`/api/UGMT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
-            .then(response => response.json())
-            .catch(err => console.error(err))
+            .then(response => {
+                if (response.status === 404) {
+                    console.error("Erro 404: Recurso não encontrado.");
+                    return;
+                }
+                return response.json();
+            })
             .then(data => {
+                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'
@@ -1327,6 +1310,8 @@
         fetch(`/api/UCMT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
             .then(response => response.json())
             .then(data => {
+                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'
@@ -1392,6 +1377,8 @@
         fetch(`/api/UCBT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
             .then(response => response.json())
             .then(data => {
+                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'
@@ -1457,6 +1444,8 @@
         fetch(`/api/trafos?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
             .then(response => response.json())
             .then(data => {
+                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'
@@ -1524,6 +1513,8 @@
             fetch(`/api/list?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}&idSummary=${i}`)
                 .then(response => response.json())
                 .then(data => {
+                    if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+
                     const header = document.getElementById('table-header_'+i);
                     header.style.backgroundColor = '#d9d9d9'
                     const body = document.getElementById('table-body_'+i);
@@ -1578,7 +1569,6 @@
       //overlay.setPosition(coord);
       //app.addMarker(feature, coord);
     });
-
 
 
 </script>

@@ -189,18 +189,18 @@ class DssFilesGenerator:
         """ Função para gerar as linhas (DSS) referentes às chaves de um determinado circuito """
         linhas_chaves_dss.clear()
         switch = ''
-        for index in range(chaves.shape[0]):
-            sw = chaves.loc[index]['P_N_OPE']
-            if sw == 'F':  # chave fechada
-                switch = 'T'
-            elif sw == 'A':  # chave aberta
-                switch = 'F'
 
-            linha = 'New "Line.CMT_' + chaves.loc[index]['COD_ID'] + '"' + " phases=" + \
+        for index in range(chaves.shape[0]):
+            switch_coments = ''
+            sw = chaves.loc[index]['P_N_OPE']
+            if sw == 'A':  # chave aberta
+                switch_coments = '!' # comentar a criação da chave no arquivo OpenDSS quando a chave for aberta.
+
+            linha = switch_coments + 'New "Line.CMT_' + chaves.loc[index]['COD_ID'] + '"' + " phases=" + \
                     numero_fases_segmento(chaves.loc[index]['FAS_CON']) + \
                     " bus1=" + '"' + chaves.loc[index]['PAC_1'] + nos_com_neutro(chaves.loc[index]['FAS_CON']) + '"' + \
                     " bus2=" + '"' + chaves.loc[index]['PAC_2'] + nos_com_neutro(chaves.loc[index]['FAS_CON']) + '"' + \
-                    " r1=0.001 r0=0.001 x1=0 x0=0 c1=0 c0=0 length=0.001 switch=" + switch
+                    " r1=0.001 r0=0.001 x1=0 x0=0 c1=0 c0=0 length=0.001 Switch=y "
             linhas_chaves_dss.append(linha)
 
     def get_lines_reguladores(self, reatores, trafos_mt_mt, trafos_mt_mt_seg, linhas_reguladores_dss):
@@ -230,16 +230,19 @@ class DssFilesGenerator:
             if dblkvREG != round(ctmt_vll/np.sqrt(3), 4):
                 dblkvREG = round(ctmt_vll/np.sqrt(3), 4)
 
-            if strTipRegul == 'T' and numero_fases_transformador(strCodFasPrim) == 3:
+            # Para os casos abaixo será adotado a tensão de linha para o regulador de tensão
+            if strTipRegul == 'T' and numero_fases(strCodFasPrim) == 3:
                 dblkvREG = vll = round(tens_regulador(dblTensaoPrimTrafo_kV) * np.sqrt(3), 4)  # 'tensão de linha'
-
+            # no regulador o numero de fases do primário deve ser igual ao número de fases do secundário
+            if strTipRegul  in ('DF', 'DA') and numero_fases(strCodFasPrim) == 2:
+                dblkvREG = ctmt_vll
             # análise de dados conflitantes
             if strTipRegul in ('DF', 'DA') and intBanc == 0:  # considera informação do DF ou DA sobre a codFas
                 # Usar tensão de linha
                 dblkvREG = ctmt_vll
 
             # A tensão do regulador pode não ser a tensão do circuito (kv_nom) quando existir um
-            # transformador MT-MT no circuito. Neste caso se deve verificar se o capacitor está
+            # transformador MT-MT no circuito. Neste caso se deve verificar se o regulador está
             # instalado a jusante ou a montante do transformador MT-MT.
             if trafos_mt_mt_seg:
                 find_reg = list(filter(lambda x: strBus1 in x, trafos_mt_mt_seg))

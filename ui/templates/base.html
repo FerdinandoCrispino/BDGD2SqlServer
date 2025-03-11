@@ -134,8 +134,9 @@
         <div class="collapse navbar-collapse" id="navbarNav">
             <ul id="navigation" class="navbar-nav">
                 <li class="nav-item">
-                    <a class="nav-link" href="/">Home</a>
+                    <a class="nav-link" href="/map">Home</a>
                 </li>
+                {% if not hide_navbar_dash %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button"
                        data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Map</a>
@@ -156,6 +157,7 @@
                         <a class="dropdown-item" href="#">propreties</a>
                     </div>
                 </li>
+                {% endif %}
                 <li class="nav-item">
                     <a class="nav-link" href="/dashboard">Dashboard</a>
                 </li>
@@ -178,8 +180,8 @@
     </div>
 
     <!-- Rodapé -->
-    <footer class="footer mt-auto py-3 bg-light">
-        <div class="container">
+    <footer class="footer mt-auto py-2 bg-light fixed-bottom ">
+        <div class="container p-2">
             <span class="text-muted">© 2024 - DER Analysis</span>
         </div>
     </footer>

@@ -35,7 +35,7 @@ if __name__ == "__main__":
     # Processa o arquivo de dados da BDGD
     process_gdb_files(gdb_file, engine, schema, data_base, data_carga, columns_rename)
 
-    engine.dispose() # type: ignore
+    # engine.dispose() # type: ignore
     logging.info(f"Processo concluído em {time.time() - proc_time_ini} ")
     print(f"Processo concluído em {time.time() - proc_time_ini}")
 
@@ -45,6 +45,6 @@ if __name__ == "__main__":
     print(f"Processo concluído!")
 
     # Executa a stored procedure de atualização da versão 10
-    print(f"Executando stored procedure de atualização da versão 1.0 da base de dados da BDGD")
-    exec_sp_atualiza_v10(config_bdgd['dist'])
+    print(f"Executando stored procedure de atualização da versão 1.0 da base de dados da BDGD: {config_bdgd['dist']}")
+    exec_sp_atualiza_v10(config_bdgd['dist'], data_base, engine)
     print(f"Processo concluído!")

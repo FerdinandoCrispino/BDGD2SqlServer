@@ -1,4 +1,75 @@
-<!-- Navbar Bootstrap dashboard-->
+<style>
+    body {
+        margin: 0;
+        font-family: Arial, sans-serif;
+        display: flex;
+    }
+
+    .sidebar {
+        width: 250px;
+        height: 100vh;
+        background-color: #333;
+        color: white;
+        position: fixed;
+        left: -250px; /* Escondido inicialmente */
+        transition: left 0.3s;
+        padding: 20px;
+    }
+
+    .sidebar h2 {
+        margin: 0;
+    }
+
+    .sidebar ul {
+        list-style: none;
+        padding: 0;
+    }
+
+    .sidebar ul li {
+        margin: 15px 0;
+    }
+
+    .sidebar ul li a {
+        color: white;
+        text-decoration: none;
+    }
+
+    .sidebar #close-btn {
+        background: none;
+        border: none;
+        color: white;
+        font-size: 12px;
+        cursor: pointer;
+    }
+
+    .content {
+        margin-left: 0;
+        flex-grow: 1;
+        padding: 20px;
+        transition: margin-left 0.3s;
+    }
+
+    .content #open-btn {
+        margin-bottom: 20px;
+        font-size: 14px; /* Ajuste o tamanho do botão */
+    }
+
+    canvas {
+        width: 100%;
+        height: 150px;
+        background-color: #f4f4f4;
+    }
+
+    .sidebar select {
+        width: 100%;
+        margin-top: 5px;
+        padding: 5px;
+        border: none;
+        border-radius: 5px;
+    }
+</style>
+
+<!-- Navbar Bootstrap dashboard
 <nav class="navbar navbar-expand-lg navbar-light" style="background-color: #62a2d1;">
   <div class="container-fluid">
 
@@ -26,3 +97,106 @@
     </div>
   </div>
 </nav>
+-->
+<div style="display: flex; position: relative;">
+    <!-- Menu lateral -->
+     <div id="sidebar" style="width: 250px; min-width:200px;  padding: 8px; font-size:12px; transition: width 0.4s, opacity 0.4s; overflow: hidden;">
+        <button id="toggleSidebar" style="margin-bottom: 10px; float: right;">&#9776</button><br>
+         <hr>
+        <label for="distribuidora">Utility:</label>
+        <select id="distribuidora" name="distribuidora" style="float:right;width:110px">
+            <option value="">Select</option>
+            <option value="391">EDP_SP 2022</option>
+            <option value="404">Energisa_MS 2022</option>
+            <option value="40">COSERN 2023</option>
+        </select><br>
+        <label for="subestacao">Substation:</label>
+        <select id="subestacao" name="subestacao" style="float:right;width:110px">
+            <option value="">Select</option>
+        </select><br>
+        <label for="circuito">Circuit:</label>
+        <select id="circuito" name="circuito" style="float:right;width:110px">
+            <option value="">Select</option>
+        </select>
+        <hr>
+        <label for="scenarios">Scenario:</label>
+        <select id="scenarios" name="scenarios" style="float:right;width:110px">
+        </select>
+        <hr>
+
+         <span id> Study List for the scenario: <i id="study_p" style="text-transform:uppercase"></i></span>
+        <ul style="list-style: none; padding: 0; margin: 5px;">
+         <li>
+           <a href="#" onclick="transformer_loading(document.getElementById('distribuidora').value); return false;" title="Power Transformer Loading">
+             <span class="links_name">Power Transformer Loading</span>
+           </a>
+         </li>
+         <li>
+           <a href="#" title="Voltage Analysys">
+             <span class="links_name">Voltage Analysys</span>
+           </a>
+         </li>
+         <li>
+           <a href="#" onclick="load_power_circuit(); return false;" title="Power Circuit">
+             <span class="links_name">Power Circuit</span>
+           </a>
+         </li>
+         <li>
+           <a href="#">
+             <span class="links_name">Reverse Power Flow</span>
+           </a>
+         </li>
+         <li>
+           <a href="#" title="Voltage Unbalance">
+             <span class="links_name">Voltage Unbalance</span>
+           </a>
+         </li>
+         <li>
+           <a href="#" onclick="losses(document.getElementById('distribuidora').value); return false;" title="Energy Losses">
+             <span class="links_name">Losses</span>
+           </a>
+         </li>
+
+        </ul>
+    </div>
+
+    <div class="chart-container" style = "position: relative; height: 50vh; width:100vw;">
+        <canvas id="myChart1"></canvas>
+        <canvas id="myChart2"></canvas>
+        <canvas id="myChart3"></canvas>
+        <canvas id="myChart4"></canvas>
+    </div>
+</div>
+
+<script>
+    function load_power_circuit(){
+        document.body.style.cursor = 'wait';  // Cursor de espera
+        daily_load(document.getElementById('distribuidora').value,
+            document.getElementById('subestacao').value,
+            document.getElementById('circuito').value,
+            document.getElementById('scenarios').value)
+        document.body.style.cursor = 'default';  // Cursor normal
+    }
+
+    document.getElementById('toggleSidebar').addEventListener('click', function() {
+        var sidebar = document.getElementById('sidebar');
+        if (sidebar.style.width === '250px') {
+            sidebar.style.minWidth = '0';
+            sidebar.style.width = '0';
+
+        } else {
+            sidebar.style.width = '250px';
+            sidebar.style.minWidth = '200px';
+        }
+    });
+
+    document.getElementById('scenarios').addEventListener('change', function() {
+        document.getElementById('study_p').innerHTML = document.getElementById('scenarios').value;
+    });
+
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js" ></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js" ></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/1.1.1/chartjs-plugin-zoom.min.js"></script>
+
+<script src="{{url_for('static', filename='js/sidebar_base.js') }}"></script>

@@ -38,6 +38,60 @@ def render_dashboard():
     print(dist)
     return render_template('dash1.html', dist=dist)
 
+@server.route('/daily_power_circuit')
+def daily_power_circuit():
+    distribuidora = request.args.get('distribuidora')
+    subestacao = request.args.get('subestacao')
+    circuito = request.args.get('circuito')
+    scenario = request.args.get('scenario', 'base')
+    print(f'route data: {distribuidora} {subestacao}')
+
+    list_data = []
+    list_data_dict = dict()
+    tipo_dia = ''
+    path_result = os.path.abspath('static/scenarios')
+    path_conf = os.path.join(path_result, scenario,  str(distribuidora), subestacao)
+
+    if circuito:
+        path_conf = os.path.join(path_conf, circuito)
+
+    file_results = ['DO_2022_12_all_power.xlsx', 'DU_2022_12_all_power.xlsx']
+    for root, dirs, files in os.walk(path_conf):
+        for file in files:
+            if (file.endswith(tuple(file_results)) and not (file.startswith('~') or file.startswith('.')) ) :
+                print(file)
+                print(root)
+                if 'DO_' in file:
+                    tipo_dia = 'DO'
+                else:
+                    tipo_dia = 'DU'
+
+                try:
+                    df = pd.read_excel(os.path.join(root, file))
+                    print(df)
+                    df_data = df[['SUB', 'circuit', 'P1', 'P2', 'P3']].copy()
+                    df_data['P'] = df_data['P1'] + df_data['P2'] + df_data['P3']
+                    df_data['TIME'] = df_data.index
+                    label_time = df_data['TIME'].values.tolist()
+                    data_list = df_data['P'].values.tolist()
+
+                    list_data_dict = {'values': data_list, 'ctmt': df_data['circuit'][0], 'time': label_time,
+                                      'sub': df_data['SUB'][0], 'tipo_dia': tipo_dia }
+
+                    list_data.append(list_data_dict.copy())
+
+                except Exception as e:
+                    print(f'Error with fife {root}/{file}')
+                    return jsonify({"error": str(e)}), 500
+
+    if not list_data:
+        print(f'Dados inexistentes {path_conf}')
+        return jsonify("error Dados inexistentes"), 404
+
+    list_data = sorted(list_data, key=lambda x: (x['tipo_dia'], x['ctmt']))
+    return jsonify(list_data)
+
+
 
 @server.route('/dash_losses')
 def dash_losses():
@@ -46,7 +100,7 @@ def dash_losses():
 @server.route('/data_losses')
 def render_data_losses():
     list_data = []
-    path_result = 'static/scenarios/base/391'
+    path_result = os.path.abspath('static/scenarios/base/391')
     file_results = ['DO_12_sub_losses.xlsx', 'DU_12_sub_losses.xlsx']
 
     try:
@@ -67,6 +121,7 @@ def render_data_losses():
 
         return jsonify(list_data)
     except Exception as e:
+        print(e)
         return jsonify({"error": str(e)}), 500
 
 @server.route('/data/<distribuidora>', methods=['GET'])
