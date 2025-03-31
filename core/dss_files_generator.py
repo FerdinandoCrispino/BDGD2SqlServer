@@ -857,9 +857,9 @@ class DssFilesGenerator:
                 srt_comment_dss = '!'
             """
             determinação da tensão da carga
-            " kv=" + kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo) 
-            or 
-            " kv=" + f"{dblTenSecu_kV:.3f}" + 
+            " kv=" + kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo)
+            or
+            " kv=" + f"{dblTenSecu_kV:.3f}" +
             """
 
             linhas_cargas_bt_dss.append(srt_comment_dss +
@@ -882,20 +882,20 @@ class DssFilesGenerator:
                                         ' daily="' + strCodCrvCrg + ceg_gd +
                                         '" status=variable vmaxpu=1.5 vminpu=0.92')
 
-            """# O valor de KV deve ser o seguinte: # Nominal rated (1.0 per unit) voltage, kV, for load. For 2- 
-            and 3-phase loads, specify phase-phase kV. Otherwise, specify actual kV across each branch of the 
-            load. If wye (star), specify phase-neutral kV. If delta or phase-phase connected, specify phase-phase 
-            kV. 
-            
-            linhas_cargas_bt_dss.append( 
+            """# O valor de KV deve ser o seguinte: # Nominal rated (1.0 per unit) voltage, kV, for load. For 2-
+            and 3-phase loads, specify phase-phase kV. Otherwise, specify actual kV across each branch of the
+            load. If wye (star), specify phase-neutral kV. If delta or phase-phase connected, specify phase-phase
+            kV.
+
+            linhas_cargas_bt_dss.append(
                 'New "Load.BT_' + strName + '_M1" bus1="' + strBus + nos_com_neutro(
             strCodFas) + '"' + " phases=" + numero_fases_carga_dss(strCodFas) + " conn=" + ligacao_carga(
             strCodFas) + " model=2" + " kv=" + kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo) + " kw=" + f"{(
-            dblDemMaxCorrigida_kW / 2):.7f}" + " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable 
-            vmaxpu=1.5 vminpu=0.92') linhas_cargas_bt_dss.append( 'New "Load.BT_' + strName + '_M2" bus1="' + 
-            strBus + nos_com_neutro(strCodFas) + '"' + " phases=" + numero_fases_carga_dss(strCodFas) + " conn=" 
-            + ligacao_carga(strCodFas) + " model=3" + " kv=" + kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo) + 
-            " kw=" + f"{(dblDemMaxCorrigida_kW / 2):.7f}" + " pf=0.92" + ' daily="' + strCodCrvCrg + '" 
+            dblDemMaxCorrigida_kW / 2):.7f}" + " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable
+            vmaxpu=1.5 vminpu=0.92') linhas_cargas_bt_dss.append( 'New "Load.BT_' + strName + '_M2" bus1="' +
+            strBus + nos_com_neutro(strCodFas) + '"' + " phases=" + numero_fases_carga_dss(strCodFas) + " conn="
+            + ligacao_carga(strCodFas) + " model=3" + " kv=" + kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo) +
+            " kw=" + f"{(dblDemMaxCorrigida_kW / 2):.7f}" + " pf=0.92" + ' daily="' + strCodCrvCrg + '"
             status=variable vmaxpu=1.5 vminpu=0.92') """
         for index in range(cargas_pip.shape[0]):
             strName = cargas_pip.loc[index]['COD_ID']
