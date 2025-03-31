@@ -234,7 +234,7 @@ class DssFilesGenerator:
             if strTipRegul == 'T' and numero_fases(strCodFasPrim) == 3:
                 dblkvREG = vll = round(tens_regulador(dblTensaoPrimTrafo_kV) * np.sqrt(3), 4)  # 'tensão de linha'
             # no regulador o numero de fases do primário deve ser igual ao número de fases do secundário
-            if strTipRegul  in ('DF', 'DA') and numero_fases(strCodFasPrim) == 2:
+            if strTipRegul in ('DF', 'DA') and numero_fases(strCodFasPrim) == 2:
                 dblkvREG = ctmt_vll
             # análise de dados conflitantes
             if strTipRegul in ('DF', 'DA') and intBanc == 0:  # considera informação do DF ou DA sobre a codFas
@@ -460,8 +460,9 @@ class DssFilesGenerator:
         """
 
         crv_tipo_dia = curvas_carga[(curvas_carga['TIP_DIA'].str.upper() == tipo_dia) &
-                                    (curvas_carga['COD_ID'].str.upper() == tipo_curva)]
-        crv_all_tipo_dia = curvas_carga[curvas_carga['COD_ID'].str.upper() == tipo_curva]
+                                    (curvas_carga['COD_ID'].str.upper() == tipo_curva.upper())]
+
+        crv_all_tipo_dia = curvas_carga[curvas_carga['COD_ID'].str.upper() == tipo_curva.upper()]
 
         energia = crv_tipo_dia.filter(like="POT").sum(axis=1)
 
@@ -948,7 +949,7 @@ class DssFilesGenerator:
             num_dias = calendar.monthrange(ano_base, mes)[1]
 
             fc = cargas_fc.loc[(cargas_fc['COD_ID'] == cargas_pip.loc[index]['TIP_CC']) &
-                               (cargas_fc['TIP_DIA'].str.upper() == tipo_dia)]
+                               (cargas_fc['TIP_DIA'].str.upper() == tipo_dia.upper())]
             dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc.iloc[0]['FC']
 
             if dblDemMax_kW > dblDemMaxTrafo_kW:

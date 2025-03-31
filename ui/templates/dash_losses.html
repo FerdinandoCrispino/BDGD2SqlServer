@@ -20,8 +20,8 @@
             }
             //console.log(groupLabel1)
             //console.log(groupLabel2)
-            const ctx1 = document.getElementById('myChart1').getContext('2d');
-            const ctx2 = document.getElementById('myChart2').getContext('2d');
+            const ctx1 = document.getElementById('myChart1').getContext('2d', { willReadFrequently: true });
+            const ctx2 = document.getElementById('myChart2').getContext('2d', { willReadFrequently: true });
 
             const myChart1 = new Chart(ctx1, {
                 type: 'bar',

@@ -46,7 +46,7 @@ def run_multi(subs, config, mes_ini, tipo_de_dias, control_mes, control_tipo_dia
     print(f"Processo concluído em {time.time() - proc_time_ini}")
 
 
-# busca lista de subestações que possem curcuitos
+# busca lista de subestações que possuem curcuitos
 def get_substations_list(engine):
     query = f'''         
                 SELECT DISTINCT c.SUB FROM sde.CTMT c
@@ -1001,7 +1001,7 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
         print(f'Process circuit:{cod_circuito}')
 
         # Grava arquivo DSS de curva de cargas
-        # No mesmo arquivo as curvas de carga tipicas AT, MT e BT e diferentes tipos de dias (DU, SA, DO).
+        # No mesmo arquivo as curvas de carga típicas AT, MT e BT e diferentes tipos de dias (DU, SA, DO).
         write_to_dss(dist, sub, cod_circuito, linhas_curvas_carga_dss, nome_arquivo_crv, dss_files_folder)
 
         # Grava arquivo DSS LineCode
@@ -1069,8 +1069,8 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
                                         bdgd_read.cargas_pip, linhas_cargas_bt_dss, mes, tipo_dia)
         write_to_dss(dist, sub, cod_circuito, linhas_cargas_bt_dss, nome_arquivo_crg_bt, dss_files_folder)
 
-        # leitura de dados dos Geradores mt conectados nos trafos
-        # bdgd_read.query_generators_mt(cod_circuito)  # conetados no trafo
+        # leitura de dados dos Geradores MT conectados nos transformadores
+        # bdgd_read.query_generators_mt(cod_circuito)  # conectados no transformadores
         # dss_adapter.get_lines_generators_mt(bdgd_read.gerador_mt, multi_ger, linhas_generators_mt_dss)
         # ...conectados nos segmentos
         bdgd_read.query_generators_mt_ssdmt(cod_circuito, engine=engine)
@@ -1093,7 +1093,7 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
 
 def main():
     proc_time_ini = time.time()
-    config = load_config('391')
+    config = load_config('40')
     # controles de execução para apenas um primeiro mes e um primeiro tipo de dia da lista 'tipo_de_dias'
     control_mes = True
     control_tipo_dia = True
@@ -1112,6 +1112,7 @@ def main():
 
     mes_ini = 12  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
+    tipo_de_dias = ['DU', 'DO']  # tipo de dia para referência para as curvas típicas de carga e geração
 
     if run_multiprocess:
         """
@@ -1175,7 +1176,7 @@ def main():
         # list_sub = [ 'SBN', 'STO', 'MSU', 'NCR', 'JCT', 'CPG', 'AAF' ]
         # list_sub = ['MSU']
 
-        list_sub = ['USS']
+        list_sub = ['CRU']
 
         print(f'Ajusting CodBNC....')
         ajust_eqre_codbanc(dist, engine)

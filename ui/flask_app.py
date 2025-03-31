@@ -20,7 +20,7 @@ parent = os.path.dirname(current)
 sys.path.append(parent)
 
 import Tools.summary as resumo
-from Tools.tools import return_query_as_dataframe, create_connection, load_config
+from Tools.tools import return_query_as_dataframe, create_connection, load_config, load_config_list_dist
 
 task_running = False  # Variável para evitar múltiplas execuções simultâneas -- control_bus
 
@@ -32,11 +32,50 @@ server.secret_key = "123456"
 GDB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'sin_data.gdb')
 
 
+@server.route('/z_data/')
+def read_surface_data():
+    distribuidora = request.args.get('distribuidora')
+    subestacao = request.args.get('subestacao')
+    scenario = request.args.get('scenario', 'base')
+    circuito = request.args.get('circuito')
+    tipo_dia = request.args.get('tipo_dia')
+    mes = request.args.get('mes')
+    ano = request.args.get('ano')
+    type_case = request.args.get('type_case')
+
+    if not circuito:
+        circuito = f'SUB_{subestacao}'
+
+    path_result = os.path.abspath('static/scenarios')
+    path_conf = os.path.join(path_result, scenario, str(distribuidora), subestacao, circuito, tipo_dia, ano , mes)
+    if not distribuidora:
+        print(f'Selecione uma distribuidora')
+        return jsonify("error Selecione uma distribuidora"), 404
+
+    if type_case == 'case1':
+        file = 'frecuencia_porcentaje_B VminVmax_vs_Pen_mod.csv'
+    elif type_case == 'case2':
+        file = 'frecuencia_porcentaje_B Vmin_vs_Pen_mod.csv'
+    elif type_case == 'case3':
+        file = 'frecuencia_porcentaje_B Vmax_vs_Pen_mod.csv'
+
+    try:
+        df = pd.read_csv(os.path.join(path_conf, file), header=None, na_filter=False)
+        # print(df)
+        data = df.values.tolist()
+        # print(data)
+        return jsonify(data)
+    except Exception as e:
+        print(f'Error with fife {file}')
+        return jsonify({"error": str(e)}), 500
+
+
 @server.route('/dashboard/')
 def render_dashboard():
     dist = request.args.get('codigoDistribuidora')
     print(dist)
     return render_template('dash1.html', dist=dist)
+
 
 @server.route('/daily_power_circuit')
 def daily_power_circuit():
@@ -52,13 +91,17 @@ def daily_power_circuit():
     path_result = os.path.abspath('static/scenarios')
     path_conf = os.path.join(path_result, scenario,  str(distribuidora), subestacao)
 
+    if not distribuidora:
+        print(f'Selecione uma distribuidora')
+        return jsonify("error Selecione uma distribuidora"), 404
+
     if circuito:
         path_conf = os.path.join(path_conf, circuito)
 
     file_results = ['DO_2022_12_all_power.xlsx', 'DU_2022_12_all_power.xlsx']
     for root, dirs, files in os.walk(path_conf):
         for file in files:
-            if (file.endswith(tuple(file_results)) and not (file.startswith('~') or file.startswith('.')) ) :
+            if file.endswith(tuple(file_results)) and not (file.startswith('~') or file.startswith('.')):
                 print(file)
                 print(root)
                 if 'DO_' in file:
@@ -92,16 +135,30 @@ def daily_power_circuit():
     return jsonify(list_data)
 
 
-
 @server.route('/dash_losses')
 def dash_losses():
     return render_template('dash_losses.html')
 
+
 @server.route('/data_losses')
 def render_data_losses():
+    distribuidora = request.args.get('distribuidora')
+    subestacao = request.args.get('subestacao')
+    circuito = request.args.get('circuito')
+    scenario = request.args.get('scenario', 'base')
+    tipo_dia = request.args.get('tipo_dia')
+    ano = request.args.get('ano')
+    mes = request.args.get('mes')
+
     list_data = []
     path_result = os.path.abspath('static/scenarios/base/391')
     file_results = ['DO_12_sub_losses.xlsx', 'DU_12_sub_losses.xlsx']
+
+    if circuito:
+        path_result = os.path.abspath('static/scenarios')
+        path_result = os.path.join(path_result, scenario, distribuidora, subestacao, circuito, tipo_dia, ano, mes)
+        # file_results = f'{distribuidora}_{circuito}_{tipo_dia}_{ano}_{mes}_losses.xlsx'
+        # '391_RAPA1301_DO_2022_12_losses'
 
     try:
         for file_result in file_results:
@@ -109,6 +166,8 @@ def render_data_losses():
             xls = pd.ExcelFile(path_all_result)
             df1 = xls.parse(xls.sheet_names[0])
             df_data = df1[['SUB', 'circuit', 'losses']].copy()
+            if subestacao:
+                df_data = df_data[(df_data.SUB == subestacao)]
             label_list = df_data['circuit'].values.tolist()
             label_list1 = df_data['SUB'].values.tolist()
             data_list_losses = df_data['losses'].values.tolist()
@@ -124,12 +183,13 @@ def render_data_losses():
         print(e)
         return jsonify({"error": str(e)}), 500
 
+
 @server.route('/data/<distribuidora>', methods=['GET'])
 def render_data(distribuidora):
     print(f'route data: {distribuidora}')
     list_data = []
     path_result = 'static/scenarios/base'
-    tipo_dias = ['DO','DU']
+    tipo_dias = ['DO', 'DU']
 
     for tipo_dia in tipo_dias:
         file_result = f'{tipo_dia}_12_sub_analysis.xlsx'
@@ -198,6 +258,16 @@ def render_data(distribuidora):
     list_data.append(data9)
 
     return jsonify(list_data)
+
+
+# Busca as distribuidoras cadastradas no arquivo de configuração
+@server.route('/api/conf_dist', methods=['GET'])
+def get_distribuidoras():
+    try:
+        list_dist = load_config_list_dist()
+        return jsonify(list_dist)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 # Função para buscar as subestações com base na distribuidora
@@ -966,8 +1036,9 @@ def create_geojson_from_segments(line_segments, json_data):
         voltage_list = [item for item in [voltage_bus1, voltage_bus2, voltage_bus3] if
                         (item != '' and item is not None)]
         voltage_list_a = [float(item) for item in voltage_list]
+        # Prodist modulo 8
         if any(overvoltage > 1.05 for overvoltage in voltage_list_a) or \
-                any(undervoltage < 0.95 for undervoltage in voltage_list_a):
+                any(undervoltage < 0.93 for undervoltage in voltage_list_a):
             cor = 'red'
 
         cores.append(cor)
@@ -1188,7 +1259,7 @@ def segments():
         print(f"Selecione uma subestação!")
         return None  # retornar erro!
     line_segments = get_coords_SSDMT_from_db(subestacao, circuito)
-    # Leitura do arquiso de resultados do fluxo de potencia
+    # Leitura do arquivo de resultados do fluxo de potencia
     json_data = read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_dia, ano, mes, hora)
     geojson = create_geojson_from_segments(line_segments, json_data)
     return geojson, 200, {'Content-Type': 'application/json'}
@@ -1286,11 +1357,11 @@ def get_data_at_sub():
 # leitura dos dados do arquivo GDB do SIN
 @server.route('/get_data_at')
 def get_data_at():
-    #my_gdb_sin = geo_tools.GeoDataSIN('Linhas_SIN.geojson')
-    #return my_gdb_sin.read_geojson_line()
+    my_gdb_sin = geo_tools.GeoDataSIN('Linhas_SIN.geojson')
+    return my_gdb_sin.read_geojson_line()
 
-    my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'Linhas_de_Transmissão___Base_Existente')
-    return my_gdb_sin.read_gdb_line_to_json()
+    #my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'Linhas_de_Transmissão___Base_Existente')
+    #return my_gdb_sin.read_gdb_line_to_json()
 
 
 def long_running_task():

@@ -100,7 +100,7 @@
     </div>
 
     <!-- Mapa -->
-    <div id="map" style="width: 100%; height: 600px;"></div>
+    <div id="map" style="width: 100%; height: 620px;"></div>
 
 </div>
 
@@ -587,7 +587,7 @@
                             anchor: [0.5, 0.5],
                             anchorXUnits: 'fraction',
                             anchorYUnits: 'pixels',
-                            scale: 0.06,
+                            scale: 0.04,
                             src: 'static/icon/eol2.png'
                         }))
                     });
@@ -599,7 +599,7 @@
                     image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
 
                             anchor: [0, 0],
-                            scale: 0.25,
+                            scale: 0.20,
                             src: 'static/icon/ufv.svg'
                         }))
                     });
@@ -857,7 +857,9 @@
         const mes = document.getElementById('meses').value;
         const dist = document.getElementById("distribuidora");
         const select_dist = dist.options[dist.selectedIndex].text;
-        const ano = select_dist.split(" ")[1]
+        //const ano = select_dist.split(" ")[1];
+        const ano = select_dist.slice(-4);
+
         const hora = document.getElementById("myRange").value;
 
         loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes, hora);
@@ -1166,6 +1168,7 @@
             .then(response => {
                 if (response.status === 404) {
                     console.error("Erro 404: Recurso não encontrado.");
+                    document.body.style.cursor = 'default';  // Cursor normal
                     return;
                 }
                 return response.json();

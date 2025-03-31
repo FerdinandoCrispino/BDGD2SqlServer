@@ -29,6 +29,31 @@ def load_config(dist, config_path="../config_database.yml"):
     return config_bdgd
 
 
+def load_config_list_dist(config_path="../config_database.yml") -> list:
+    """
+    Lista o código e o nome da distribuidora cadastrada no arquivo de configuração yml
+    :param config_path: arquivo de configuração.
+    :return: list
+    """
+    application_path = os.path.dirname(os.path.abspath(__file__))
+    with open(os.path.join(application_path, config_path), 'r') as file:
+        config = yaml.load(file, Loader=yaml.BaseLoader)
+    list_dist = []
+    config_bdgd = list(config.get("databases", {}).keys())
+
+    if not config_bdgd:
+        raise ValueError(f"Erro no arquivo de configurações.")
+
+    if 'Irradiance' in config_bdgd:
+        config_bdgd.remove('Irradiance')
+
+    for cod_dist in config_bdgd:
+        name = config["databases"][cod_dist]['database']
+        short_name = name[16:]
+        list_dist.append([cod_dist, name, short_name])
+    return list_dist
+
+
 def create_connection_pyodbc(config_bdgd):
     """Função para criar uma conexão com o banco de dados SQL Server"""
     conn_str = (
@@ -101,7 +126,7 @@ def insert_data(cursor, table_name, data, data_base, data_carga):
             print(tuple(row.values()))
             cursor.execute(sql, tuple(row.values()))
 
-            # * cuidado o arquivo de log pode ficar muito grande
+            # * TODO cuidado o arquivo de log pode ficar muito grande
             logging.info(f'SQL: {sql} valores {tuple(row.values())}')
 
         except pyodbc.DatabaseError as e:
@@ -228,8 +253,8 @@ def process_gdb_files(gdb_file, engine, schema, data_base, data_carga, column_re
                         # df['POINT_Y'] = df['geometry'].centroid.y  # lat
                         # df['POINT_X'] = df['geometry'].centroid.x  # lon
                         # CRS SISGRAS 2000
-                        df['POINT_Y'] = df['geometry'].to_crs('EPSG:4674').centroid.to_crs(df.crs).y
-                        df['POINT_X'] = df['geometry'].to_crs('EPSG:4674').centroid.to_crs(df.crs).x
+                        df['POINT_Y'] = df['geometry'].to_crs('EPSG:4674').centroid.to_crs(df.crs).y  # lat
+                        df['POINT_X'] = df['geometry'].to_crs('EPSG:4674').centroid.to_crs(df.crs).x  # lat
 
                     if df.iloc[0]['geometry'].geom_type == 'MultiLineString':
                         bounds = df.geometry.boundary.explode(index_parts=True).unstack()
@@ -1011,9 +1036,9 @@ def ajust_eqre_codbanc(dist, engine):
             e.cod_id as COD_ID_RE, e.[POT_NOM], e.[TEN_REG], e.[LIG_FAS_P], e.[LIG_FAS_S], e.[COR_NOM], 
             e.[REL_TP], e.[REL_TC], e.[PER_FER], e.[PER_TOT], e.[R], e.[XHL], e.[CodBnc], e.[GRU_TEN]
         FROM SDE.UNREMT as c, SDE.EQRE as e 
-        WHERE c.dist = '{dist}' and c.SIT_ATIV = 'AT' and 
-        (c.pac_1 = e.pac_1 or c.pac_2 = e.pac_2 or c.pac_1 = e.pac_2 or c.pac_2 = e.pac_1) or c.COD_ID = e.UN_RE
-        Order by c.[COD_ID] 
+         WHERE c.dist = '{dist}' and c.SIT_ATIV = 'AT' and (
+         (c.pac_1 = e.pac_1 or c.pac_2 = e.pac_2 or c.pac_1 = e.pac_2 or c.pac_2 = e.pac_1) or c.COD_ID = e.UN_RE)
+         order by c.[COD_ID]
         ;
     '''
     eqre_data = return_query_as_dataframe(query, engine)
@@ -1051,7 +1076,7 @@ def add_id_banc_to_dataframe(df, df_column_ref):
         df.at[index, 'ID_BANC'] = i
 
 
-def calc_du_sa_do_mes(ano, mes) -> dict:
+def calc_du_sa_do_mes(ano, mes: int) -> dict:
     # Gerar intervalo de datas para o mês especificado
     data_inicial = f'{ano}-{mes:02d}-01'
     data_final = pd.Period(f'{ano}-{mes:02d}').end_time.strftime('%Y-%m-%d')
@@ -1234,13 +1259,16 @@ def exec_sp_atualiza_v10(dist, data_base, engine):
     :return:
     """
     query = f'''
+    SET NOCOUNT ON;
     DECLARE @return_value int
     EXEC @return_value = [sde].[_ATUALIZA_V1.0] 
         @dist = N'{dist}', 
         @data_base = '{data_base}'
     SELECT 'Return Value' = @return_value
     '''
+
     connection = engine.raw_connection()
+    # engine.autocommit = True
     sleep = 0
     timeout = 200
     try:
@@ -1251,7 +1279,7 @@ def exec_sp_atualiza_v10(dist, data_base, engine):
                 break
             time.sleep(1)
             sleep += 1
-        # print(sleep)
+        print(sleep)
         cursor.close()
         connection.commit()
     finally:

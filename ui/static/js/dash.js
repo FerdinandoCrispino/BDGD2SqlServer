@@ -1,4 +1,61 @@
+function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, ano, type_case, txt_title) {
+    document.body.style.cursor = 'progress';  // Cursor de espera
+    //console.log(type_case)
+    fetch(`/z_data?distribuidora=${dist}&subestacao=${sub}&scenario=${scenario}&circuito=${circ}&tipo_dia=${tipo_dia}&mes=${mes}&ano=${ano}&type_case=${type_case}`)  // Atenção ao tipo de aspas - backticks
+        .then(response => response.json())
+        .then(data => {
+            console.log(data)
+            if (data.error) {
+                //console.error(data.error);
+                return;
+            }
+            const x = data[0].slice(1); // Primeira linha (exceto o primeiro valor) = eixo X
+            const y = data.slice(1).map(row => row[0]); // Primeira coluna (exceto o cabeçalho) = eixo Y
+            const z = data.slice(1).map(row => row.slice(1)); // Valores Z
+            console.log (x)
+            console.log (y)
+            //console.log (z)
+            const surf_data = [{
+                type: 'surface',
+                x: x,
+                y: y,
+                z: z,
+                colorscale: 'Viridis',
+                contours: {
+                    z: {
+                      show:true,
+                      usecolormap: true,
+                      highlightcolor:"#42f462",
+                      project:{z: true}
+                    }
+                  }
+            }];
+            var layout = {
+                title: {
+                    text: 'DER´s Insertion Analysis: ' + sub +': '+ circ +' '+ tipo_dia +' '+ano +'/'+ mes + '<br>' + txt_title
+                },
+                scene: {
+                    xaxis: { title: { text: '% GD' } },
+                    yaxis: { title: { text: 'Buses' } },
+                    zaxis: { title: { text: 'Probability' } }
+                },
+                autosize: false,
+                width: 800,
+                height: 700,
+                margin: {
+                    l: 65,
+                    r: 20,
+                    b: 65,
+                    t: 30,
+                }
+            };
 
+            destroy_charts(4);
+
+            Plotly.newPlot('chart-container', surf_data, layout);
+
+        })
+}
 
 function daily_load(dist, sub, circ, scenario) {
     document.body.style.cursor = 'progress';  // Cursor de espera
@@ -6,8 +63,8 @@ function daily_load(dist, sub, circ, scenario) {
         .then(response => response.json())
         .then(data => {
 
-            const ctx1 = document.getElementById('myChart1').getContext('2d');
-            const ctx2 = document.getElementById('myChart2').getContext('2d');
+            const ctx1 = document.getElementById('myChart1').getContext('2d', { willReadFrequently: true });
+            const ctx2 = document.getElementById('myChart2').getContext('2d', { willReadFrequently: true });
             //console.log(data[0].values)
             //console.log(data[4].values)
             //console.log(data[0].ctmt)
@@ -82,7 +139,7 @@ function daily_load(dist, sub, circ, scenario) {
 
                         title: {
                             display: true,
-                            text: 'EDP-SP - Circuit Daily Load'
+                            text: 'EDP-SP - Circuit Daily Loading'
                         },
                         subtitle: {
                             display: true,
@@ -152,7 +209,7 @@ function daily_load(dist, sub, circ, scenario) {
 
                         title: {
                             display: true,
-                            text: 'EDP-SP - Circuit Daily Load'
+                            text: 'EDP-SP - Circuit Daily Loading'
                         },
                         subtitle: {
                             display: true,
@@ -218,10 +275,10 @@ function transformer_loading(dist) {
             }
             console.log(groupLabel1)
             console.log(groupLabel2)
-            const ctx1 = document.getElementById('myChart1').getContext('2d');
-            const ctx2 = document.getElementById('myChart2').getContext('2d');
-            const ctx3 = document.getElementById('myChart3').getContext('2d');
-            const ctx4 = document.getElementById('myChart4').getContext('2d');
+            const ctx1 = document.getElementById('myChart1').getContext('2d', { willReadFrequently: true });
+            const ctx2 = document.getElementById('myChart2').getContext('2d', { willReadFrequently: true });
+            const ctx3 = document.getElementById('myChart3').getContext('2d', { willReadFrequently: true });
+            const ctx4 = document.getElementById('myChart4').getContext('2d', { willReadFrequently: true });
 
             destroy_charts(4);
 
@@ -498,8 +555,8 @@ function transformer_loading(dist) {
     document.body.style.cursor = 'default';  // Cursor normal
 }
 
-function losses(dist) {
-    fetch('/data_losses')
+function losses(dist, subestacao, circuito, scenario, tipo_dia, ano, mes) {
+    fetch(`/data_losses?distribuidora=${dist}&subestacao=${subestacao}&circuito=${circuito}&scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}`)
         .then(response => response.json())
         .then(data => {
             var groupLabel1 = []
@@ -512,8 +569,8 @@ function losses(dist) {
             }
             //console.log(groupLabel1)
             //console.log(groupLabel2)
-            const ctx1 = document.getElementById('myChart1').getContext('2d');
-            const ctx2 = document.getElementById('myChart2').getContext('2d');
+            const ctx1 = document.getElementById('myChart1').getContext('2d', { willReadFrequently: true });
+            const ctx2 = document.getElementById('myChart2').getContext('2d', { willReadFrequently: true });
 
             destroy_charts(4);
 
@@ -653,4 +710,5 @@ function destroy_charts(num_chart) {
                console.log('chart does not exist yet to destroy');
             }
     }
+    Plotly.purge('chart-container');
 }

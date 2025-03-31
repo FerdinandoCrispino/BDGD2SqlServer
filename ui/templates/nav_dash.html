@@ -122,12 +122,23 @@
         <label for="scenarios">Scenario:</label>
         <select id="scenarios" name="scenarios" style="float:right;width:110px">
         </select>
+
+        <label for="tipo_dia">Type of Day:</label>
+        <select id="tipo_dia" name="tipo_dia" style="float:right;width:110px">
+            <option value="DU">Workdays (DU)</option>
+            <option value="SA">Saturday (SA)</option>
+            <option value="DO">Sunday/Holidays (DO)</option>
+        </select><br>
+
+        <label for="meses">Month:</label>
+        <select id="meses" name="meses" style="float:right;width:110px">
+        </select>
         <hr>
 
-         <span id> Study List for the scenario: <i id="study_p" style="text-transform:uppercase"></i></span>
+         <span id> Scenario Study List: <i id="study_p" style="text-transform:uppercase"></i></span>
         <ul style="list-style: none; padding: 0; margin: 5px;">
          <li>
-           <a href="#" onclick="transformer_loading(document.getElementById('distribuidora').value); return false;" title="Power Transformer Loading">
+           <a href="#" onclick="power_transformer_loading(); return false;" title="Power Transformer Loading">
              <span class="links_name">Power Transformer Loading</span>
            </a>
          </li>
@@ -152,15 +163,30 @@
            </a>
          </li>
          <li>
-           <a href="#" onclick="losses(document.getElementById('distribuidora').value); return false;" title="Energy Losses">
+           <a href="#" onclick="load_losses(); return false;" title="Energy Losses">
              <span class="links_name">Losses</span>
+           </a>
+         </li>
+         <li>
+           <a href="#" onclick="load_gd_insertion('case1','VminVmax_vs_Pen'); return false;" title="GD Penetration Analysis">
+             <span class="links_name">VminVmax_vs_Pen</span>
+           </a>
+         </li>
+         <li>
+           <a href="#" onclick="load_gd_insertion('case2','Vmin_vs_Pen'); return false;" title="GD Penetration Analysis">
+             <span class="links_name">Vmin_vs_Pen</span>
+           </a>
+         </li>
+         <li>
+           <a href="#" onclick="load_gd_insertion('case3','Vmax_vs_Pen'); return false;" title="GD Penetration Analysis">
+             <span class="links_name">Vmax_vs_Pen</span>
            </a>
          </li>
 
         </ul>
     </div>
 
-    <div class="chart-container" style = "position: relative; height: 50vh; width:100vw;">
+    <div id="chart-container" class="chart-container" style = "position: relative; height: 44vh; width:100vw;">
         <canvas id="myChart1"></canvas>
         <canvas id="myChart2"></canvas>
         <canvas id="myChart3"></canvas>
@@ -169,7 +195,64 @@
 </div>
 
 <script>
+    function load_gd_insertion(type_case, txt_title){
+        if (!document.getElementById('distribuidora').value){
+                console.log('Select a Utility!')
+                return;
+            }
+        var t = document.getElementById('distribuidora')
+        const dist_text = t.options[t.selectedIndex].text;
+        console.log(type_case)
+        document.body.style.cursor = 'wait';  // Cursor de espera
+        load_gd_penetrion_analysis(document.getElementById('distribuidora').value,
+                                    document.getElementById('subestacao').value,
+                                    document.getElementById('scenarios').value,
+                                    document.getElementById('circuito').value,
+                                    document.getElementById('tipo_dia').value,
+                                    document.getElementById('meses').value,
+                                    dist_text.slice(-4),
+                                    type_case,
+                                    txt_title
+                                   )
+        document.body.style.cursor = 'default';  // Cursor normal
+    }
+
+    function power_transformer_loading(){
+        if (!document.getElementById('distribuidora').value){
+            console.log('Select a Utility!')
+            return;
+        }
+        document.body.style.cursor = 'wait';  // Cursor de espera
+        transformer_loading(document.getElementById('distribuidora').value)
+        document.body.style.cursor = 'default';  // Cursor normal
+    }
+
+    function load_losses(){
+         if (!document.getElementById('distribuidora').value){
+            console.log('Select a Utility!')
+            return;
+        }
+        var t = document.getElementById("distribuidora");
+        var dist_text = t.options[t.selectedIndex].text;
+        var ano = dist_text.slice(-4);
+        console.log(ano);
+        document.body.style.cursor = 'wait';  // Cursor de espera
+        losses(document.getElementById('distribuidora').value,
+            document.getElementById('subestacao').value,
+            document.getElementById('circuito').value,
+            document.getElementById('scenarios').value,
+            document.getElementById('tipo_dia').value,
+            ano,
+            document.getElementById('meses').value
+        )
+        document.body.style.cursor = 'default';  // Cursor normal
+    }
+
     function load_power_circuit(){
+        if (!document.getElementById('distribuidora').value){
+            console.log('Select a Utility!')
+            return;
+        }
         document.body.style.cursor = 'wait';  // Cursor de espera
         daily_load(document.getElementById('distribuidora').value,
             document.getElementById('subestacao').value,
@@ -192,6 +275,7 @@
 
     document.getElementById('scenarios').addEventListener('change', function() {
         document.getElementById('study_p').innerHTML = document.getElementById('scenarios').value;
+        console.log(document.getElementById('scenarios').value)
     });
 
 </script>
@@ -200,3 +284,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/1.1.1/chartjs-plugin-zoom.min.js"></script>
 
 <script src="{{url_for('static', filename='js/sidebar_base.js') }}"></script>
+
+<!-- Load plotly.js into the DOM -->
+<script src='https://cdn.plot.ly/plotly-3.0.1.min.js'></script>
+<!--<script src='https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.17/d3.min.js'></script>-->
+
+<script src="{{url_for('static', filename='js/dash_plotly.js') }}"></script>

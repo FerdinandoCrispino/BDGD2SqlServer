@@ -1,5 +1,6 @@
 
 
+
     // preenche combo com a lista de tipos de scenarios ============================================================
 const scenariosSelect = document.getElementById("scenarios");
 function populateScenarios(){
@@ -16,6 +17,23 @@ function populateScenarios(){
         });
 }
 populateScenarios();
+
+// Preenche o Select com as distribuidoras do arquivo de configuração yml
+
+function getDistribuidorasConfig(){
+    fetch('/api/conf_dist')
+        .then(response => response.json())
+        .then(list_dist => {
+            console.log(list_dist)
+            var distSelect = document.getElementById("distribuidora");
+            distSelect.innerHTML = '<option value="">Select</option>';
+            list_dist.forEach(function(list_dist) {
+                distSelect.innerHTML += `<option value="${list_dist[0]}">${list_dist[2]}</option>`;
+            });
+
+        });
+}
+getDistribuidorasConfig();
 
 // Função para carregar subestações com base na distribuidora selecionada
 document.getElementById('distribuidora').addEventListener('change', function() {

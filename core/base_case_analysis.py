@@ -23,15 +23,15 @@ logging.basicConfig(filename='base_case.log', level=logging.INFO,
 # True para rodar um circuito de cada vez
 exec_by_circuit = True
 
-dist = "391"
+dist = "40"
 master_type_day = "DU"
 master_month = "12"
-master_data_base = "2022"
 
 # set run multiprocess
 run_multiprocess = False
 
 config = load_config(dist)
+master_data_base = config['data_base'].split('-')[0]
 engine = create_connection(config)
 
 master_folder = os.path.expanduser(config['dss_files_folder'])
@@ -684,7 +684,7 @@ if __name__ == '__main__':
                     'UNA', 'URB', 'USS', 'VGA', 'VHE', 'VJS', 'VSL']
         list_sub = ['USS']
         """
-        list_sub = ['USS']
+        list_sub = ['CRU']
         for nome_sub in list_sub:
             sub = nome_sub
             master_file = f"{master_type_day}_{master_month}_Master_substation_{dist}_{sub}.dss"
