@@ -136,49 +136,49 @@
         <hr>
 
          <span id> Scenario Study List: <i id="study_p" style="text-transform:uppercase"></i></span>
-        <ul style="list-style: none; padding: 0; margin: 5px;">
+        <ul id="list_study" style="list-style: none; padding: 0; margin: 5px;">
          <li>
-           <a href="#" onclick="power_transformer_loading(); return false;" title="Power Transformer Loading">
+           <a href="#" onclick="power_transformer_loading(); return false;" title="Power Transformer Loading" data-parent="Base-sc_type1">
              <span class="links_name">Power Transformer Loading</span>
            </a>
          </li>
          <li>
-           <a href="#" title="Voltage Analysys">
+           <a href="#" title="Voltage Analysys" data-parent="Base-sc_type1">
              <span class="links_name">Voltage Analysys</span>
            </a>
          </li>
          <li>
-           <a href="#" onclick="load_power_circuit(); return false;" title="Power Circuit">
+           <a href="#" onclick="load_power_circuit(); return false;" title="Power Circuit" data-parent="Base-sc_type1">
              <span class="links_name">Power Circuit</span>
            </a>
          </li>
          <li>
-           <a href="#">
+           <a href="#" title="Reverse Power Flow" data-parent="Base-sc_type1">
              <span class="links_name">Reverse Power Flow</span>
            </a>
          </li>
          <li>
-           <a href="#" title="Voltage Unbalance">
+           <a href="#" title="Voltage Unbalance" data-parent="Base-sc_type1">
              <span class="links_name">Voltage Unbalance</span>
            </a>
          </li>
          <li>
-           <a href="#" onclick="load_losses(); return false;" title="Energy Losses">
+           <a href="#" onclick="load_losses(); return false;" title="Energy Losses" data-parent="Base-sc_type1">
              <span class="links_name">Losses</span>
            </a>
          </li>
          <li>
-           <a href="#" onclick="load_gd_insertion('case1','VminVmax_vs_Pen'); return false;" title="GD Penetration Analysis">
+           <a href="#" onclick="load_gd_insertion('case1','VminVmax_vs_Pen'); return false;" title="GD Penetration Analysis" data-parent="sc_type2">
              <span class="links_name">VminVmax_vs_Pen</span>
            </a>
          </li>
          <li>
-           <a href="#" onclick="load_gd_insertion('case2','Vmin_vs_Pen'); return false;" title="GD Penetration Analysis">
+           <a href="#" onclick="load_gd_insertion('case2','Vmin_vs_Pen'); return false;" title="GD Penetration Analysis" data-parent="sc_type2">
              <span class="links_name">Vmin_vs_Pen</span>
            </a>
          </li>
          <li>
-           <a href="#" onclick="load_gd_insertion('case3','Vmax_vs_Pen'); return false;" title="GD Penetration Analysis">
+           <a href="#" onclick="load_gd_insertion('case3','Vmax_vs_Pen'); return false;" title="GD Penetration Analysis" data-parent="sc_type2">
              <span class="links_name">Vmax_vs_Pen</span>
            </a>
          </li>
@@ -195,6 +195,28 @@
 </div>
 
 <script>
+    function filter_list(scenario) {
+        let input, filter, ul, li, a, i, txtValue;
+        input = scenario
+
+        filter = input.toUpperCase();
+        console.log(filter)
+        ul = document.getElementById("list_study");
+        console.log(ul)
+        li = ul.getElementsByTagName("li");
+        for (i = 0; i < li.length; i++) {
+            a = li[i].getElementsByTagName("a")[0];
+            //txtValue = a.textContent || a.innerText;
+            txtValue = a.getAttribute("data-parent");
+             console.log(txtValue)
+            if (txtValue.toUpperCase().indexOf(filter) > -1) {
+                li[i].style.display = "";
+            } else {
+                li[i].style.display = "none";
+            }
+        }
+    }
+
     function load_gd_insertion(type_case, txt_title){
         if (!document.getElementById('distribuidora').value){
                 console.log('Select a Utility!')
@@ -276,6 +298,7 @@
     document.getElementById('scenarios').addEventListener('change', function() {
         document.getElementById('study_p').innerHTML = document.getElementById('scenarios').value;
         console.log(document.getElementById('scenarios').value)
+        filter_list(document.getElementById('scenarios').value);
     });
 
 </script>
@@ -289,4 +312,4 @@
 <script src='https://cdn.plot.ly/plotly-3.0.1.min.js'></script>
 <!--<script src='https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.17/d3.min.js'></script>-->
 
-<script src="{{url_for('static', filename='js/dash_plotly.js') }}"></script>
+<!--<script src="{{url_for('static', filename='js/dash_plotly.js') }}"></script> -->
