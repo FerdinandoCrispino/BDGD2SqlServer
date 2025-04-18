@@ -17,7 +17,7 @@ columns_rename = {'Shape_Leng': 'Shape_STLength__',
 
 if __name__ == "__main__":
     proc_time_ini = time.time()
-    config_bdgd = load_config('391')
+    config_bdgd = load_config('40_2022')
     schema = config_bdgd['schema']
     # Conectando ao banco de dados sqlserver using sqlalchemy
     try:
@@ -41,10 +41,11 @@ if __name__ == "__main__":
 
     # preenche as coordenadas para UGMT, UCMT, UGBT, UCBT
     print(f"Preenchendo coordenadas para UGMT, UCMT, UGBT, UCBT")
-    set_coords(config_bdgd['dist'])
+    set_coords(engine)
     print(f"Processo concluído!")
 
     # Executa a stored procedure de atualização da versão 10
     print(f"Executando stored procedure de atualização da versão 1.0 da base de dados da BDGD: {config_bdgd['dist']}")
     exec_sp_atualiza_v10(config_bdgd['dist'], data_base, engine)
     print(f"Processo concluído!")
+

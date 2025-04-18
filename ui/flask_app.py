@@ -83,6 +83,9 @@ def daily_power_circuit():
     subestacao = request.args.get('subestacao')
     circuito = request.args.get('circuito')
     scenario = request.args.get('scenario', 'base')
+    # tipo_dia = request.args.get('tipo_dia')  # Não necessario. Será criado gráfico comparativo entre DO e DU
+    mes = request.args.get('mes')
+    ano = request.args.get('ano')
     print(f'route data: {distribuidora} {subestacao}')
 
     list_data = []
@@ -98,7 +101,7 @@ def daily_power_circuit():
     if circuito:
         path_conf = os.path.join(path_conf, circuito)
 
-    file_results = ['DO_2022_12_all_power.xlsx', 'DU_2022_12_all_power.xlsx']
+    file_results = [f'DO_{ano}_{mes}_all_power.xlsx', f'DU_{ano}_{mes}_all_power.xlsx']
     for root, dirs, files in os.walk(path_conf):
         for file in files:
             if file.endswith(tuple(file_results)) and not (file.startswith('~') or file.startswith('.')):
@@ -152,7 +155,7 @@ def render_data_losses():
 
     list_data = []
     path_result = os.path.abspath('static/scenarios/base/391')
-    file_results = ['DO_12_sub_losses.xlsx', 'DU_12_sub_losses.xlsx']
+    file_results = [f'DO_{mes}_sub_losses.xlsx', f'DU_{mes}_sub_losses.xlsx']
 
     if circuito:
         path_result = os.path.abspath('static/scenarios')
@@ -279,7 +282,7 @@ def get_subestacoes(distribuidora):
         engine = create_connection(conf)
         query = f'''SELECT DISTINCT c.SUB, s.nome FROM sde.CTMT c
                       inner join sde.SUB s on s.COD_ID = c.sub
-                      WHERE s.dist ='{distribuidora}'
+                      WHERE s.dist ='{conf['dist']}'
                 '''
         rows = return_query_as_dataframe(query, engine)
         rows['Combined'] = rows['SUB'].astype(str) + '-' + rows['nome']
@@ -1294,11 +1297,13 @@ def list_table_view():
 @server.route('/api/list')
 def api_list_table():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
+    conf = load_config(distribuidora)
+    dist = conf['dist']
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
     circuito = request.args.get('circuito', 'defaultCircuito')
     id_summary = request.args.get('idSummary', '0')
 
-    sumario = resumo.Summary(engine=engine, sub=subestacao, dist=distribuidora)
+    sumario = resumo.Summary(engine=engine, sub=subestacao, dist=dist)
     table_data = get_table_data(sumario, id_summary)
 
     return jsonify(table_data), 200

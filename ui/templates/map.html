@@ -372,7 +372,7 @@
                     const cbt5 = selected.get("uni_tr_mt");
                     const cbt6 = selected.get("car_inst");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo(cbt1 + '<br> CEG: ' + cbt2 + '<br> Power: ' + cbt6 +
+                    popup1.setInfo('CTMT:' + cbt1 + '<br> CEG: ' + cbt2 + '<br> Power: ' + cbt6 +
                                    ' kW <br> Voltage: ' + cbt4 + ' V <br> TR: ' + cbt5 +
                                    '<br> CRV: ' + cbt3);
                     break;
@@ -459,7 +459,8 @@
         let nome_camada = feature.get("tipo")
         const dist = document.getElementById("distribuidora");
         const select_dist = dist.options[dist.selectedIndex].text;
-        const ano = select_dist.split(" ")[1]
+        //const ano = select_dist.split(" ")[1]
+        const ano = select_dist.slice(-4)
         console.log(nome_camada)
         var content = "";
         if (nome_camada == "segmentos") {
@@ -742,7 +743,7 @@
             .then(response => response.json())
             .then(data => {
                 if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
-
+                //console.log(data)
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'

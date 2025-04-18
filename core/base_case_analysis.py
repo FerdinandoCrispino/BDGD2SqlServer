@@ -23,12 +23,12 @@ logging.basicConfig(filename='base_case.log', level=logging.INFO,
 # True para rodar um circuito de cada vez
 exec_by_circuit = True
 
-dist = "40"
+dist = "391"
 master_type_day = "DU"
-master_month = "12"
+master_month = "1"
 
 # set run multiprocess
-run_multiprocess = False
+run_multiprocess = True
 
 config = load_config(dist)
 master_data_base = config['data_base'].split('-')[0]
@@ -684,7 +684,7 @@ if __name__ == '__main__':
                     'UNA', 'URB', 'USS', 'VGA', 'VHE', 'VJS', 'VSL']
         list_sub = ['USS']
         """
-        list_sub = ['CRU']
+        list_sub = ['ITQ']
         for nome_sub in list_sub:
             sub = nome_sub
             master_file = f"{master_type_day}_{master_month}_Master_substation_{dist}_{sub}.dss"
@@ -718,13 +718,13 @@ if __name__ == '__main__':
                 simul.executa_fluxo_potencia()
                 simul.plot_data_monitors()
     
-    control_sub_loading = False
+    control_sub_loading = True
     if control_sub_loading:
+        substations_losses(dist, 'DO', '2022', master_month)
+        substations_losses(dist, 'DU', '2022', master_month)
         # teste: análise de carregamento das subestações
-        substations_losses(dist, 'DO', '2022', '12')
-        substations_losses(dist, 'DU', '2022', '12')
-        # substations_transformer_loading(dist, 'DU', '2022', '12')
-        # substations_transformer_loading(dist, 'DO', '2022', '12')
+        # substations_transformer_loading(dist, 'DU', '2022', master_month)
+        # substations_transformer_loading(dist, 'DO', '2022', master_month)
 
-    print(f'Substation: process in {time.time() - proc_time_ini}.', flush=True)
+    print(f'Substation: process completed in {time.time() - proc_time_ini}.', flush=True)
 
