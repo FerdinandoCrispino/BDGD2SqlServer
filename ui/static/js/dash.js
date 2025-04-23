@@ -18,8 +18,8 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
             const x = data[0].slice(1); // Primeira linha (exceto o primeiro valor) = eixo X
             const y = data.slice(1).map(row => row[0]); // Primeira coluna (exceto o cabeçalho) = eixo Y
             const z = data.slice(1).map(row => row.slice(1)); // Valores Z
-            console.log (x)
-            console.log (y)
+            //console.log (x)
+            //console.log (y)
             //console.log (z)
             const surf_data = [{
                 type: 'surface',
@@ -42,7 +42,7 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                 },
                 scene: {
                     xaxis: { title: { text: '% GD' } },
-                    yaxis: { title: { text: 'Buses' } },
+                    yaxis: { title: { text: 'Quantity of Buses' } },
                     zaxis: { title: { text: 'Probability' } }
                 },
                 autosize: false,

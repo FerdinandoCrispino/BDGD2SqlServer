@@ -1235,12 +1235,14 @@ def fator_autoconsumo(classe):
     :param classe:
     :return:
     """
+    fator_auto = None
     if classe == 1:  # residencial
-        return 0.4
-    if classe == 2:  # comercial bt
-        return 0.5
-    if classe == 3:  # comercial mt
-        return 0.8
+        fator_auto =  0.4
+    elif classe == 2:  # comercial bt
+        fator_auto =  0.5
+    elif classe == 3:  # comercial mt
+        fator_auto =  0.8
+    return fator_auto
 
 
 def list_substation(dist):
@@ -1306,6 +1308,9 @@ def get_coods_by_annel(ceg):
     https://dadosabertos.aneel.gov.br/dataset/siga-sistema-de-informacoes-de-geracao-da-aneel/resource/11ec447d-698d-4ab8-977f-b424d5deee6a
     :return:
     """
+    '4318d38a-0bcd-421d-afb1-fb88b0c92a87' # código da api para acesso a UCAT_PJ.csv
+    'f6671cba-f269-42ef-8eb3-62cb3bfa0b98' # código da api para acesso a UCMT_PJ.csv
+
     # url = 'https://dadosabertos.aneel.gov.br/api/3/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%22fcf2906c-7c32-4b9b-a637-054e7a5234f4%22%20WHERE%20%22SigAgente%22%20%3D%20%27Equatorial%20AL%27%20AND%20%22DscSubGrupo%22%20%3D%20%27B3%27%20AND%20%22DscClasse%22%20%3D%20%27N%C3%A3o%20se%20aplica%27%20AND%20%22SigAgenteAcessante%22%20IN%20(%27NA%27,%20%27N%C3%A3o%20se%20aplica%27)%20AND%20%22DscBaseTarifaria%22%20%3D%20%27Tarifa%20de%20Aplica%C3%A7%C3%A3o%27%20AND%20%22DscSubClasse%22%20%3D%20%27N%C3%A3o%20se%20aplica%27%20AND%20%22DscModalidadeTarifaria%22%20%3D%20%27Convencional%27%20AND%20%22NomPostoTarifario%22%20%3D%20%27N%C3%A3o%20se%20aplica%27%20ORDER%20BY%20%22DatInicioVigencia%22%20DESC%20LIMIT%201'
     # url = 'https://dadosabertos.aneel.gov.br/api/3/action/datastore_search?resource_id=2f65a1b0-19b8-4360-8238-b34ab4693d55&limit=5&'
     # url = 'https://dadosabertos.aneel.gov.br/api/3/action/datastore_search_sql?sql=SELECT%20*%20from%20%222f65a1b0-19b8-4360-8238-b34ab4693d55%22%20WHERE%20_id=1'
@@ -1315,7 +1320,6 @@ def get_coods_by_annel(ceg):
     campo = 'CodCEG'
     valor = 'PCH.PH.MG.000008%'
     valor = f'{ceg}%'
-    url = f'https://dadosabertos.aneel.gov.br/api/3/action/datastore_search_sql?sql=SELECT%20*%20from%20%222f65a1b0-19b8-4360-8238-b34ab4693d55%22%20WHERE%20%22{campo}%22%20%3D%20%27{valor}%27'
     url = f'https://dadosabertos.aneel.gov.br/api/3/action/datastore_search_sql?sql=SELECT%20*%20from%20%222f65a1b0-19b8-4360-8238-b34ab4693d55%22%20WHERE%20%22{campo}%22%20LIKE%20%27{valor}%27%20'
 
     req = urllib.request.Request(url)
@@ -1340,7 +1344,7 @@ def get_list_ceg(dist, engine):
 
 def update_coords_by_aneel(dist, engine):
     """
-    Atualiza a base de dados da BDGD com as coordenadas obtidas da base de dados de impreendimentos da ANEEL
+    Atualiza a base de dados da BDGD com as coordenadas obtidas da base de dados de empreendimentos da ANEEL
     :param dist:
     :param engine:
     :return:
@@ -1379,7 +1383,7 @@ if __name__ == "__main__":
     engine = create_connection(config)
     update_coords_by_aneel(dist, engine)
 
-    set_coords(engine)
+    # set_coords(engine)
 
     """
     import matplotlib.pyplot as plt

@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 from Tools.tools import create_connection, load_config, calc_du_sa_do_mes, irrad_by_municipio, fator_autoconsumo
 import calendar
+import xlsxwriter
 
 
 def curvas_carga_normal(curvas_carga):
@@ -65,7 +66,7 @@ def query_fator_de_carga(engine):
                  +[POT_71] +[POT_72] +[POT_73] +[POT_74] +[POT_75] +[POT_76] +[POT_77] +[POT_78] +[POT_79] +[POT_80]
                  +[POT_81] +[POT_82] +[POT_83] +[POT_84] +[POT_85] +[POT_86] +[POT_87] +[POT_88] +[POT_89] +[POT_90]
                  +[POT_91] +[POT_92] +[POT_93] +[POT_94]+ [POT_95] +[POT_96])/(4*24) as DEM_MED
-                  FROM [sde].[CRVCRG]
+                  FROM sde.CRVCRG
                   ) as s
                 ;
             '''
@@ -124,7 +125,7 @@ def get_pot_inst_pv(engine, sub, tabela):
         return
 
 
-def get_generation(engine, sub, tabela, ck_pot=None, classe=None):
+def get_generation(engine, sub, tabela, ck_pot=None, classe=None) -> pd.DataFrame:
     try:
         with engine.connect() as con:
             col = 'ENE'
@@ -176,7 +177,7 @@ def get_generation(engine, sub, tabela, ck_pot=None, classe=None):
         return
 
 
-def get_cargas(engine, sub, tabela, classe=None):
+def get_cargas(engine, sub, tabela, classe=None) -> pd.DataFrame:
     try:
         with engine.connect() as con:
             col = 'ENE'
@@ -271,18 +272,57 @@ def get_curvas_agregadas(cargas, cargas_fc, curvas_carga_tipicas, tipo_dia, mes,
     curva_carga_agregada = curva_carga_agregada.groupby(['TIP_DIA']).sum()
     return curva_carga_agregada
 
+def insert_graph_excel(writer, sheet_name):
+    sheet = writer.sheets[sheet_name]
+    worksheet = writer.sheets[sheet_name]
+    if sheet_name == 'ALL_subs_carga_mes':
+        chart = workbook.add_chart({'type': 'column'})
+        (max_row, max_col) = cargas_total_mes.shape
+        for i in range(max_row):
+            chart.add_series({'name': [sheet_name, i+1, 0, i+1, 0], # Linha inicial, coluna inicial, linha final, coluna final
+                               'categories': [sheet_name, 0, 1, 0, 12],
+                               'values': [sheet_name, i+1, 1, i+1, 12]
+                              })
+        chart.set_title({'name': 'Load Profile', 'name_font': {'size': 11}})
+        worksheet.insert_chart('N2', chart)
+
+    elif sheet_name == 'ALL_SUB_geracao':
+        chart = workbook.add_chart({'type': 'line'})
+        (max_row, max_col) = curva_geracao_agregada_total.shape
+        chart.add_series({'name': f'={sheet_name}!$A${max_row+1}',  # Linha inicial, coluna inicial, linha final, coluna final
+                  'categories': [sheet_name, 0, 1, 0, 24],
+                  'values': [sheet_name, max_row, 1, max_row, 24]
+                  })
+        chart.set_title({'name': 'Load Profile', 'name_font': {'size': 11}})
+        worksheet.insert_chart('F15', chart)
+
+    elif sheet_name == 'ALL_SUB':
+        chart = workbook.add_chart({'type': 'line'})
+        (max_row, max_col) = curva_carga_agregada_total.shape
+        for i in range(max_row):
+            chart.add_series(
+                {'name': [sheet_name, i+1, 0, i+1, 0],  # Linha inicial, coluna inicial, linha final, coluna final
+                 'values': [sheet_name, i+1, 1, i+1, 24]
+                 })
+        chart.set_title({'name': 'Load Profile', 'name_font': {'size': 11}})
+        worksheet.insert_chart('F15', chart)
+
 
 if __name__ == '__main__':
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
-    list_subs = ['ACR', 'CCO', 'CRU', 'ICC', 'JPR', 'JSR', 'PLH']
+    list_subs = ['ACR', 'CCO', 'CRU', 'ICC', 'JPR', 'JSR', 'PLH'] # grupo de subestações conectadas entre si
+    #list_subs = ['STU', 'TGA', 'LGD', 'ELS', 'SPG']
     dist = '40'
-
     mes = 12
     ano_base = 2022
-    rendimento = 0.75  # rendimento painel solar
+    file_output = f'{dist}_{ano_base}_{mes}_SubLoadShapes_1.xlsx'
+
+    rendimento = 0.75  # rendimento do painel solar
     curva_carga_agregada_total = pd.DataFrame()
     curva_geracao_agregada_total = pd.DataFrame()
-    cargas_all_mounth = []
+    energy_all_month = pd.DataFrame()
+    cargas_all_month = []
+
 
     # Lê configuração do arquivo yml
     config = load_config('40_2022')
@@ -297,17 +337,19 @@ if __name__ == '__main__':
 
     # numero de dias do mes
     num_dias = calendar.monthrange(ano_base, mes)[1]
+    # numero de dias do mes por tipo de dia
     tipo_dias_mes = calc_du_sa_do_mes(ano_base, mes)
-    with pd.ExcelWriter(f'sub_loading.xlsx') as writer:
 
+    with pd.ExcelWriter(file_output) as writer:
+        workbook = writer.book
         for sub in list_subs:
-            print(f'subestação: {sub}')
+            print(f'Substation: {sub}')
             """
             Caracterização das curvas de geração:
             Para a geração utiliza-se o fator de autoconsumo definido pela EPE: Eg = Ei*(1/(1-fi))
             """
             cod_mun = get_municipio_gd(engine, 'UGMT', sub)
-            # obtem curva de irradiação solar na base de dados de irradiação
+            # obtêm curva de irradiação solar na base de dados de irradiação
             irradiacao = irrad_by_municipio(cod_mun, mes, dist)
 
             # get BT Generation PV - residencial
@@ -332,11 +374,14 @@ if __name__ == '__main__':
             generation_mt_demais = get_generation(engine, sub, 'UGMT', classe=4)
 
             # get AT Generation PV
+            # TODO a geração na alta tensão não deve ser somada com a geração na media e baixa tensão
             generation_at = get_generation(engine, sub, 'UGAT')
 
             # soma toda a geração
             pv_generation = pd.concat([generation_bt_res, generation_bt_com, generation_bt_demais,
-                                       generation_mt_com, generation_mt_demais, generation_at]).sum()
+                                       generation_mt_com, generation_mt_demais], join='outer').sum()
+            #pv_generation = pd.concat([generation_bt_res, generation_bt_com, generation_bt_demais,
+            #                           generation_mt_com, generation_mt_demais, generation_at], join='outer').sum()
             pv_generation_mes = pv_generation[f'ENE_{mes}']
 
             # fator de geração media dos valores diferentes de zero
@@ -345,10 +390,12 @@ if __name__ == '__main__':
             curva_geracao_pv_total_mes = np.multiply(np.array(irradiacao), (-1 * pot_generation_pv_mes * rendimento))
             df_curva_geracao_pv_total_mes = pd.DataFrame(curva_geracao_pv_total_mes).transpose()
 
-            curva_geracao_agregada_total = pd.concat([df_curva_geracao_pv_total_mes, curva_geracao_agregada_total])
+            curva_geracao_agregada_total = pd.concat([df_curva_geracao_pv_total_mes, curva_geracao_agregada_total],
+                                                     join='outer')
 
             """
-            Cálculo da geração atraves dos valores de potência instalada.            
+            Cálculo da geração através dos valores de potência instalada.   
+            valores de potência instalada registrados na BDGD podem ter erros!!!          
             """
             # potencia instalada de geração na baixa tensão
             pot_inst_pv_bt = get_pot_inst_pv(engine, sub, 'UGBT')
@@ -363,7 +410,9 @@ if __name__ == '__main__':
             generation_pv_bt = get_generation(engine, sub, 'UGBT', ck_pot=1).iloc[0][f'ENE_{mes:02}']
             generation_pv_mt = get_generation(engine, sub, 'UGMT', ck_pot=1).iloc[0][f'ENE_{mes:02}']
             generation_pv_at = get_generation(engine, sub, 'UGAT', ck_pot=1).iloc[0][f'ENE_{mes:02}']
-            generation_pv = generation_pv_bt + generation_pv_mt + generation_pv_at
+            # TODO a geração na alta tensão não deve ser somada com a geração na media e baixa tensão
+            #generation_pv = generation_pv_bt + generation_pv_mt + generation_pv_at
+            generation_pv = generation_pv_bt + generation_pv_mt
             if generation_pv > 0:
                 factor_auto = fator_autoconsumo(classe=2)
                 generation_pv_total = generation_pv * (1 / (1 - factor_auto))
@@ -386,12 +435,16 @@ if __name__ == '__main__':
             Ei = energia injetada (BDGD (UGs)
             """
 
-            # get demand of subestation by mounth
+            # get demand of substation by month
             energy_sub = get_energy_sub(engine, sub, mes)
+            energy_all_month = pd.concat([energy_all_month, energy_sub], join='outer')
 
             # cargas da subestação agrupadas por TIP_CC
+            # TODO a demanda na alta tensão não deve ser somada com a demanda na media e baixa tensão pq no trafo não é contabilizado na demanda de alta tensão.
             cargas_at = get_cargas(engine, sub, 'UCAT')
             cargas_at['TIP_CC'] = cargas_at['TIP_CC'].str.upper()
+            # compatibilizar com as demais cargas MT, BT e PIP
+            cargas_at['uni_tr_at'] = 'sub'
 
             cargas_pip = get_cargas(engine, sub, 'PIP')
             cargas_pip['TIP_CC'] = cargas_pip['TIP_CC'].str.upper()
@@ -425,7 +478,7 @@ if __name__ == '__main__':
             cargas_bt_demais = get_cargas(engine, sub, 'UCBT', classe=0)
             cargas_bt_demais['TIP_CC'] = cargas_bt_demais['TIP_CC'].str.upper()
 
-            cargas_bt = pd.concat([cargas_bt_res, cargas_bt_com, cargas_bt_demais]).reset_index()
+            cargas_bt = pd.concat([cargas_bt_res, cargas_bt_com, cargas_bt_demais], join='outer').reset_index()
 
             cargas_mt_com = get_cargas(engine, sub, 'UCMT', classe=3)
             cargas_mt_com['TIP_CC'] = cargas_mt_com['TIP_CC'].str.upper()
@@ -440,11 +493,12 @@ if __name__ == '__main__':
             cargas_mt_demais = get_cargas(engine, sub, 'UCMT', classe=4)
             cargas_mt_demais['TIP_CC'] = cargas_mt_demais['TIP_CC'].str.upper()
 
-            cargas_mt = pd.concat([cargas_mt_com, cargas_mt_demais]).reset_index()
+            cargas_mt = pd.concat([cargas_mt_com, cargas_mt_demais], join='outer').reset_index()
 
-            x = pd.concat([cargas_at, cargas_mt, cargas_bt, cargas_pip]).sum()
+            x = pd.concat([df for df in [cargas_at, cargas_mt, cargas_bt, cargas_pip] if not df.empty],
+                          join='outer').sum()
 
-            cargas_all_mounth.append(x)
+            cargas_all_month.append(x)
 
             # list results
             cargas_list_at = []
@@ -467,18 +521,24 @@ if __name__ == '__main__':
                 if not cargas_pip.empty:
                     curva_carga_agregada_pip = get_curvas_agregadas(cargas_pip, cargas_fc, curvas_carga_tipicas,
                                                                     tipo_dia, mes, cargas_list_pip)
-                curva_carga_agregada_sub = pd.concat([curva_carga_agregada_at, curva_carga_agregada_mt,
-                                                      curva_carga_agregada_bt, curva_carga_agregada_pip]).groupby(
-                    ['TIP_DIA']).sum()
+
+                curva_carga_agregada_sub = pd.concat([curva_carga_agregada_mt,
+                                                      curva_carga_agregada_bt, curva_carga_agregada_pip],
+                                                     join='outer').groupby(['TIP_DIA']).sum()
+
+                #curva_carga_agregada_sub = pd.concat([curva_carga_agregada_at, curva_carga_agregada_mt,
+                #                                      curva_carga_agregada_bt, curva_carga_agregada_pip],
+                #                                     join='outer').groupby(['TIP_DIA']).sum()
 
             # Escreve arquivo excel
+            curva_carga_agregada_at.to_excel(writer, sheet_name=sub + '_AT')
             curva_carga_agregada_mt.to_excel(writer, sheet_name=sub + '_MT')
             curva_carga_agregada_bt.to_excel(writer, sheet_name=sub + '_BT')
             curva_carga_agregada_pip.to_excel(writer, sheet_name=sub + '_pip')
             curva_carga_agregada_sub.to_excel(writer, sheet_name=sub + '_Total')
 
-            curva_carga_agregada_total = pd.concat([curva_carga_agregada_sub, curva_carga_agregada_total]).groupby(
-                ['TIP_DIA']).sum()
+            curva_carga_agregada_total = pd.concat([curva_carga_agregada_sub, curva_carga_agregada_total],
+                                                   join='outer').groupby(['TIP_DIA']).sum()
 
             df_fc_sub = pd.DataFrame(
                 curva_carga_agregada_sub.mean(axis=1) / curva_carga_agregada_sub.max(axis=1)).reset_index()
@@ -502,7 +562,17 @@ if __name__ == '__main__':
         curva_geracao_agregada_total.loc['Total'] = pd.Series(curva_geracao_agregada_total.sum())
         curva_geracao_agregada_total.to_excel(writer, sheet_name='ALL_SUB_geracao')
 
-        cargas_total_mes = pd.DataFrame(cargas_all_mounth)
+        cargas_total_mes = pd.DataFrame(cargas_all_month)
         cargas_total_mes.drop(['TIP_CC', 'uni_tr_at', 'index'], axis=1, inplace=True)
-        cargas_total_mes.to_excel(writer, sheet_name='ALL_cargas_mes')
+        cargas_total_mes.to_excel(writer, sheet_name='ALL_subs_carga_mes')
+
+        energy_all_month.drop(['TIP_CC'], axis=1, inplace=True)
+        energy_all_month.reset_index(drop=True, inplace=True)
+        energy_all_month.to_excel(writer, sheet_name='ALL_subs_carga_mes', startrow=cargas_total_mes.shape[0]+1, header=False)
+
+        # insert graph in excel file
+        insert_graph_excel(writer, 'ALL_subs_carga_mes')
+        insert_graph_excel(writer, 'ALL_SUB_geracao')
+        insert_graph_excel(writer, 'ALL_SUB')
+
     print('Fim!')
