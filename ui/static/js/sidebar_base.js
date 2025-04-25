@@ -28,7 +28,7 @@ function getDistribuidorasConfig(){
             var distSelect = document.getElementById("distribuidora");
             distSelect.innerHTML = '<option value="">Select</option>';
             list_dist.forEach(function(list_dist) {
-                distSelect.innerHTML += `<option value="${list_dist[0]}">${list_dist[2]}</option>`;
+                distSelect.innerHTML += `<option info="${list_dist[3]}" value="${list_dist[0]}">${list_dist[2]}</option>`;
             });
 
         });
