@@ -2,7 +2,13 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
     document.body.style.cursor = 'progress';  // Cursor de espera
     //console.log(type_case)
     fetch(`/z_data?distribuidora=${dist}&subestacao=${sub}&scenario=${scenario}&circuito=${circ}&tipo_dia=${tipo_dia}&mes=${mes}&ano=${ano}&type_case=${type_case}`)  // Atenção ao tipo de aspas - backticks
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok){
+                alert("No Data Found!")
+                throw new Error ("No Data Found!")
+            }
+            return response.json();
+        })
         .then(data => {
             console.log(data)
             if (data.error) {
@@ -12,8 +18,8 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
             const x = data[0].slice(1); // Primeira linha (exceto o primeiro valor) = eixo X
             const y = data.slice(1).map(row => row[0]); // Primeira coluna (exceto o cabeçalho) = eixo Y
             const z = data.slice(1).map(row => row.slice(1)); // Valores Z
-            console.log (x)
-            console.log (y)
+            //console.log (x)
+            //console.log (y)
             //console.log (z)
             const surf_data = [{
                 type: 'surface',
@@ -36,7 +42,7 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                 },
                 scene: {
                     xaxis: { title: { text: '% GD' } },
-                    yaxis: { title: { text: 'Buses' } },
+                    yaxis: { title: { text: 'Quantity of Buses' } },
                     zaxis: { title: { text: 'Probability' } }
                 },
                 autosize: false,
@@ -57,12 +63,19 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
         })
 }
 
-function daily_load(dist, sub, circ, scenario) {
+function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
     document.body.style.cursor = 'progress';  // Cursor de espera
-    fetch(`/daily_power_circuit?distribuidora=${dist}&subestacao=${sub}&circuito=${circ}&scenario=${scenario}`)  // Atenção ao tipo de aspas - backticks
-        .then(response => response.json())
+    console.log(ano)
+    fetch(`/daily_power_circuit?distribuidora=${dist}&subestacao=${sub}&circuito=${circ}&scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}`)  // Atenção ao tipo de aspas - backticks
+        .then(response => {
+            if (!response.ok){
+                alert("No Data Found!")
+                throw new Error ("No Data Found!")
+            }
+            return response.json();
+        })
         .then(data => {
-
+            console.log(data)
             const ctx1 = document.getElementById('myChart1').getContext('2d', { willReadFrequently: true });
             const ctx2 = document.getElementById('myChart2').getContext('2d', { willReadFrequently: true });
             //console.log(data[0].values)
@@ -222,12 +235,13 @@ function daily_load(dist, sub, circ, scenario) {
             myChart2.data.labels = data[0].time;
 
             for (i = 0; i < Object.entries(data).length; i++) {
-                if (i <  Object.entries(data).length/2) {
+                //if (i <  Object.entries(data).length/2) {
+                if (data[i].tipo_dia == 'DU'){
                     myChart1.data.datasets.push({
                         data: data[i].values,
                         label: data[i].ctmt,
                     })
-                } else {
+                } else if (data[i].tipo_dia == 'DO'){
                     myChart2.data.datasets.push({
                         data: data[i].values,
                         label: data[i].ctmt,
@@ -238,14 +252,14 @@ function daily_load(dist, sub, circ, scenario) {
             //myChart1.data.datasets[1].data = data[4];
 
             myChart1.options.plugins.legend.align = 'end';
-            myChart1.options.plugins.subtitle.text = 'Sundays - 2022 - 12';
+            myChart1.options.plugins.subtitle.text = 'Sundays - ' + ano + '- ' + mes;
             if (num_lines > max_legend) {
                 myChart1.options.plugins.legend.display = false
                 //myChart1.defaults.global.legend.display = false
             }
             myChart1.update();
             myChart2.options.plugins.legend.align = 'end';
-            myChart2.options.plugins.subtitle.text = 'Workdays - 2022 - 12';
+            myChart2.options.plugins.subtitle.text = 'Workdays - '+ ano + ' - ' + mes;
             if (num_lines > max_legend) {
                 myChart2.options.plugins.legend.display = false
                 //myChart2.defaults.global.legend.display = false
@@ -253,7 +267,7 @@ function daily_load(dist, sub, circ, scenario) {
             myChart2.update();
 
         })
-        .catch(error => console.error('Error loading chart data:', error));
+        .catch(error => console.log('Error loading chart data:', error));
     document.body.style.cursor = 'default';  // Cursor normal
 }
 
@@ -263,7 +277,13 @@ function transformer_loading(dist) {
     //const dist = "{{ dist }}";
     document.body.style.cursor = 'wait';  // Cursor de espera
     fetch(`/data/${dist}`)  // Atenção ao tipo de aspas - backticks
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok){
+                alert("No Data Found!")
+                throw new Error ("No Data Found!")
+            }
+            return response.json();
+        })
         .then(data => {
             var groupLabel1 = []
             var groupLabel2 = []
@@ -557,7 +577,13 @@ function transformer_loading(dist) {
 
 function losses(dist, subestacao, circuito, scenario, tipo_dia, ano, mes) {
     fetch(`/data_losses?distribuidora=${dist}&subestacao=${subestacao}&circuito=${circuito}&scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok){
+                alert("No Data Found!")
+                throw new Error ("No Data Found!")
+            }
+            return response.json();
+        })
         .then(data => {
             var groupLabel1 = []
             var groupLabel2 = []
@@ -627,7 +653,7 @@ function losses(dist, subestacao, circuito, scenario, tipo_dia, ano, mes) {
                         },
                         subtitle: {
                             display: true,
-                            text: 'DO - 2022 - 12'
+                            text: 'DO - ' + ano + ' - ' + mes
                         }
                     },
                     responsive: true,
@@ -689,7 +715,7 @@ function losses(dist, subestacao, circuito, scenario, tipo_dia, ano, mes) {
                         },
                         subtitle: {
                             display: true,
-                            text: 'DU - 2022 - 12'
+                            text: 'DU - ' + ano + ' - ' + mes
                         }
                     },
                     responsive: true,

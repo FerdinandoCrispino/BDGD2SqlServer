@@ -241,6 +241,7 @@
 
     function power_transformer_loading(){
         if (!document.getElementById('distribuidora').value){
+            alert('Select a Utility!');
             console.log('Select a Utility!')
             return;
         }
@@ -251,6 +252,7 @@
 
     function load_losses(){
          if (!document.getElementById('distribuidora').value){
+            alert('Select a Utility!');
             console.log('Select a Utility!')
             return;
         }
@@ -272,14 +274,21 @@
 
     function load_power_circuit(){
         if (!document.getElementById('distribuidora').value){
+            alert('Select a Utility!');
             console.log('Select a Utility!')
             return;
         }
         document.body.style.cursor = 'wait';  // Cursor de espera
+        var t = document.getElementById("distribuidora");
+        var dist_text = t.options[t.selectedIndex].text;
+        var ano = dist_text.slice(-4);
         daily_load(document.getElementById('distribuidora').value,
             document.getElementById('subestacao').value,
             document.getElementById('circuito').value,
-            document.getElementById('scenarios').value)
+            document.getElementById('scenarios').value,
+            document.getElementById('tipo_dia').value,
+            ano,
+            document.getElementById('meses').value)
         document.body.style.cursor = 'default';  // Cursor normal
     }
 
@@ -293,6 +302,12 @@
             sidebar.style.width = '250px';
             sidebar.style.minWidth = '200px';
         }
+    });
+
+    window.addEventListener('load', function() {
+        document.getElementById('study_p').innerHTML = document.getElementById('scenarios').value;
+        //console.log(document.getElementById('scenarios').value)
+        filter_list(document.getElementById('scenarios').value);
     });
 
     document.getElementById('scenarios').addEventListener('change', function() {

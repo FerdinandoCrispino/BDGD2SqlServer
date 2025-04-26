@@ -10,6 +10,8 @@ import pyodbc
 import fiona
 import yaml
 from sqlalchemy import create_engine
+import urllib.request
+import json
 
 pd.set_option('display.max_colwidth', None)
 pd.set_option('display.max_columns', None)
@@ -49,8 +51,9 @@ def load_config_list_dist(config_path="../config_database.yml") -> list:
 
     for cod_dist in config_bdgd:
         name = config["databases"][cod_dist]['database']
+        dist = config["databases"][cod_dist]['dist']
         short_name = name[16:]
-        list_dist.append([cod_dist, name, short_name])
+        list_dist.append([cod_dist, name, short_name, dist])
     return list_dist
 
 
@@ -846,9 +849,9 @@ def get_coord_load(dist, load):
     return coords
 
 
-def set_coords(dist):
-    config = load_config(dist)
-    engine = create_connection(config)
+def set_coords(engine):
+    #config = load_config(dist)
+    #engine = create_connection(config)
     proc_time_ini = time.time()
 
     # Atualiza coordenadas UCAT
@@ -1166,6 +1169,10 @@ def irrad_by_municipio(cod_municipio, mes,  dist):
                 ;
             '''
     irrad = return_query_as_dataframe(query, engine)
+    if irrad.empty:
+        irrad_list = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.213170, 0.493614, 0.767539, 0.930065, 1.000000,
+                0.908147, 0.682011, 0.461154, 0.024685, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        return irrad_list
     return irrad['irrad'].tolist()
 
 
@@ -1228,12 +1235,14 @@ def fator_autoconsumo(classe):
     :param classe:
     :return:
     """
+    fator_auto = None
     if classe == 1:  # residencial
-        return 0.4
-    if classe == 2:  # comercial bt
-        return 0.5
-    if classe == 3:  # comercial at
-        return 0.8
+        fator_auto =  0.4
+    elif classe == 2:  # comercial bt
+        fator_auto =  0.5
+    elif classe == 3:  # comercial mt
+        fator_auto =  0.8
+    return fator_auto
 
 
 def list_substation(dist):
@@ -1292,7 +1301,90 @@ def exec_sp_atualiza_v10(dist, data_base, engine):
         connection.close()
 
 
+def get_coods_by_annel(ceg):
+    """
+    Busca diretamento do site da ANEEL as informações da base de dados de empreendimentos de geração
+    as coordenadas são utilizadas para atualizar as informações da BDGD
+    https://dadosabertos.aneel.gov.br/dataset/siga-sistema-de-informacoes-de-geracao-da-aneel/resource/11ec447d-698d-4ab8-977f-b424d5deee6a
+    :return:
+    """
+    '4318d38a-0bcd-421d-afb1-fb88b0c92a87' # código da api para acesso a UCAT_PJ.csv
+    'f6671cba-f269-42ef-8eb3-62cb3bfa0b98' # código da api para acesso a UCMT_PJ.csv
+
+    # url = 'https://dadosabertos.aneel.gov.br/api/3/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%22fcf2906c-7c32-4b9b-a637-054e7a5234f4%22%20WHERE%20%22SigAgente%22%20%3D%20%27Equatorial%20AL%27%20AND%20%22DscSubGrupo%22%20%3D%20%27B3%27%20AND%20%22DscClasse%22%20%3D%20%27N%C3%A3o%20se%20aplica%27%20AND%20%22SigAgenteAcessante%22%20IN%20(%27NA%27,%20%27N%C3%A3o%20se%20aplica%27)%20AND%20%22DscBaseTarifaria%22%20%3D%20%27Tarifa%20de%20Aplica%C3%A7%C3%A3o%27%20AND%20%22DscSubClasse%22%20%3D%20%27N%C3%A3o%20se%20aplica%27%20AND%20%22DscModalidadeTarifaria%22%20%3D%20%27Convencional%27%20AND%20%22NomPostoTarifario%22%20%3D%20%27N%C3%A3o%20se%20aplica%27%20ORDER%20BY%20%22DatInicioVigencia%22%20DESC%20LIMIT%201'
+    # url = 'https://dadosabertos.aneel.gov.br/api/3/action/datastore_search?resource_id=2f65a1b0-19b8-4360-8238-b34ab4693d55&limit=5&'
+    # url = 'https://dadosabertos.aneel.gov.br/api/3/action/datastore_search_sql?sql=SELECT%20*%20from%20%222f65a1b0-19b8-4360-8238-b34ab4693d55%22%20WHERE%20_id=1'
+    # url = 'https://dadosabertos.aneel.gov.br/api/3/action/datastore_search_sql?sql=SELECT%20*%20from%20%222f65a1b0-19b8-4360-8238-b34ab4693d55%22%20WHERE%20%22_id%22=1'
+    # url = 'https://dadosabertos.aneel.gov.br/api/3/action/datastore_search?resource_id=2f65a1b0-19b8-4360-8238-b34ab4693d55&limit=5'
+
+    campo = 'CodCEG'
+    valor = 'PCH.PH.MG.000008%'
+    valor = f'{ceg}%'
+    url = f'https://dadosabertos.aneel.gov.br/api/3/action/datastore_search_sql?sql=SELECT%20*%20from%20%222f65a1b0-19b8-4360-8238-b34ab4693d55%22%20WHERE%20%22{campo}%22%20LIKE%20%27{valor}%27%20'
+
+    req = urllib.request.Request(url)
+    with urllib.request.urlopen(req) as response:
+        page = response.read()
+        # print(page)
+        encoding = response.info().get_content_charset('utf-8')
+        JSON_object = json.loads(page.decode(encoding))
+        json_result = JSON_object.get('result')
+        json_records = json_result.get('records')
+    return json_records
+
+
+def get_list_ceg(dist, engine):
+    query = f'''
+                SELECT CEG FROM SDE.UGAT where dist ='{dist}' order by sub        
+                ;
+            '''
+    list_sub = return_query_as_dataframe(query, engine)
+    return list_sub['CEG'].tolist()
+
+
+def update_coords_by_aneel(dist, engine):
+    """
+    Atualiza a base de dados da BDGD com as coordenadas obtidas da base de dados de empreendimentos da ANEEL
+    :param dist:
+    :param engine:
+    :return:
+    """
+    dist = dist
+    list_ceg = get_list_ceg(dist, engine)
+
+    ceg = 'UTE.AI.RN.028605-2'
+    for ceg in list_ceg:
+        coord_aneel_dict = get_coods_by_annel(ceg)
+        y = coord_aneel_dict[0].get('NumCoordNEmpreendimento').replace(',', '.')
+        x = coord_aneel_dict[0].get('NumCoordEEmpreendimento').replace(',', '.')
+        """
+        print(coord_aneel_dict[0].get('CodCEG'))
+        print(coord_aneel_dict[0].get('MdaPotenciaOutorgadaKw'))
+        print(coord_aneel_dict[0].get('MdaPotenciaFiscalizadaKw'))
+        print(coord_aneel_dict[0].get('DscTipoOutorga'))
+        print(x)
+        print(y)
+        """
+        query = f'''Update sde.UGAT set [POINT_Y]={y}, [POINT_X]={x} Where sde.UGAT.CEG='{ceg}' '''
+        connection = engine.raw_connection()
+        try:
+            cursor = connection.cursor()
+            cursor.execute(query)
+            cursor.close()
+            connection.commit()
+        finally:
+            connection.close()
+    print('Fim!')
+
+
 if __name__ == "__main__":
+    dist = '40'
+    config = load_config(dist)
+    engine = create_connection(config)
+    update_coords_by_aneel(dist, engine)
+
+    # set_coords(engine)
+
     """
     import matplotlib.pyplot as plt
     import matplotlib
@@ -1314,4 +1406,4 @@ if __name__ == "__main__":
     plt.show()
     """
 
-    set_coords('391')
+

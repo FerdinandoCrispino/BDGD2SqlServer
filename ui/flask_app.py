@@ -83,13 +83,16 @@ def daily_power_circuit():
     subestacao = request.args.get('subestacao')
     circuito = request.args.get('circuito')
     scenario = request.args.get('scenario', 'base')
+    # tipo_dia = request.args.get('tipo_dia')  # Não necessario. Será criado gráfico comparativo entre DO e DU
+    mes = request.args.get('mes')
+    ano = request.args.get('ano')
     print(f'route data: {distribuidora} {subestacao}')
 
     list_data = []
     list_data_dict = dict()
     tipo_dia = ''
     path_result = os.path.abspath('static/scenarios')
-    path_conf = os.path.join(path_result, scenario,  str(distribuidora), subestacao)
+    path_conf = os.path.join(path_result, scenario,  conf['dist'], subestacao)
 
     if not distribuidora:
         print(f'Selecione uma distribuidora')
@@ -98,12 +101,12 @@ def daily_power_circuit():
     if circuito:
         path_conf = os.path.join(path_conf, circuito)
 
-    file_results = ['DO_2022_12_all_power.xlsx', 'DU_2022_12_all_power.xlsx']
+    file_results = [f'DO_{ano}_{mes}_all_power.xlsx', f'DU_{ano}_{mes}_all_power.xlsx']
     for root, dirs, files in os.walk(path_conf):
         for file in files:
             if file.endswith(tuple(file_results)) and not (file.startswith('~') or file.startswith('.')):
-                print(file)
                 print(root)
+                print(file)
                 if 'DO_' in file:
                     tipo_dia = 'DO'
                 else:
@@ -118,7 +121,7 @@ def daily_power_circuit():
                     label_time = df_data['TIME'].values.tolist()
                     data_list = df_data['P'].values.tolist()
 
-                    list_data_dict = {'values': data_list, 'ctmt': df_data['circuit'][0], 'time': label_time,
+                    list_data_dict = {'values': data_list, 'ctmt': str(df_data['circuit'][0]), 'time': label_time,
                                       'sub': df_data['SUB'][0], 'tipo_dia': tipo_dia }
 
                     list_data.append(list_data_dict.copy())
@@ -151,15 +154,18 @@ def render_data_losses():
     mes = request.args.get('mes')
 
     list_data = []
-    path_result = os.path.abspath('static/scenarios/base/391')
-    file_results = ['DO_12_sub_losses.xlsx', 'DU_12_sub_losses.xlsx']
+    path_result = os.path.abspath(f"static/scenarios/base/{conf['dist']}")
+    file_results = [f'{ano}_DO_{mes}_sub_losses.xlsx', f'{ano}_DU_{mes}_sub_losses.xlsx']
 
+    """
     if circuito:
         path_result = os.path.abspath('static/scenarios')
-        path_result = os.path.join(path_result, scenario, distribuidora, subestacao, circuito, tipo_dia, ano, mes)
+        path_result = os.path.join(path_result, scenario, conf['dist'], subestacao, circuito, tipo_dia, ano, mes)
+        file_results = [f'{distribuidora}_{circuito}_DO_{ano}_{mes}_losses.xlsx',
+                        f'{distribuidora}_{circuito}_DU_{ano}_{mes}_losses.xlsx']
         # file_results = f'{distribuidora}_{circuito}_{tipo_dia}_{ano}_{mes}_losses.xlsx'
         # '391_RAPA1301_DO_2022_12_losses'
-
+    """
     try:
         for file_result in file_results:
             path_all_result = os.path.join(path_result, file_result)
@@ -186,14 +192,14 @@ def render_data_losses():
 
 @server.route('/data/<distribuidora>', methods=['GET'])
 def render_data(distribuidora):
-    print(f'route data: {distribuidora}')
+    #print(f'route data: {distribuidora}')
     list_data = []
     path_result = 'static/scenarios/base'
     tipo_dias = ['DO', 'DU']
 
     for tipo_dia in tipo_dias:
         file_result = f'{tipo_dia}_12_sub_analysis.xlsx'
-        path_all_result = os.path.join(path_result, distribuidora, file_result)
+        path_all_result = os.path.join(path_result, conf['dist'], file_result)
         print(path_all_result)
 
         # Verifique se o caminho está correto
@@ -230,7 +236,7 @@ def render_data(distribuidora):
                 print(f"Erro ao carregar o arquivo Excel: {e}")
 
     file_result = 'DU_12_sub_analysis.xlsx'
-    path_all_result = os.path.join(path_result, distribuidora, file_result)
+    path_all_result = os.path.join(path_result, conf['dist'], file_result)
     xls = pd.ExcelFile(path_all_result)
     df2 = xls.parse(xls.sheet_names[0])
     df_data = df2[['sub', 'nome', 'P_max', 'P_min', 'P_time_max', 'P_time_min']].copy()
@@ -273,13 +279,13 @@ def get_distribuidoras():
 # Função para buscar as subestações com base na distribuidora
 @server.route('/api/subestacoes/<distribuidora>', methods=['GET'])
 def get_subestacoes(distribuidora):
-    global engine
+    global engine, conf
     try:
         conf = load_config(distribuidora)
         engine = create_connection(conf)
         query = f'''SELECT DISTINCT c.SUB, s.nome FROM sde.CTMT c
                       inner join sde.SUB s on s.COD_ID = c.sub
-                      WHERE s.dist ='{distribuidora}'
+                      WHERE s.dist ='{conf['dist']}'
                 '''
         rows = return_query_as_dataframe(query, engine)
         rows['Combined'] = rows['SUB'].astype(str) + '-' + rows['nome']
@@ -744,7 +750,6 @@ def get_coords_ssdat_from_db():
         linha = row['CT_COD_OP']
         rows.loc[rows['CT_COD_OP'] == linha, 'TEN'] = voltage
 
-
     rows["TIPO"] = "AT_SSD"
     points = [((row["start_longitude"], row["start_latitude"]), (row["end_longitude"], row["end_latitude"]),
                row["CT_COD_OP"], row["COMP"], row["NOME"], row["TEN"], rows["TIPO"])
@@ -966,7 +971,7 @@ def read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_di
     if circuito.strip() == '':
         circuito = 'SUB_' + subestacao
         dados_combinados = {}
-        path_json_file = os.path.join(parent, path_flask_static, scenario, distribuidora, subestacao, circuito,
+        path_json_file = os.path.join(parent, path_flask_static, scenario, conf['dist'], subestacao, circuito,
                                       tipo_dia, ano, mes).replace('\\', '/')
 
         try:
@@ -1260,7 +1265,7 @@ def segments():
         return None  # retornar erro!
     line_segments = get_coords_SSDMT_from_db(subestacao, circuito)
     # Leitura do arquivo de resultados do fluxo de potencia
-    json_data = read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_dia, ano, mes, hora)
+    json_data = read_json_from_result(conf['dist'], subestacao, circuito, scenario, tipo_dia, ano, mes, hora)
     geojson = create_geojson_from_segments(line_segments, json_data)
     return geojson, 200, {'Content-Type': 'application/json'}
 
@@ -1294,11 +1299,13 @@ def list_table_view():
 @server.route('/api/list')
 def api_list_table():
     distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
+    conf = load_config(distribuidora)
+    dist = conf['dist']
     subestacao = request.args.get('subestacao', 'defaultSubestacao')
     circuito = request.args.get('circuito', 'defaultCircuito')
     id_summary = request.args.get('idSummary', '0')
 
-    sumario = resumo.Summary(engine=engine, sub=subestacao, dist=distribuidora)
+    sumario = resumo.Summary(engine=engine, sub=subestacao, dist=dist)
     table_data = get_table_data(sumario, id_summary)
 
     return jsonify(table_data), 200

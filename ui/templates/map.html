@@ -342,7 +342,7 @@
                     const s3 = selected.get("cor_nom");
                     const s4 = selected.get("cap_elo");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo(s1 + '<br> Switch: ' + s2 + '<br> Cor_nom: ' + s3 +
+                    popup1.setInfo('CTMT:' + s1 + '<br> Switch: ' + s2 + '<br> Cor_nom: ' + s3 +
                                    ' A <br> Cap_Elo: ' + s4);
                     break;
                 case 'UGMT':
@@ -352,7 +352,7 @@
                     const gmt4 = selected.get("voltage");
                     const gmt5 = selected.get("demanda");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo(gmt1 + '<br> CEG: ' + gmt2 + '<br> Power: ' + gmt3 +
+                    popup1.setInfo('CTMT:' + gmt1 + '<br> CEG: ' + gmt2 + '<br> Power: ' + gmt3 +
                                    ' kW <br> Voltage: ' + gmt4 + ' V <br> Demand: ' + gmt5 + ' kW');
                     break;
                 case 'UGBT':
@@ -361,7 +361,7 @@
                     const gbt3 = selected.get("pot_inst");
                     const gbt4 = selected.get("voltage");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo(gbt1 + '<br> CEG: ' + gbt2 + '<br> Power: ' + gbt3 +
+                    popup1.setInfo('CTMT:' + gbt1 + '<br> CEG: ' + gbt2 + '<br> Power: ' + gbt3 +
                                     ' kW <br> Voltage: ' + gbt4 + ' V');
                     break;
                 case 'UCBT':
@@ -372,7 +372,7 @@
                     const cbt5 = selected.get("uni_tr_mt");
                     const cbt6 = selected.get("car_inst");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo(cbt1 + '<br> CEG: ' + cbt2 + '<br> Power: ' + cbt6 +
+                    popup1.setInfo('CTMT:' + cbt1 + '<br> CEG: ' + cbt2 + '<br> Power: ' + cbt6 +
                                    ' kW <br> Voltage: ' + cbt4 + ' V <br> TR: ' + cbt5 +
                                    '<br> CRV: ' + cbt3);
                     break;
@@ -381,7 +381,7 @@
                     const cr2 = selected.get("banc");
                     const cr3 = selected.get("pot");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo(cr1 + '<br> Power: ' + cr3 + ' kW <br> Bank: ' + cr2  );
+                    popup1.setInfo('CTMT:' + cr1 + '<br> Power: ' + cr3 + ' kW <br> Bank: ' + cr2  );
                     break;
                 case 'UNREMT':
                     const re1 = selected.get("ctmt");
@@ -390,7 +390,7 @@
                     const re4 = selected.get("banc");
                     const re5 = selected.get("ten_reg");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo(re1 + '<br> Phases: ' + re2 + '<br> Type: ' + re3 + '<br> Bank: ' + re4 +
+                    popup1.setInfo('CTMT:' + re1 + '<br> Phases: ' + re2 + '<br> Type: ' + re3 + '<br> Bank: ' + re4 +
                                    '<br> Regul: ' + re5 + ' pu');
                     break;
                 case 'UCMT':
@@ -401,7 +401,7 @@
                     const ucm5 = selected.get("fas_con");
                     const ucm6 = selected.get("ceg");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo(ucm1 + '<br> Power: ' + ucm2 + ' kW<br> Type: ' + ucm3 + '<br> Livre: ' +
+                    popup1.setInfo('CTMT:' + ucm1 + '<br> Power: ' + ucm2 + ' kW<br> Type: ' + ucm3 + '<br> Livre: ' +
                                    ucm4 + '<br> Phases: ' + ucm5 + '<br> CEG: ' + ucm6);
                     break;
                 case 'SIN-Lines':
@@ -459,12 +459,14 @@
         let nome_camada = feature.get("tipo")
         const dist = document.getElementById("distribuidora");
         const select_dist = dist.options[dist.selectedIndex].text;
-        const ano = select_dist.split(" ")[1]
+        //const ano = select_dist.split(" ")[1]
+        const ano = select_dist.slice(-4)
         console.log(nome_camada)
+        console.log(select_dist)
         var content = "";
         if (nome_camada == "segmentos") {
             var path_gr = "static/scenarios/" +  document.getElementById('scenarios').value +
-                          "/" + document.getElementById('distribuidora').value +
+                          "/" + document.getElementById('distribuidora').selectedOptions[0].getAttribute('info') +
                           "/" + document.getElementById('subestacao').value + "/" + feature.get("ctmt") +
                           "/" + document.getElementById('tipo_dia').value +
                           "/" + ano +
@@ -483,7 +485,7 @@
             var path_sub_gr = [];
             for (let i = 1; i <= num_trafos; i++) {
                 path_sub_gr[i] = "static/scenarios/" + document.getElementById('scenarios').value +
-                    "/" + document.getElementById('distribuidora').value +
+                    "/" + document.getElementById('distribuidora').selectedOptions[0].getAttribute('info') +
                     "/" + document.getElementById('subestacao').value +
                     "/SUB_" + document.getElementById('subestacao').value +
                     "/" + document.getElementById('tipo_dia').value +
@@ -742,7 +744,7 @@
             .then(response => response.json())
             .then(data => {
                 if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
-
+                //console.log(data)
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'

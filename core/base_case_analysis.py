@@ -21,16 +21,16 @@ logging.basicConfig(filename='base_case.log', level=logging.INFO,
 
 # False para rodar o master com todos os circuitos e os transformadores de alta ou
 # True para rodar um circuito de cada vez
-exec_by_circuit = True
-
-dist = "40"
-master_type_day = "DU"
-master_month = "12"
-
+exec_by_circuit = False
 # set run multiprocess
 run_multiprocess = False
 
-config = load_config(dist)
+database = "40_2022"
+master_type_day = "DU"
+master_month = "12"
+
+config = load_config(database)
+dist = config['dist']
 master_data_base = config['data_base'].split('-')[0]
 engine = create_connection(config)
 
@@ -66,11 +66,15 @@ def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
                 except FileNotFoundError:
                     print(f'Error with fife {root}/{file}')
 
+    if subs_losses.empty:
+        print(f'Arquivo {file_result} não encontado!')
+        return
+
     subs_losses.reset_index(drop=True, inplace=True)
     print(subs_losses)
 
     plt_path = os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base', str(dist))
-    subs_losses.to_excel(f"{plt_path}/{tipo_dia}_{mes}_sub_losses.xlsx")
+    subs_losses.to_excel(f"{plt_path}/{ano}_{tipo_dia}_{mes}_sub_losses.xlsx")
 
     x = np.arange(len(subs_losses['circuit']))
     multiplier = 0
@@ -86,7 +90,7 @@ def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
         multiplier += 1
 
     ax.set_ylabel('Power Loss (kWh)')
-    ax.set_title(f'EDP-SP Power transformer Losses - {tipo_dia} {ano} {mes}')
+    ax.set_title(f"{config['database'][16:]} Power transformer Losses - {tipo_dia} {ano} {mes}")
 
     ax.set_xticks(x + 0.1, subs_losses['SUB'])
     ax.tick_params(axis='x', labelsize=8, labelrotation=90)
@@ -130,7 +134,7 @@ def substations_transformer_loading(dist, tipo_dia, ano, mes):
     print(subs_power)
 
     plt_path = os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base', str(dist))
-    subs_power.to_excel(f"{plt_path}/{tipo_dia}_{mes}_sub_analysis.xlsx")
+    subs_power.to_excel(f"{plt_path}/{ano}_{tipo_dia}_{mes}_sub_analysis.xlsx")
 
     # plot ---------------------------------------
     x = np.arange(len(subs_power['nome']))
@@ -147,7 +151,7 @@ def substations_transformer_loading(dist, tipo_dia, ano, mes):
         multiplier += 1
 
     ax.set_ylabel('Apparent Power (p.u)')
-    ax.set_title(f'EDP-SP Power Transformer Loading - {tipo_dia} {ano} {mes}')
+    ax.set_title(f"{config['database'][16:]} Power Transformer Loading - {tipo_dia} {ano} {mes}")
     ax.set_xticks(x + 0.25, subs_power['sub'])
     ax.tick_params(axis='x', labelsize=8, labelrotation=90)
     ax.legend(loc='upper left', ncols=3)
@@ -273,7 +277,7 @@ class SimuladorOpendss:
             line_losses = self.dss.meters.register_values[22]  # Line Losses
             trafo_losses = self.dss.meters.register_values[23]  # Transformer Losses
             print(f'load_losses:{load_losses}  line_losses:{line_losses}  noload_losses:{noload_losses} trafo_losses:{trafo_losses}')
-            print(f'{total_losses}')
+            print(f'Total: {total_losses}')
             print(f'{line_losses + trafo_losses}')
 
             total_losses_dict = {'SUB': self.sub, 'circuit': self.dss.circuit.name.upper(),
@@ -684,7 +688,7 @@ if __name__ == '__main__':
                     'UNA', 'URB', 'USS', 'VGA', 'VHE', 'VJS', 'VSL']
         list_sub = ['USS']
         """
-        list_sub = ['CRU']
+        list_sub = ['TPU']
         for nome_sub in list_sub:
             sub = nome_sub
             master_file = f"{master_type_day}_{master_month}_Master_substation_{dist}_{sub}.dss"
@@ -718,13 +722,13 @@ if __name__ == '__main__':
                 simul.executa_fluxo_potencia()
                 simul.plot_data_monitors()
     
-    control_sub_loading = False
+    control_sub_loading = True
     if control_sub_loading:
+        substations_losses(dist, 'DO', '2022', master_month)
+        substations_losses(dist, 'DU', '2022', master_month)
         # teste: análise de carregamento das subestações
-        substations_losses(dist, 'DO', '2022', '12')
-        substations_losses(dist, 'DU', '2022', '12')
-        # substations_transformer_loading(dist, 'DU', '2022', '12')
-        # substations_transformer_loading(dist, 'DO', '2022', '12')
+        # substations_transformer_loading(dist, 'DU', '2022', master_month)
+        # substations_transformer_loading(dist, 'DO', '2022', master_month)
 
-    print(f'Substation: process in {time.time() - proc_time_ini}.', flush=True)
+    print(f'Substation: process completed in {time.time() - proc_time_ini}.', flush=True)
 
