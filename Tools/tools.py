@@ -53,6 +53,7 @@ def load_config_list_dist(config_path="../config_database.yml") -> list:
         name = config["databases"][cod_dist]['database']
         dist = config["databases"][cod_dist]['dist']
         short_name = name[16:]
+        short_name =  config["databases"][cod_dist]['dist_name']
         list_dist.append([cod_dist, name, short_name, dist])
     return list_dist
 
@@ -1378,6 +1379,7 @@ def update_coords_by_aneel(dist, engine):
 
 
 if __name__ == "__main__":
+
     dist = '40'
     config = load_config(dist)
     engine = create_connection(config)

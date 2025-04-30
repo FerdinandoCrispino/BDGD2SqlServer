@@ -214,7 +214,7 @@ class CreateScenarios:
         self.dss.text("set maxcontroliter = 100")
         self.dss.text("set maxiterations = 100")
         self.dss.text("Set stepsize = 1h")
-
+        self.dss.text("set number = 1")
         voltage_bus_list = []
         voltage_bus_dict = dict()
         voltage_bus_dict_1phase = dict()
@@ -226,7 +226,7 @@ class CreateScenarios:
         vuf_bus_violation_list = []
 
         for number in range(1, total_number + 1):
-            self.dss.text(f"set number={number}")
+            #self.dss.text(f"set number={number}")
             self.dss.monitors.reset_all()
             self.dss.solution.solve()
             status = self.dss.solution.converged

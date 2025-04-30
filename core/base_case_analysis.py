@@ -21,7 +21,7 @@ logging.basicConfig(filename='base_case.log', level=logging.INFO,
 
 # False para rodar o master com todos os circuitos e os transformadores de alta ou
 # True para rodar um circuito de cada vez
-exec_by_circuit = False
+exec_by_circuit = True
 # set run multiprocess
 run_multiprocess = False
 
@@ -41,7 +41,7 @@ list_sub = get_substations_list(engine)
 
 def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
     """
-    Reune as informações das simulações já realizadas para apresentar um resumo das perdas de energia das subestações
+    Reune as informações das simulações já realizadas para apresentar um resumo das perdas de energia das subestações.
     :param dist: Código da distribuidora.
     :param tipo_dia: Tipo de dia utilizado no cálculo do fluxo de potência.
     :param ano: Ano utilizado no cálculo do fluxo de potência.
@@ -54,7 +54,7 @@ def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
 
     for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base', str(dist))):
         for file in files:
-            if file.endswith(file_result):
+            if file.endswith(file_result) and 'SUB' not in file.upper():
                 print(file)
                 print(root)
                 try:
@@ -136,6 +136,8 @@ def substations_transformer_loading(dist, tipo_dia, ano, mes):
     plt_path = os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base', str(dist))
     subs_power.to_excel(f"{plt_path}/{ano}_{tipo_dia}_{mes}_sub_analysis.xlsx")
 
+    if subs_power.empty:
+        return
     # plot ---------------------------------------
     x = np.arange(len(subs_power['nome']))
     multiplier = 0
@@ -459,7 +461,7 @@ class SimuladorOpendss:
         self.dss.text("set maxcontroliter = 100")
         self.dss.text("set maxiterations = 100")
         self.dss.text("Set stepsize = 1h")
-        # self.dss.text("set number = 1")
+        self.dss.text("set number = 1")
         # self.dss.text("solve")
 
         # for meter_name in self.dss.meters.names:
@@ -480,7 +482,7 @@ class SimuladorOpendss:
         vuf_bus_violation_list = []
 
         for number in range(1, total_number + 1):
-            self.dss.text(f"set number={number}")
+            #self.dss.text(f"set number={number}")
             self.dss.monitors.reset_all()
             self.dss.solution.solve()
             # self.dss.meters.sample()
@@ -489,7 +491,7 @@ class SimuladorOpendss:
 
             status = self.dss.solution.converged
             if status == 0:
-                print(f'OpenDSS: File {self.dss_file} not solved!!!!')
+                print(f'OpenDSS: File {self.dss_file} not solved to time {number}!')
                 print(f"{self.dss.solution.event_log}\n")
                 logging.info(
                     f'OpenDSS: File {self.dss_file} not solved! Set number: {number} - event: {self.dss.solution.event_log}')
@@ -727,8 +729,8 @@ if __name__ == '__main__':
         substations_losses(dist, 'DO', '2022', master_month)
         substations_losses(dist, 'DU', '2022', master_month)
         # teste: análise de carregamento das subestações
-        # substations_transformer_loading(dist, 'DU', '2022', master_month)
-        # substations_transformer_loading(dist, 'DO', '2022', master_month)
+        substations_transformer_loading(dist, 'DU', '2022', master_month)
+        substations_transformer_loading(dist, 'DO', '2022', master_month)
 
     print(f'Substation: process completed in {time.time() - proc_time_ini}.', flush=True)
 

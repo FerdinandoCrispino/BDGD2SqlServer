@@ -47,17 +47,17 @@ def read_surface_data():
         circuito = f'SUB_{subestacao}'
 
     path_result = os.path.abspath('static/scenarios')
-    path_conf = os.path.join(path_result, scenario, str(distribuidora), subestacao, circuito, tipo_dia, ano , mes)
+    path_conf = os.path.join(path_result, scenario, str(distribuidora), subestacao, circuito, tipo_dia, ano, mes)
     if not distribuidora:
         print(f'Selecione uma distribuidora')
         return jsonify("error Selecione uma distribuidora"), 404
 
     if type_case == 'case1':
-        file = 'frecuencia_porcentaje_B VminVmax_vs_Pen_mod.csv'
+        file = f'{ano}_{tipo_dia}_{mes}_{circuito}_VminVmax.csv'
     elif type_case == 'case2':
-        file = 'frecuencia_porcentaje_B Vmin_vs_Pen_mod.csv'
+        file = f'{ano}_{tipo_dia}_{mes}_{circuito}_Vmin.csv'
     elif type_case == 'case3':
-        file = 'frecuencia_porcentaje_B Vmax_vs_Pen_mod.csv'
+        file = f'{ano}_{tipo_dia}_{mes}_{circuito}_Vmax.csv'
 
     try:
         df = pd.read_csv(os.path.join(path_conf, file), header=None, na_filter=False)
@@ -174,6 +174,7 @@ def render_data_losses():
             df_data = df1[['SUB', 'circuit', 'losses']].copy()
             if subestacao:
                 df_data = df_data[(df_data.SUB == subestacao)]
+            df_data['circuit'] = df_data['circuit'].astype(str)
             label_list = df_data['circuit'].values.tolist()
             label_list1 = df_data['SUB'].values.tolist()
             data_list_losses = df_data['losses'].values.tolist()

@@ -2,8 +2,12 @@ import pandas as pd
 import numpy as np
 from Tools.tools import create_connection, load_config, calc_du_sa_do_mes, irrad_by_municipio, fator_autoconsumo
 import calendar
-import xlsxwriter
 
+"""
+    Este script tem como objetivo calcular as curvas de carga e geração para um grupo de subestações.
+    considerando que as subestações estão interligadas pela rede de alta tensão da concecionária e que
+    tenha apenas uma subestação de conexão com o sistema de transmissão.
+"""
 
 def curvas_carga_normal(curvas_carga):
     curvas_carga_dss = {}
@@ -304,18 +308,18 @@ def insert_graph_excel(writer, sheet_name):
                 {'name': [sheet_name, i+1, 0, i+1, 0],  # Linha inicial, coluna inicial, linha final, coluna final
                  'values': [sheet_name, i+1, 1, i+1, 24]
                  })
-        chart.set_title({'name': 'Load Profile', 'name_font': {'size': 11}})
+        chart.set_title({'name': f'Load Profile - {dist} - {ano_base} - {mes} \n {list_subs}', 'name_font': {'size': 11}})
         worksheet.insert_chart('F15', chart)
 
 
 if __name__ == '__main__':
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
     list_subs = ['ACR', 'CCO', 'CRU', 'ICC', 'JPR', 'JSR', 'PLH'] # grupo de subestações conectadas entre si
-    #list_subs = ['STU', 'TGA', 'LGD', 'ELS', 'SPG']
+    list_subs = ['STU', 'TGA', 'LGD', 'ELS', 'SPG']
     dist = '40'
     mes = 12
     ano_base = 2022
-    file_output = f'{dist}_{ano_base}_{mes}_SubLoadShapes_1.xlsx'
+    file_output = f'{dist}_{ano_base}_{mes}_SubLoadShapes_2.xlsx'
 
     rendimento = 0.75  # rendimento do painel solar
     curva_carga_agregada_total = pd.DataFrame()
