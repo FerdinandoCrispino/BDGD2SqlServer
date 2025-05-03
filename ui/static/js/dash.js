@@ -273,11 +273,11 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
 }
 
 
-function transformer_loading(dist) {
+function transformer_loading(dist, ano, mes) {
     // Captura o valor do parâmetro 'dist' da URL
     //const dist = "{{ dist }}";
     document.body.style.cursor = 'wait';  // Cursor de espera
-    fetch(`/data/${dist}`)  // Atenção ao tipo de aspas - backticks
+    fetch(`/data?distribuidora=${dist}&ano=${ano}&mes=${mes}`)  // Atenção ao tipo de aspas - backticks
         .then(response => {
             if (!response.ok){
                 alert("No Data Found!")

@@ -191,15 +191,17 @@ def render_data_losses():
         return jsonify({"error": str(e)}), 500
 
 
-@server.route('/data/<distribuidora>', methods=['GET'])
-def render_data(distribuidora):
+@server.route('/data/', methods=['GET'])
+def render_data():
     #print(f'route data: {distribuidora}')
+    ano = request.args.get('ano')
+    mes = request.args.get('mes')
     list_data = []
     path_result = 'static/scenarios/base'
     tipo_dias = ['DO', 'DU']
 
     for tipo_dia in tipo_dias:
-        file_result = f'{tipo_dia}_12_sub_analysis.xlsx'
+        file_result = f'{ano}_{tipo_dia}_{mes}_sub_analysis.xlsx'
         path_all_result = os.path.join(path_result, conf['dist'], file_result)
         print(path_all_result)
 
@@ -235,34 +237,6 @@ def render_data(distribuidora):
                 list_data.append(data_time_min)
             except Exception as e:
                 print(f"Erro ao carregar o arquivo Excel: {e}")
-
-    file_result = 'DU_12_sub_analysis.xlsx'
-    path_all_result = os.path.join(path_result, conf['dist'], file_result)
-    xls = pd.ExcelFile(path_all_result)
-    df2 = xls.parse(xls.sheet_names[0])
-    df_data = df2[['sub', 'nome', 'P_max', 'P_min', 'P_time_max', 'P_time_min']].copy()
-    df_data['nome'] = df_data['nome'].str[5:-3]
-
-    # result = df_data.to_dict(orient='records')
-    label_list = df_data['nome'].values.tolist()
-    label_list1 = df_data['sub'].values.tolist()
-    data_list_pmax_4 = df_data['P_max'].values.tolist()
-    data_list_pmax_5 = df_data['P_min'].values.tolist()
-    data_list_pmax_6 = df_data['P_time_max'].values.tolist()
-    data_list_pmax_7 = df_data['P_time_min'].values.tolist()
-
-    data4 = {k: v for k, v in zip(label_list, data_list_pmax_4)}
-    list_data.append(data4)
-    data5 = {k: v for k, v in zip(label_list, data_list_pmax_5)}
-    list_data.append(data5)
-    data6 = {k: v for k, v in zip(label_list, data_list_pmax_6)}
-    list_data.append(data6)
-    data7 = {k: v for k, v in zip(label_list, data_list_pmax_7)}
-    list_data.append(data7)
-    data8 = {k: v for k, v in zip(label_list, label_list)}
-    list_data.append(data8)
-    data9 = {k: v for k, v in zip(label_list, label_list1)}
-    list_data.append(data9)
 
     return jsonify(list_data)
 

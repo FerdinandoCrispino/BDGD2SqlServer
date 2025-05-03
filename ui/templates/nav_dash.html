@@ -246,7 +246,12 @@
             return;
         }
         document.body.style.cursor = 'wait';  // Cursor de espera
-        transformer_loading(document.getElementById('distribuidora').selectedOptions[0].getAttribute('info'))
+        var t = document.getElementById("distribuidora");
+        var dist_text = t.options[t.selectedIndex].text;
+        var ano = dist_text.slice(-4);
+        transformer_loading(document.getElementById('distribuidora').selectedOptions[0].getAttribute('info'),
+                            ano,
+                            document.getElementById('meses').value)
         document.body.style.cursor = 'default';  // Cursor normal
     }
 
@@ -278,6 +283,12 @@
             console.log('Select a Utility!')
             return;
         }
+        if (!document.getElementById('subestacao').value){
+            alert('Select a substation!');
+            console.log('Select a Substation!')
+            return;
+        }
+
         document.body.style.cursor = 'wait';  // Cursor de espera
         var t = document.getElementById("distribuidora");
         var dist_text = t.options[t.selectedIndex].text;
