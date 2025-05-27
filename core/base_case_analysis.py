@@ -21,13 +21,13 @@ logging.basicConfig(filename='base_case.log', level=logging.INFO,
 
 # False para rodar o master com todos os circuitos e os transformadores de alta ou
 # True para rodar um circuito de cada vez
-exec_by_circuit = True
+exec_by_circuit = False
 # set run multiprocess
 run_multiprocess = False
 
 database = "40_2022"
 master_type_day = "DU"
-master_month = "12"
+master_month = "1"
 
 config = load_config(database)
 dist = config['dist']
@@ -570,9 +570,11 @@ class SimuladorOpendss:
 
                 vuf_bus_dict[f"{bus_name.split('.')[0]}"] = vuf
                 """
-
-            max_vol = max(voltage_bus_dict.items(), key=lambda x: x[1])
-            min_vol = min(voltage_bus_dict.items(), key=lambda x: x[1])
+            if not voltage_bus_dict:
+                max_vol = min_vol = 0
+            else:
+                max_vol = max(voltage_bus_dict.items(), key=lambda x: x[1])
+                min_vol = min(voltage_bus_dict.items(), key=lambda x: x[1])
 
             # os valores de max e min poidem apresentar diferença nos caso onde existem valores iguais
             # max_vol = max(voltage_bus_dict.values())

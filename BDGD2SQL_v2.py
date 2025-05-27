@@ -3,7 +3,8 @@ from datetime import datetime
 import time
 import os
 import logging
-from Tools.tools import load_config, create_connection, process_gdb_files, set_coords, exec_sp_atualiza_v10
+from Tools.tools import load_config, create_connection, process_gdb_files, set_coords, \
+    exec_sp_atualiza_v10, update_coords_by_aneel
 
 # Configuração do logger
 logging.basicConfig(filename='processamento_dados.log', level=logging.INFO,
@@ -17,7 +18,7 @@ columns_rename = {'Shape_Leng': 'Shape_STLength__',
 
 if __name__ == "__main__":
     proc_time_ini = time.time()
-    config_bdgd = load_config('40_2022')
+    config_bdgd = load_config('404')
     schema = config_bdgd['schema']
     # Conectando ao banco de dados sqlserver using sqlalchemy
     try:
@@ -43,6 +44,8 @@ if __name__ == "__main__":
     print(f"Preenchendo coordenadas para UGMT, UCMT, UGBT, UCBT")
     set_coords(engine)
     print(f"Processo concluído!")
+    print(f"Preenchendo coordenadas a partir da api ANEEL")
+    update_coords_by_aneel(config_bdgd['dist'], engine)
 
     # Executa a stored procedure de atualização da versão 10
     print(f"Executando stored procedure de atualização da versão 1.0 da base de dados da BDGD: {config_bdgd['dist']}")

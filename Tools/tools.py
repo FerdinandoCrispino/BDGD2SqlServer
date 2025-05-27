@@ -1367,6 +1367,7 @@ def update_coords_by_aneel(dist, engine):
         print(y)
         """
         query = f'''Update sde.UGAT set [POINT_Y]={y}, [POINT_X]={x} Where sde.UGAT.CEG='{ceg}' '''
+        print(query)
         connection = engine.raw_connection()
         try:
             cursor = connection.cursor()
@@ -1380,8 +1381,11 @@ def update_coords_by_aneel(dist, engine):
 
 if __name__ == "__main__":
 
-    dist = '40'
-    config = load_config(dist)
+    database = '404'
+    #database = '6600_2022'
+    config = load_config(database)
+    dist = config['dist']
+
     engine = create_connection(config)
     update_coords_by_aneel(dist, engine)
 

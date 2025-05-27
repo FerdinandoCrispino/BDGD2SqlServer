@@ -9,7 +9,7 @@
     <div id="sidebar" style="width: 250px; padding: 8px; font-size:12px;">
 
         <label for="distribuidora">Utility:</label>
-        <select id="distribuidora" name="distribuidora" style="float:right;width:110px">
+        <select id="distribuidora" name="distribuidora" style="float:right;width:110px; max-height:50px;overflow-y:scroll">
             <option value="">Select</option>
             <option value="391">EDP_SP 2022</option>
             <option value="404">Energisa_MS 2022</option>
@@ -47,7 +47,7 @@
         </select><br>
 
         <div class="slidecontainer">
-          <input type="range" min="1" max="24" value="1" class="slider" id="myRange">
+          <input type="range" min="0" max="23" value="0" class="slider" id="myRange">
             <p>Hour: <span id="hour"></span></p>
         </div>
         <div>
@@ -153,6 +153,20 @@
             var link = document.getElementById('applyFilters');
             link.click();
         }
+    }
+
+    function changeColor(id){
+        switch (id) {
+            case 0: color = "Salmon"; break;
+            case 1: color = "Brown"; break;
+            case 2: color = "Olive"; break;
+            case 3: color = "Green"; break;
+            case 4: color = "DarkSlateBlue"; break;
+            case 5: color = "Red"; break;
+            case 6: color = "Aquamarine"; break;
+
+        }
+        return color
     }
 
     // Verifica se existe o arquivo
@@ -432,10 +446,11 @@
                     break;
                 case 'AT_SSD':
                     const at_s1 = selected.get("linha");
-                    //const at_s2 = selected.get("nome");
+                    const at_s2 = selected.get("nome");
                     const at_s3 = selected.get("voltage");
+                    const at_s4 = selected.get("dist");
 
-                    popup1.setInfo('Linha: '+ at_s1 + '<br>'+ at_s3 + ' kV' );
+                    popup1.setInfo('Linha: '+ at_s1 + '<br>Dist: '+ at_s4 + '<br>V: '+ at_s3 + ' kV');
                     break;
                 case 'GERADOR_AT':
                     const at_g1 = selected.get("sub");
@@ -537,8 +552,9 @@
                 }
             });
 
+            loadSSDAT();
             if (layerAT === false && document.getElementById('distribuidora').value != '') {
-                loadSSDAT();
+
                 loadSIN('subs');
                 loadSIN('linhas');
                 loadSIN('EOL');
@@ -659,9 +675,10 @@
     function loadSSDAT() {
         document.body.style.cursor = 'wait';  // Cursor de espera
         const distribuidora = document.getElementById('distribuidora').value;
-
+        const idx_dist = document.getElementById('distribuidora').selectedIndex;
+        const nome_dist = document.getElementById('distribuidora').options[idx_dist].text;;
         var myGrpoupLayers = new ol.layer.Group({
-            title: 'High Voltage',
+            title: nome_dist + '-AT',
             layers: []
         });
         map.addLayer(myGrpoupLayers); //this add a new layergroup
@@ -684,7 +701,7 @@
                 function estiloSSDAT(feature) {
                     return new ol.style.Style({
                         stroke: new ol.style.Stroke({
-                            color: "DarkSlateBlue", // Cor da feature do GeoJSON
+                            color: changeColor(idx_dist), //"DarkSlateBlue", // Cor da feature do GeoJSON
                             width: 2
                         })
                     });
