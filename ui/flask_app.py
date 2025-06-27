@@ -981,23 +981,75 @@ def read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_di
         return dados_combinados
     else:
         # Opening JSON file
-        month = 1  # TODO mes da simulação anual. Por enquanto, sempre sera utilizado o mes 1
+        #month = 1
         if scenario.lower() == 'base':
             json_file = f"{circuito}.json"
+        elif scenario.lower() == 'hosting capacity':
+            json_file = f"{circuito}.json"
         else:
-            json_file = f"{circuito}_sc{month}.json"
+            json_file = f"{circuito}_sc{mes}.json"
 
         path_json_file = os.path.join(parent, path_flask_static, scenario, distribuidora, subestacao, circuito,
                                       tipo_dia, ano, mes, json_file).replace('\\', '/')
         print(path_json_file)
         try:
-            f = open(path_json_file, 'r')
-            result = json.load(f)[hora - 1]
-            # returns JSON object as a list
-            return result
+            with open(path_json_file, 'r') as f:
+                result = json.load(f)[hora - 1]
+                # returns JSON object as a list
+                return result
         except Exception as e:
             print(f"File not found: {path_json_file}. {e}")
             return None
+
+
+# Função para criar GeoJSON a partir dos segmentos de retas e dados de hosting capacity
+def create_geojson_from_segments_hc(line_segments, json_data):
+    # Criar uma lista de geometria de segmentos de linha a partir dos pontos
+
+    hc_max = max(json_data.items(), key=lambda x: x[1])[1]
+    # hc_min = min(json_data.items(), key=lambda x: x[1])[1]
+    hc_min = 0
+
+    # lines = [LineString([start, end]) for start, end in line_segments]
+    lines = []
+    cores = []
+    colorByCircuit = []
+    bus1 = []
+    bus2 = []
+    bus3 = []
+    circ = []
+    pac2 = []
+    # Define the start and end colors
+    start_color = Color("red")
+    end_color = Color("blue")
+    gradient_colors = list(start_color.range_to(end_color, len(line_segments)))
+
+    for start, end, pac, ctmt, cor, nome in line_segments:
+        lines.append(LineString([start, end]))
+        colorByCircuit.append(cor)
+        if json_data is not None:
+            hc_bus1 = json_data.get(f"{pac}".lower())
+
+        else:
+            hc_bus1 = ''
+
+        color_intensity = (hc_bus1 - hc_min) / (hc_max - hc_min)
+        cores.append(str(gradient_colors[int(color_intensity * (len(line_segments)-1))]))
+
+        #cores.append(cor)
+        bus1.append(hc_bus1)
+        circ.append(ctmt)
+        pac2.append(pac)
+    # Criar um GeoDataFrame com as geometrias e dados extras
+    gdf = gpd.GeoDataFrame({'geometry': lines, 'color': cores, 'colorbycircuit': colorByCircuit,
+                            'ctmt': ctmt, 'bus1': bus1,
+                            'tipo': nome, 'pac': pac2}, crs="EPSG:4326")
+    # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
+
+    # Converter o GeoDataFrame para GeoJSON
+    geojson = gdf.to_json()
+
+    return geojson
 
 
 # Função para criar GeoJSON a partir dos segmentos de retas
@@ -1256,9 +1308,14 @@ def segments():
         print(f"Selecione uma subestação!")
         return None  # retornar erro!
     line_segments = get_coords_SSDMT_from_db(subestacao, circuito)
-    # Leitura do arquivo de resultados do fluxo de potencia
-    json_data = read_json_from_result(conf['dist'], subestacao, circuito, scenario, tipo_dia, ano, mes, hora)
-    geojson = create_geojson_from_segments(line_segments, json_data)
+    if scenario == "Hosting Capacity":
+        # Leitura do arquivo de resultados do hosting capacity
+        json_data_hc = read_json_from_result(conf['dist'], subestacao, circuito, scenario, tipo_dia, ano, mes, 0)
+        geojson = create_geojson_from_segments_hc(line_segments, json_data_hc)
+    else:
+        # Leitura do arquivo de resultados do fluxo de potencia
+        json_data = read_json_from_result(conf['dist'], subestacao, circuito, scenario, tipo_dia, ano, mes, hora)
+        geojson = create_geojson_from_segments(line_segments, json_data)
     return geojson, 200, {'Content-Type': 'application/json'}
 
 
@@ -1433,7 +1490,7 @@ def before_request():
 
 
 if __name__ == '__main__':
-    #server.run(host='0.0.0.0', use_reloader=False, debug=True, ssl_context=('cert.pem', 'key.pem'))
-    server.run(host='0.0.0.0', use_reloader=False, debug=True)
+    server.run(host='0.0.0.0', use_reloader=False, debug=True, ssl_context=('cert.pem', 'key.pem'))
+    #server.run(host='0.0.0.0', use_reloader=False, debug=True)
     # Para rodar na linha de comando
     # C:\_BDGD2SQL\BDGD2SqlServer\venv\Scripts\activate.bat && python.exe C:\_BDGD2SQL\BDGD2SqlServer\ui\flask_app.py

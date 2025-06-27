@@ -253,14 +253,14 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
             //myChart1.data.datasets[1].data = data[4];
 
             myChart1.options.plugins.legend.align = 'end';
-            myChart1.options.plugins.subtitle.text = 'Sundays - ' + ano + '- ' + mes;
+            myChart1.options.plugins.subtitle.text = 'Workdays - ' + ano + '- ' + mes;
             if (num_lines > max_legend) {
                 myChart1.options.plugins.legend.display = false
                 //myChart1.defaults.global.legend.display = false
             }
             myChart1.update();
             myChart2.options.plugins.legend.align = 'end';
-            myChart2.options.plugins.subtitle.text = 'Workdays - '+ ano + ' - ' + mes;
+            myChart2.options.plugins.subtitle.text = 'Sundays - '+ ano + ' - ' + mes;
             if (num_lines > max_legend) {
                 myChart2.options.plugins.legend.display = false
                 //myChart2.defaults.global.legend.display = false

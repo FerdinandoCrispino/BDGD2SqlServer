@@ -9,6 +9,7 @@ import calendar
     tenha apenas uma subestação de conexão com o sistema de transmissão.
 """
 
+
 def curvas_carga_normal(curvas_carga):
     curvas_carga_dss = {}
     # Transforma 96 pontos da curva de carga em 24 pontos em kW
@@ -84,10 +85,13 @@ def query_fator_de_carga(engine):
 def get_energy_sub(engine, sub, mes):
     try:
         with engine.connect() as con:
-            query = f'''select 'SUB_TIPO' as TIP_CC, sum(u.ENES_01) as ENE_01, sum(u.ENES_02) as ENE_02, 
-            sum(u.ENES_03) as ENE_03, sum(u.ENES_04) as ENE_04, sum(u.ENES_05) as ENE_05, sum(u.ENES_06) as ENE_06, 
-            sum(u.ENES_07) as ENE_07, sum(u.ENES_08) as ENE_08, sum(u.ENES_09) as ENE_09, sum(u.ENES_10) as ENE_10, 
-            sum(u.ENES_11) as ENE_11, sum(u.ENES_12) as ENE_12 
+            query = f'''select 'SUB_TIPO' as TIP_CC, sum(u.ENES_01-u.ENES_01_IN) as ENE_01, 
+            sum(u.ENES_02-u.ENES_02_IN) as ENE_02, sum(u.ENES_03-u.ENES_03_IN) as ENE_03, 
+            sum(u.ENES_04-u.ENES_04_IN) as ENE_04, sum(u.ENES_05-u.ENES_05_IN) as ENE_05, 
+            sum(u.ENES_06-u.ENES_06_IN) as ENE_06, sum(u.ENES_07-u.ENES_07_IN) as ENE_07, 
+            sum(u.ENES_08-u.ENES_08_IN) as ENE_08, sum(u.ENES_09-u.ENES_09_IN) as ENE_09, 
+            sum(u.ENES_10-u.ENES_10_IN ) as ENE_10, sum(u.ENES_11-u.ENES_11_IN) as ENE_11, 
+            sum(u.ENES_12-u.ENES_12_IN) as ENE_12 
             from sde.untrat U  WHERE U.SUB = '{sub}'          
             '''
             result = pd.read_sql_query(sql=query, con=con)
@@ -181,7 +185,7 @@ def get_generation(engine, sub, tabela, ck_pot=None, classe=None) -> pd.DataFram
         return
 
 
-def get_cargas(engine, sub, tabela, classe=None) -> pd.DataFrame:
+def get_energy_by_tip_cc(engine, sub, tabela, classe=None) -> pd.DataFrame:
     try:
         with engine.connect() as con:
             col = 'ENE'
@@ -191,15 +195,15 @@ def get_cargas(engine, sub, tabela, classe=None) -> pd.DataFrame:
                 campo = ''
             cond = ''
             if classe == 1 and tabela == 'UCBT':
-                cond = f"and upper(SUBSTRING(u.CLAS_SUB, 1,2)) = 'RE'"
+                cond = f"and upper(SUBSTRING(u.CLAS_SUB, 1,2)) = 'RE' and SUBSTRING(u.CEG_GD,1,2) in ('GD','UF')"
             elif classe == 2 and tabela == 'UCBT':
-                cond = f"and upper(SUBSTRING(u.CLAS_SUB, 1,2)) = 'CO'"
+                cond = f"and upper(SUBSTRING(u.CLAS_SUB, 1,2)) = 'CO' and SUBSTRING(u.CEG_GD,1,2) in ('GD','UF')"
             elif classe == 0 and tabela == 'UCBT':
-                cond = f"and upper(SUBSTRING(u.CLAS_SUB, 1,2)) not in ('RE','CO')"
+                cond = f"and SUBSTRING(u.CEG_GD,1,2) not in ('GD','UF')"
             elif classe == 3 and tabela == 'UCMT':
-                cond = f"and upper(SUBSTRING(u.CLAS_SUB, 1,2)) = 'CO'"
+                cond = f"and upper(SUBSTRING(u.CLAS_SUB, 1,2)) = 'CO' and SUBSTRING(u.CEG_GD,1,2) in ('GD','UF')"
             elif classe == 4 and tabela == 'UCMT':
-                cond = f"and upper(SUBSTRING(u.CLAS_SUB, 1,2)) != 'CO'"
+                cond = f"and SUBSTRING(u.CEG_GD,1,2) not in ('GD','UF')"
 
             query = f'''Select u.TIP_CC {campo}, COALESCE(sum(u.{col}_01),0) as ENE_01, 
             COALESCE(sum(u.{col}_02),0) as ENE_02, COALESCE(sum(u.{col}_03),0) as ENE_03, 
@@ -235,7 +239,7 @@ def get_prop_curva_carga(curvas_carga, tipo_dia, tipo_curva):
 
 def get_curvas_agregadas(cargas, cargas_fc, curvas_carga_tipicas, tipo_dia, mes, cargas_list):
     for index in range(cargas.shape[0]):
-        energy_mes = cargas.loc[index]['ENE_' + str(mes)]
+        energy_mes = cargas.loc[index][f'ENE_{mes:02}']
 
         # Fator de carga calculado a partir do tipo de curva de carga
         fc = cargas_fc.loc[(cargas_fc['COD_ID'] == cargas.loc[index]['TIP_CC']) &
@@ -276,6 +280,7 @@ def get_curvas_agregadas(cargas, cargas_fc, curvas_carga_tipicas, tipo_dia, mes,
     curva_carga_agregada = curva_carga_agregada.groupby(['TIP_DIA']).sum()
     return curva_carga_agregada
 
+
 def insert_graph_excel(writer, sheet_name):
     sheet = writer.sheets[sheet_name]
     worksheet = writer.sheets[sheet_name]
@@ -283,43 +288,59 @@ def insert_graph_excel(writer, sheet_name):
         chart = workbook.add_chart({'type': 'column'})
         (max_row, max_col) = cargas_total_mes.shape
         for i in range(max_row):
-            chart.add_series({'name': [sheet_name, i+1, 0, i+1, 0], # Linha inicial, coluna inicial, linha final, coluna final
-                               'categories': [sheet_name, 0, 1, 0, 12],
-                               'values': [sheet_name, i+1, 1, i+1, 12]
-                              })
-        chart.set_title({'name': 'Load Profile', 'name_font': {'size': 11}})
-        worksheet.insert_chart('N2', chart)
+            chart.add_series(
+                {'name': [sheet_name, i + 1, 0, i + 1, 0],  # Linha inicial, coluna inicial, linha final, coluna final
+                 'categories': [sheet_name, 0, 1, 0, 12],
+                 'values': [sheet_name, i + 1, 1, i + 1, 12]
+                 })
+        chart.set_title(
+            {'name': f'Load Profile - {dist} - {ano_base} - {mes} \n {list_subs}', 'name_font': {'size': 11}})
+
+        worksheet.insert_chart('O2', chart)
 
     elif sheet_name == 'ALL_SUB_geracao':
         chart = workbook.add_chart({'type': 'line'})
         (max_row, max_col) = curva_geracao_agregada_total.shape
-        chart.add_series({'name': f'={sheet_name}!$A${max_row+1}',  # Linha inicial, coluna inicial, linha final, coluna final
-                  'categories': [sheet_name, 0, 1, 0, 24],
-                  'values': [sheet_name, max_row, 1, max_row, 24]
-                  })
+        chart.add_series(
+            {'name': f'={sheet_name}!$A${max_row + 1}',  # Linha inicial, coluna inicial, linha final, coluna final
+             'categories': [sheet_name, 0, 1, 0, 24],
+             'values': [sheet_name, max_row, 1, max_row, 24]
+             })
         chart.set_title({'name': 'Load Profile', 'name_font': {'size': 11}})
-        worksheet.insert_chart('F15', chart)
+        chart.set_title(
+            {'name': f'Generation Profile - {dist} - {ano_base} - {mes} \n {list_subs}', 'name_font': {'size': 11}})
+
+        worksheet.insert_chart('B12', chart)
 
     elif sheet_name == 'ALL_SUB':
         chart = workbook.add_chart({'type': 'line'})
         (max_row, max_col) = curva_carga_agregada_total.shape
         for i in range(max_row):
             chart.add_series(
-                {'name': [sheet_name, i+1, 0, i+1, 0],  # Linha inicial, coluna inicial, linha final, coluna final
-                 'values': [sheet_name, i+1, 1, i+1, 24]
+                {'name': [sheet_name, i + 1, 0, i + 1, 0],  # Linha inicial, coluna inicial, linha final, coluna final
+                 'values': [sheet_name, i + 1, 1, i + 1, 24]
                  })
-        chart.set_title({'name': f'Load Profile - {dist} - {ano_base} - {mes} \n {list_subs}', 'name_font': {'size': 11}})
-        worksheet.insert_chart('F15', chart)
+        chart.set_title(
+            {'name': f'Load Profile - {dist} - {ano_base} - {mes} \n {list_subs}', 'name_font': {'size': 11}})
+        worksheet.insert_chart('B12', chart)
 
 
 if __name__ == '__main__':
-    tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
-    list_subs = ['ACR', 'CCO', 'CRU', 'ICC', 'JPR', 'JSR', 'PLH'] # grupo de subestações conectadas entre si
-    list_subs = ['STU', 'TGA', 'LGD', 'ELS', 'SPG']
-    dist = '40'
+    # Lê configuração do arquivo yml
+    config = load_config('40_2022')
+    dist = config['dist']
+    ano_base = int(config['data_base'][:4])
     mes = 12
-    ano_base = 2022
-    file_output = f'{dist}_{ano_base}_{mes}_SubLoadShapes_2.xlsx'
+
+    tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
+    #list_subs = ['ACR', 'CCO', 'CRU', 'ICC', 'JPR', 'JSR', 'PLH']  # Grupo de subestações conectadas entre si
+    # list_subs = ['STU', 'TGA', 'LGD', 'ELS', 'SPG']
+    list_subs = ['JCT', 'SMU', 'SMG']
+    list_subs = ['ACU', 'IAJ', 'EST', 'PNC', 'MCA', 'GMR']
+
+    nome_subs = '_'.join(list_subs)
+
+    file_output = f'{dist}_{ano_base}_{mes}_SubShapes_{nome_subs}.xlsx'
 
     rendimento = 0.75  # rendimento do painel solar
     curva_carga_agregada_total = pd.DataFrame()
@@ -327,9 +348,6 @@ if __name__ == '__main__':
     energy_all_month = pd.DataFrame()
     cargas_all_month = []
 
-
-    # Lê configuração do arquivo yml
-    config = load_config('40_2022')
     engine = create_connection(config)
 
     # leitura de dados de curvas de carga da bdgd
@@ -353,6 +371,9 @@ if __name__ == '__main__':
             Para a geração utiliza-se o fator de autoconsumo definido pela EPE: Eg = Ei*(1/(1-fi))
             """
             cod_mun = get_municipio_gd(engine, 'UGMT', sub)
+            if not cod_mun:
+                cod_mun = get_municipio_gd(engine, 'UGBT', sub)
+
             # obtêm curva de irradiação solar na base de dados de irradiação
             irradiacao = irrad_by_municipio(cod_mun, mes, dist)
 
@@ -384,9 +405,9 @@ if __name__ == '__main__':
             # soma toda a geração
             pv_generation = pd.concat([generation_bt_res, generation_bt_com, generation_bt_demais,
                                        generation_mt_com, generation_mt_demais], join='outer').sum()
-            #pv_generation = pd.concat([generation_bt_res, generation_bt_com, generation_bt_demais,
+            # pv_generation = pd.concat([generation_bt_res, generation_bt_com, generation_bt_demais,
             #                           generation_mt_com, generation_mt_demais, generation_at], join='outer').sum()
-            pv_generation_mes = pv_generation[f'ENE_{mes}']
+            pv_generation_mes = pv_generation[f'ENE_{mes:02}']
 
             # fator de geração media dos valores diferentes de zero
             fg = np.apply_along_axis(lambda v: np.mean(v[np.nonzero(v)]), 0, irradiacao)
@@ -415,17 +436,24 @@ if __name__ == '__main__':
             generation_pv_mt = get_generation(engine, sub, 'UGMT', ck_pot=1).iloc[0][f'ENE_{mes:02}']
             generation_pv_at = get_generation(engine, sub, 'UGAT', ck_pot=1).iloc[0][f'ENE_{mes:02}']
             # TODO a geração na alta tensão não deve ser somada com a geração na media e baixa tensão
-            #generation_pv = generation_pv_bt + generation_pv_mt + generation_pv_at
-            generation_pv = generation_pv_bt + generation_pv_mt
-            if generation_pv > 0:
+            # generation_pv = generation_pv_bt + generation_pv_mt + generation_pv_at
+            # generation_pv = generation_pv_bt + generation_pv_mt
+            pot_generation_pv_bt = pot_generation_pv_mt = 0
+            if generation_pv_bt > 0:
                 factor_auto = fator_autoconsumo(classe=2)
-                generation_pv_total = generation_pv * (1 / (1 - factor_auto))
+                generation_pv_total_bt = generation_pv_bt * (1 / (1 - factor_auto))
                 # média dos valores diferentes de zero
                 fc = np.apply_along_axis(lambda v: np.mean(v[np.nonzero(v)]), 0, irradiacao)
-                pot_generation_pv = (generation_pv_total / (num_dias * 24)) / fc
+                pot_generation_pv_bt = (generation_pv_total_bt / (num_dias * 24)) / fc
+            if generation_pv_mt > 0:
+                factor_auto = fator_autoconsumo(classe=3)
+                generation_pv_total_mt = generation_pv_mt * (1 / (1 - factor_auto))
+                # média dos valores diferentes de zero
+                fc = np.apply_along_axis(lambda v: np.mean(v[np.nonzero(v)]), 0, irradiacao)
+                pot_generation_pv_mt = (generation_pv_total_mt / (num_dias * 24)) / fc
 
             # soma da potência instalada com a demanda maxima obtida da energia injetada quando não temos a potência instalada
-            pot_inst_pv_total = pot_inst_pv + pot_generation_pv
+            pot_inst_pv_total = pot_inst_pv + pot_generation_pv_bt + pot_generation_pv_mt
 
             curva_geracao_pv_total = np.multiply(np.array(irradiacao), (-1 * pot_inst_pv_total * rendimento))
             df_curva_geracao_pv_total = pd.DataFrame(curva_geracao_pv_total).transpose()
@@ -438,6 +466,7 @@ if __name__ == '__main__':
             Eg = energia gerada (energia gerada pela GD)
             Ei = energia injetada (BDGD (UGs)
             """
+            corrigir_carga = True
 
             # get demand of substation by month
             energy_sub = get_energy_sub(engine, sub, mes)
@@ -445,12 +474,12 @@ if __name__ == '__main__':
 
             # cargas da subestação agrupadas por TIP_CC
             # TODO a demanda na alta tensão não deve ser somada com a demanda na media e baixa tensão pq no trafo não é contabilizado na demanda de alta tensão.
-            cargas_at = get_cargas(engine, sub, 'UCAT')
+            cargas_at = get_energy_by_tip_cc(engine, sub, 'UCAT')
             cargas_at['TIP_CC'] = cargas_at['TIP_CC'].str.upper()
             # compatibilizar com as demais cargas MT, BT e PIP
             cargas_at['uni_tr_at'] = 'sub'
 
-            cargas_pip = get_cargas(engine, sub, 'PIP')
+            cargas_pip = get_energy_by_tip_cc(engine, sub, 'PIP')
             cargas_pip['TIP_CC'] = cargas_pip['TIP_CC'].str.upper()
             """
             cargas_bt = get_cargas(engine, sub, 'UCBT')
@@ -459,42 +488,50 @@ if __name__ == '__main__':
             cargas_mt = get_cargas(engine, sub, 'UCMT')
             cargas_mt['TIP_CC'] = cargas_mt['TIP_CC'].str.upper()
             """
-            cargas_bt_res = get_cargas(engine, sub, 'UCBT', classe=1)
+            # Cargas de baixa tensão - residencial com GD
+            cargas_bt_res = get_energy_by_tip_cc(engine, sub, 'UCBT', classe=1)
             cargas_bt_res['TIP_CC'] = cargas_bt_res['TIP_CC'].str.upper()
             num_rows = len(cargas_bt_res)
             factor_auto = fator_autoconsumo(classe=1)
             generation_to_add = generation_bt_res_class * ((1 / (1 - factor_auto)) - 1)
-            generation_by_rows = generation_to_add/num_rows
-            for i in range(1, 13):
-                cargas_bt_res[f'ENE_{i:02}'] = cargas_bt_res[f'ENE_{i:02}'].apply(
-                    lambda x: x + generation_by_rows[f'ENE_{i:02}'])
+            generation_by_rows = generation_to_add / num_rows
+            if corrigir_carga:
+                for i in range(1, 13):
+                    cargas_bt_res[f'ENE_{i:02}'] = cargas_bt_res[f'ENE_{i:02}'].apply(
+                        lambda x: x + generation_by_rows[f'ENE_{i:02}'])
 
-            cargas_bt_com = get_cargas(engine, sub, 'UCBT', classe=2)
+            # Cargas de baixa tensão - comercial com GD
+            cargas_bt_com = get_energy_by_tip_cc(engine, sub, 'UCBT', classe=2)
             cargas_bt_com['TIP_CC'] = cargas_bt_com['TIP_CC'].str.upper()
             num_rows = len(cargas_bt_com)
             factor_auto = fator_autoconsumo(classe=2)
             generation_to_add = generation_bt_res_class * ((1 / (1 - factor_auto)) - 1)
             generation_by_rows = generation_to_add / num_rows
-            for i in range(1, 13):
-                cargas_bt_com[f'ENE_{i:02}'] = cargas_bt_com[f'ENE_{i:02}'].apply(
-                    lambda x: x + generation_by_rows[f'ENE_{i:02}'])
+            if corrigir_carga:
+                for i in range(1, 13):
+                    cargas_bt_com[f'ENE_{i:02}'] = cargas_bt_com[f'ENE_{i:02}'].apply(
+                        lambda x: x + generation_by_rows[f'ENE_{i:02}'])
 
-            cargas_bt_demais = get_cargas(engine, sub, 'UCBT', classe=0)
+            # Todas as cargas de baixa tensão sem GD
+            cargas_bt_demais = get_energy_by_tip_cc(engine, sub, 'UCBT', classe=0)
             cargas_bt_demais['TIP_CC'] = cargas_bt_demais['TIP_CC'].str.upper()
 
             cargas_bt = pd.concat([cargas_bt_res, cargas_bt_com, cargas_bt_demais], join='outer').reset_index()
 
-            cargas_mt_com = get_cargas(engine, sub, 'UCMT', classe=3)
+            # Cargas de média tensão - comercial com GD
+            cargas_mt_com = get_energy_by_tip_cc(engine, sub, 'UCMT', classe=3)
             cargas_mt_com['TIP_CC'] = cargas_mt_com['TIP_CC'].str.upper()
             num_rows = len(cargas_mt_com)
             factor_auto = fator_autoconsumo(classe=3)
             generation_to_add = generation_mt_com_class * round(((1 / (1 - factor_auto)) - 1), 3)
             generation_by_rows = generation_to_add / num_rows
-            for i in range(1, 13):
-                cargas_mt_com[f'ENE_{i:02}'] = cargas_mt_com[f'ENE_{i:02}'].apply(
-                    lambda x: x + generation_by_rows[f'ENE_{i:02}'])
+            if corrigir_carga:
+                for i in range(1, 13):
+                    cargas_mt_com[f'ENE_{i:02}'] = cargas_mt_com[f'ENE_{i:02}'].apply(
+                        lambda x: x + generation_by_rows[f'ENE_{i:02}'])
 
-            cargas_mt_demais = get_cargas(engine, sub, 'UCMT', classe=4)
+            # Carga de média tensão - Todas as cargas sem gd
+            cargas_mt_demais = get_energy_by_tip_cc(engine, sub, 'UCMT', classe=4)
             cargas_mt_demais['TIP_CC'] = cargas_mt_demais['TIP_CC'].str.upper()
 
             cargas_mt = pd.concat([cargas_mt_com, cargas_mt_demais], join='outer').reset_index()
@@ -530,7 +567,7 @@ if __name__ == '__main__':
                                                       curva_carga_agregada_bt, curva_carga_agregada_pip],
                                                      join='outer').groupby(['TIP_DIA']).sum()
 
-                #curva_carga_agregada_sub = pd.concat([curva_carga_agregada_at, curva_carga_agregada_mt,
+                # curva_carga_agregada_sub = pd.concat([curva_carga_agregada_at, curva_carga_agregada_mt,
                 #                                      curva_carga_agregada_bt, curva_carga_agregada_pip],
                 #                                     join='outer').groupby(['TIP_DIA']).sum()
 
@@ -572,7 +609,8 @@ if __name__ == '__main__':
 
         energy_all_month.drop(['TIP_CC'], axis=1, inplace=True)
         energy_all_month.reset_index(drop=True, inplace=True)
-        energy_all_month.to_excel(writer, sheet_name='ALL_subs_carga_mes', startrow=cargas_total_mes.shape[0]+1, header=False)
+        energy_all_month.to_excel(writer, sheet_name='ALL_subs_carga_mes', startrow=cargas_total_mes.shape[0] + 1,
+                                  header=False)
 
         # insert graph in excel file
         insert_graph_excel(writer, 'ALL_subs_carga_mes')

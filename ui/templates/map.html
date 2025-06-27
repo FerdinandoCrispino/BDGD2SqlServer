@@ -47,7 +47,7 @@
         </select><br>
 
         <div class="slidecontainer">
-          <input type="range" min="0" max="23" value="0" class="slider" id="myRange">
+          <input type="range" min="1" max="24" value="1" class="slider" id="myRange">
             <p>Hour: <span id="hour"></span></p>
         </div>
         <div>
@@ -162,9 +162,13 @@
             case 2: color = "Olive"; break;
             case 3: color = "Green"; break;
             case 4: color = "DarkSlateBlue"; break;
-            case 5: color = "Red"; break;
-            case 6: color = "Aquamarine"; break;
+            case 5: color = "DarkRed"; break;
+            case 7: color = "Blue"; break;
+            case 8: color = "DarkOrange"; break;
+            case 9: color = "DarkViolet"; break;
+            case 10: color = "DarkMagenta"; break;
 
+            default: color = "teal"; break;
         }
         return color
     }
@@ -187,12 +191,12 @@
     for(let i = 0; i < userSelection.length; i++) {
         userSelection[i].addEventListener("click", function() {
             switch (userSelection[i].id) {
-                case 'map_circuito':
+                case 'map_ic':
                     mapatipo = 'colorbycircuit'
                     var link = document.getElementById('applyFilters');
                     link.click();
                     break;
-                case 'map_vll':
+                case 'map_vl':
                     mapatipo = 'color'
                     var link = document.getElementById('applyFilters');
                     link.click();
@@ -283,7 +287,9 @@
         });
         if (selected) {
             console.log(selected)
-            hora = document.getElementById("myRange").value
+            hora = document.getElementById("myRange").value;
+            const select_scenarios = scenarios.options[scenarios.selectedIndex].text;
+            console.log(select_scenarios);
             switch (selected.get("tipo")) {
                 case 'SUB':
                     const h = selected.get("nome");
@@ -321,7 +327,16 @@
                                          // locale or a string like 'en-US' to override it.
                               { minimumFractionDigits: 5 }
                             );
-                    console.log('++++++++++++++' + h4)
+                    //console.log('++++++++++++++' + h4)
+                    if (select_scenarios == 'HOSTING CAPACITY'){
+                        h1 = (selected.get("bus1")).toLocaleString(
+                              undefined, // leave undefined to use the visitor's browser
+                                         // locale or a string like 'en-US' to override it.
+                              { minimumFractionDigits: 0 }
+                        );
+                        popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>HC: '+ h1 +' kW <br> ' );
+                        break;
+                    }
                     //const result = h1 || h2 || h3;  //seleciona o primeiro valido (nao nulo ou vazio)
                     if (h1 && h2 && h3) {
                         popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Va: '+ h1 +' pu <br> Vb: ' + h2 + ' pu <br> Vc: ' + h3 +' pu' );
@@ -698,6 +713,7 @@
                 });
 
                 // Função para adicionar estilos baseados na cor de cada feature
+                console.log(idx_dist)
                 function estiloSSDAT(feature) {
                     return new ol.style.Style({
                         stroke: new ol.style.Stroke({
@@ -811,7 +827,10 @@
 
         const url = `/api/segments?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}&scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}&hora=${hora}`
         console.log(url)
-        fetch(url)
+        fetch(url, {
+                method: "get",
+                headers: new Headers({"ngrok-skip-browser-warning": "69420"}),
+                })
             .then(response => response.json())
             .then(data => {
                 if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
@@ -827,10 +846,15 @@
 
                 // Função para adicionar estilos baseados na cor de cada feature
                 function estiloSegmento(feature) {
+                    if (scenario == 'Hosting Capacity'){
+                        var espessura = 5
+                    } else {
+                        var espessura = 2
+                    }
                     return new ol.style.Style({
                         stroke: new ol.style.Stroke({
                             color: feature.get(mapatipo), // Cor da feature do GeoJSON
-                            width: 2
+                            width: espessura
                         })
                     });
                 }
