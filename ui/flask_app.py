@@ -15,6 +15,8 @@ import threading
 # execução da geração dos arquivos DSS pelo navegador.
 import core.electric_data as run_dss_files_generators
 
+
+
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
 sys.path.append(parent)
@@ -28,8 +30,11 @@ sys.path.append('../')
 # Configuração do Flask
 server = Flask(__name__)
 server.secret_key = "123456"
+
+SIN_DATA_GDB = 'EPE_SIN_data.gdb'
+
 # Caminho para o arquivo Geodatabase
-GDB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'sin_data.gdb')
+GDB_PATH = os.path.join(os.path.dirname(__file__), 'data', SIN_DATA_GDB)
 
 
 @server.route('/z_data/')
@@ -1311,6 +1316,8 @@ def segments():
     if scenario == "Hosting Capacity":
         # Leitura do arquivo de resultados do hosting capacity
         json_data_hc = read_json_from_result(conf['dist'], subestacao, circuito, scenario, tipo_dia, ano, mes, 0)
+        if json_data_hc is None:
+            return jsonify({"error: No Data found to Hosting Capacity!"}), 500
         geojson = create_geojson_from_segments_hc(line_segments, json_data_hc)
     else:
         # Leitura do arquivo de resultados do fluxo de potencia
@@ -1387,16 +1394,58 @@ def get_table_data(sumario, id_summary):
 
 
 # leitura dos dados do arquivo GDB do SIN
+@server.route('/get_data_at_SIN_Subsistema')
+def get_data_at_SIN_Subsistema():
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'Subsistema_do_Sistema_Interligado_Nacional')
+    return my_gdb_sin.read_gdb_SIN_subsistema_to_json()
+
+
+# leitura dos dados do arquivo GDB do SIN
+@server.route('/get_data_at_UTE_BIOMASS')
+def get_data_at_UTE_BIOMASS():
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'UTE_Biomassa___Base_Existente')
+    return my_gdb_sin.read_gdb_UTE_BIOMASS_to_json()
+
+
+# leitura dos dados do arquivo GDB do SIN
+@server.route('/get_data_at_UTE_FOSSIL')
+def get_data_at_UTE_FOSSIL():
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'UTE_Fóssil___Base_Existente')
+    return my_gdb_sin.read_gdb_UTE_FOSSIL_to_json()
+
+
+# leitura dos dados do arquivo GDB do SIN
+@server.route('/get_data_at_CGH')
+def get_data_at_CGH():
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'CGH___Base_Existente')
+    return my_gdb_sin.read_gdb_CGH_to_json()
+
+
+# leitura dos dados do arquivo GDB do SIN
+@server.route('/get_data_at_PCH')
+def get_data_at_PCH():
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'PCH___Base_Existente')
+    return my_gdb_sin.read_gdb_PCH_to_json()
+
+
+# leitura dos dados do arquivo GDB do SIN
+@server.route('/get_data_at_UHE')
+def get_data_at_UHE():
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'UHE___Base_Existente')
+    return my_gdb_sin.read_gdb_uhe_to_json()
+
+
+# leitura dos dados do arquivo GDB do SIN
 @server.route('/get_data_at_UFV')
 def get_data_at_UFV():
-    my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'UFV___Base_Existente')
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'UFV___Base_Existente')
     return my_gdb_sin.read_gdb_ufv_to_json()
 
 
 # leitura dos dados do arquivo GDB do SIN
 @server.route('/get_data_at_EOL')
 def get_data_at_EOL():
-    my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'EOL___Base_Existente')
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'EOL___Base_Existente')
     return my_gdb_sin.read_gdb_eol_to_json()
 
 
@@ -1406,7 +1455,7 @@ def get_data_at_sub():
     # my_gdb_sin = geo_tools.GeoDataSIN('subs_SIN.geojson')
     # return my_gdb_sin.read_geojson_subs()
 
-    my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'Subestações___Base_Existente')
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'Subestações___Base_Existente')
     return my_gdb_sin.read_gdb_sub_to_json()
 
 
@@ -1416,7 +1465,7 @@ def get_data_at():
     my_gdb_sin = geo_tools.GeoDataSIN('Linhas_SIN.geojson')
     return my_gdb_sin.read_geojson_line()
 
-    # my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'Linhas_de_Transmissão___Base_Existente')
+    # my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'Linhas_de_Transmissão___Base_Existente')
     # return my_gdb_sin.read_gdb_line_to_json()
 
 
