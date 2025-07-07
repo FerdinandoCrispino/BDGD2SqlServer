@@ -4,6 +4,8 @@
 
 {% block content %}
 
+
+
 <div style="display: flex;">
     <!-- Menu lateral -->
     <div id="sidebar" style="width: 250px; padding: 8px; font-size:12px;">
@@ -139,7 +141,13 @@
 
 <script src="{{url_for('static', filename='js/sidebar_base.js') }}"></script>
 
+<!-- Plotly -->
+<script src='https://cdn.plot.ly/plotly-3.0.1.js'></script>
+
+<script src="{{url_for('static', filename='js/dash_curtailment.js') }}"></script>
+
 <script>
+    const mapaDiv = document.getElementById('map');
     var slider = document.getElementById("myRange");
     var hour = document.getElementById("hour");
     hour.innerHTML = slider.value;
@@ -275,11 +283,11 @@
         map.forEachFeatureAtPixel(e.pixel, function (f, layer) {
             var nome_camada = f.get("tipo")
             //features.push(f);
-            console.log(nome_camada)
+            //console.log(nome_camada)
             //console.log('++++++++' + features.length)
 
             var list_layers = ["segmentos", "SUB", "UNTRMT", "UNSEMT", "UNCRMT", "UNREMT", "UGMT", "UGBT", "UCBT",
-                               "UCMT", "SIN-Lines", "SIN-Subs", "SIN-EOL", "SIN-UHE", "SIN-CGH", "SIN-PCH",
+                               "UCMT", "SIN-Lines", "SIN-Subs", "SIN-EOL", "SIN-UFV", "SIN-UHE", "SIN-CGH", "SIN-PCH",
                                "SIN-UTE_FOSSIL", "SIN-UTE_BIOMASS", "AT_SSD", "GERADOR_AT"]
             if (list_layers.includes(nome_camada)){
                 selected = f;
@@ -290,7 +298,7 @@
             console.log(selected)
             hora = document.getElementById("myRange").value;
             const select_scenarios = scenarios.options[scenarios.selectedIndex].text;
-            console.log(select_scenarios);
+            //console.log(select_scenarios);
             switch (selected.get("tipo")) {
                 case 'SUB':
                     const h = selected.get("nome");
@@ -451,7 +459,7 @@
                                     ' <br> start: ' +sin_s4);
                     break;
                 case 'SIN-EOL':
-                    const eol1 = selected.get("nome_eol");
+                    const eol1 = selected.get("nome");
                     const eol2 = selected.get("power");
                     const eol3 = selected.get("ceg");
                     const eol4 = selected.get("prop");
@@ -460,6 +468,17 @@
                     popup1.setInfo(eol1 + ' <br> Power: ' + eol2 + ' kW<br> CEG: ' + eol3 +
                                     ' <br> Owner: ' +eol4 + ' <br> Start: ' + eol5);
                     break;
+                case 'SIN-UFV':
+                    const UFV1 = selected.get("nome");
+                    const UFV2 = selected.get("power");
+                    const UFV3 = selected.get("ceg");
+                    const UFV4 = selected.get("prop");
+                    const UFV5 = selected.get("ini_oper");
+
+                    popup1.setInfo(UFV1 + ' <br> Power: ' + UFV2 + ' kW<br> CEG: ' + UFV3 +
+                                    ' <br> Owner: ' +UFV4 + ' <br> Start: ' + UFV5);
+                    break;
+
                 case 'SIN-UHE':
                     const uhe1 = selected.get("nome_uhe");
                     const uhe2 = selected.get("power");
@@ -588,10 +607,30 @@
             if (content != "") {
                 popup.show(feature.getGeometry().getFirstCoordinate(), content);
             }
+        } else if (nome_camada == "SIN-UFV") {
+            mapaDiv.style.width = '60%';
+            console.log("Selecionei UFV!!!!");
+            var mes= document.getElementById('meses').value;
+            mes = mes.padStart(2, "0");
+            console.log(mes);
+            load_curtailment(feature.get("ceg"), "06", "2025", "UFV", feature.get("nome"))
+         } else if (nome_camada == "SIN-EOL") {
+            mapaDiv.style.width = '60%';
+            console.log("Selecionei EOL!!!!" + feature.get("ceg"));
+            var mes= document.getElementById('meses').value;
+            mes = mes.padStart(2, "0");
+            console.log(mes);
+            load_curtailment(feature.get("ceg"), "06", "2025", "EOL", feature.get("nome"))
         } else {
             nome_camada = "undefined";
             geocoder.getSource().clear();
             console.log('removed')
+            const myDiv = document.getElementById('chart-container');
+            if (myDiv){
+                console.log("div_remove!!!");
+                myDiv.remove();
+            }
+            mapaDiv.style.width = '100%';
         }
 
     });
@@ -772,7 +811,7 @@
                     console.error(data.error);
                     return;
                 }
-                console.log(data);
+                //console.log(data);
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'

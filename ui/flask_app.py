@@ -3,6 +3,8 @@ import sys
 
 import geopandas as gpd
 import pandas as pd
+import numpy as np
+
 from colour import Color
 from flask import Flask, render_template, request, Response, url_for, redirect, jsonify
 from flask import flash
@@ -14,8 +16,6 @@ import threading
 
 # execução da geração dos arquivos DSS pelo navegador.
 import core.electric_data as run_dss_files_generators
-
-
 
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
@@ -35,6 +35,38 @@ SIN_DATA_GDB = 'EPE_SIN_data.gdb'
 
 # Caminho para o arquivo Geodatabase
 GDB_PATH = os.path.join(os.path.dirname(__file__), 'data', SIN_DATA_GDB)
+
+
+@server.route('/curt_data/')
+def read_data_curt():
+    ceg = request.args.get('ceg')
+    src = request.args.get('source')
+    mes = request.args.get('mes')
+    ano = request.args.get('ano')
+
+    path_result = os.path.abspath('curtailment')
+    path_conf = os.path.join(path_result, src)
+
+    if src == "UFV":
+        file_name = f'RESTRICAO_COFF_FOTOVOLTAICA_DETAIL_{ano}_{mes}.parquet'
+    elif src == "EOL":
+        file_name = f'RESTRICAO_COFF_EOLICA_DETAIL_{ano}_{mes}.parquet'
+
+    try:
+        df = pd.read_parquet(os.path.join(path_conf, file_name))
+        df = df[df.ceg == ceg]
+
+        df["coff"] = np.where((df["val_geracaoestimada"] - df["val_geracaoverificada"]) < 0, 0,
+                              (df["val_geracaoestimada"] - df["val_geracaoverificada"]))
+
+        df = df[['din_instante', 'val_geracaoverificada', 'coff']].copy()
+        #df['din_instante'] = df['din_instante'].apply(lambda x: x.strftime("%Y%m%d"))
+
+        data = df.values.tolist()
+        return jsonify(data)
+    except Exception as e:
+        print(f'Error with fife {file_name}')
+        return jsonify({"error": str(e)}), 500
 
 
 @server.route('/z_data/')

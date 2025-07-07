@@ -270,7 +270,7 @@ class GeoDataSIN:
             return jsonify({"error": str(e)}), 500
 
     def read_gdb_uhe_to_json(self):
-        uhe = []
+        coords = []
         proprietario = []
         ini_oper = []
         ceg = []
@@ -292,7 +292,7 @@ class GeoDataSIN:
                 ((row["longitude"], row["latitude"]), row["potencia"], row["ini_oper"], row["ceg"],
                  row["propriet"], row["NOME"], row["RIO"]) for index, row in df.iterrows()]
             for PT, POT, DT_OPER, CEG, PROP, NOME, RIO in uhe_data:
-                uhe.append(Point([PT]))
+                coords.append(Point([PT]))
                 potencia.append(POT)
                 # ini_oper.append(datetime.strftime(DT_OPER, "%Y-%m-%d"))
                 ini_oper.append(DT_OPER)
@@ -303,7 +303,7 @@ class GeoDataSIN:
                 nome.append('SIN-UHE')
             # Criar um GeoDataFrame com as geometrias e dados extras
             gdf = gpd.GeoDataFrame(
-                {'geometry': uhe, 'power': potencia, 'ini_oper': ini_oper, 'prop': proprietario,
+                {'geometry': coords, 'power': potencia, 'ini_oper': ini_oper, 'prop': proprietario,
                  'ceg': ceg, 'nome_uhe': nome_uhe, 'tipo': nome, 'rio': rio}, crs="EPSG:4326")
 
             # Converter o GeoDataFrame para GeoJSON
@@ -314,7 +314,7 @@ class GeoDataSIN:
             return jsonify({"error": str(e)}), 500
 
     def read_gdb_ufv_to_json(self):
-        eol = []
+        coords = []
         proprietario = []
         ini_oper = []
         ceg = []
@@ -335,18 +335,18 @@ class GeoDataSIN:
                 ((row["longitude"], row["latitude"]), row["Potencia"], row["ini_oper"], row["ceg"],
                  row["propriet"], row["nome"]) for index, row in df.iterrows()]
             for PT, POT, DT_OPER, CEG, PROP, NOME in eol_data:
-                eol.append(Point([PT]))
+                coords.append(Point([PT]))
                 potencia.append(POT)
                 # ini_oper.append(datetime.strftime(DT_OPER, "%Y-%m-%d"))
                 ini_oper.append(DT_OPER)
                 ceg.append(CEG)
                 proprietario.append(PROP)
                 nome_ufv.append(NOME)
-                nome.append('SIN-EOL')
+                nome.append('SIN-UFV')
             # Criar um GeoDataFrame com as geometrias e dados extras
             gdf = gpd.GeoDataFrame(
-                {'geometry': eol, 'power': potencia, 'ini_oper': ini_oper, 'prop': proprietario,
-                 'ceg': ceg, 'nome_eol': nome_ufv, 'tipo': nome}, crs="EPSG:4326")
+                {'geometry': coords, 'power': potencia, 'ini_oper': ini_oper, 'prop': proprietario,
+                 'ceg': ceg, 'nome': nome_ufv, 'tipo': nome}, crs="EPSG:4326")
 
             # Converter o GeoDataFrame para GeoJSON
             geojson = gdf.to_json()
@@ -356,7 +356,7 @@ class GeoDataSIN:
             return jsonify({"error": str(e)}), 500
 
     def read_gdb_eol_to_json(self):
-        eol = []
+        coords = []
         proprietario = []
         ini_oper = []
         ceg = []
@@ -377,7 +377,7 @@ class GeoDataSIN:
                 ((row["longitude"], row["latitude"]), row["potencia"], row["ini_oper"], row["ceg"],
                  row["propriet"], row["Nome"]) for index, row in df.iterrows()]
             for PT, POT, DT_OPER, CEG, PROP, NOME in eol_data:
-                eol.append(Point([PT]))
+                coords.append(Point([PT]))
                 potencia.append(POT)
                 # ini_oper.append(datetime.strftime(DT_OPER, "%Y-%m-%d"))
                 ini_oper.append(DT_OPER)
@@ -387,8 +387,8 @@ class GeoDataSIN:
                 nome.append('SIN-EOL')
             # Criar um GeoDataFrame com as geometrias e dados extras
             gdf = gpd.GeoDataFrame(
-                {'geometry': eol, 'power': potencia, 'ini_oper': ini_oper, 'prop': proprietario,
-                 'ceg': ceg, 'nome_eol': nome_eol, 'tipo': nome}, crs="EPSG:4326")
+                {'geometry': coords, 'power': potencia, 'ini_oper': ini_oper, 'prop': proprietario,
+                 'ceg': ceg, 'nome': nome_eol, 'tipo': nome}, crs="EPSG:4326")
 
             # Converter o GeoDataFrame para GeoJSON
             geojson = gdf.to_json()
@@ -398,7 +398,7 @@ class GeoDataSIN:
             return jsonify({"error": str(e)}), 500
 
     def read_gdb_sub_to_json(self):
-        subs = []
+        coords = []
         tensao = []
         concessao = []
         operacao = []
@@ -418,14 +418,14 @@ class GeoDataSIN:
                  row["Tensao"], row["Concession"], row["Ano_Opera"], row["Nome"]) for index, row in
                 df.iterrows()]
             for pt, voltage, concession, opera, name in subs_data:
-                subs.append(Point([pt]))
+                coords.append(Point([pt]))
                 tensao.append(voltage)
                 concessao.append(concession)
                 operacao.append(opera)
                 nome_sub.append(name)
                 nome.append('SIN-Subs')
             # Criar um GeoDataFrame com as geometrias e dados extras
-            gdf = gpd.GeoDataFrame({'geometry': subs, 'voltage': tensao, 'concessao': concessao,
+            gdf = gpd.GeoDataFrame({'geometry': coords, 'voltage': tensao, 'concessao': concessao,
                                     'opera': operacao, 'nome_sub': nome_sub, 'tipo': nome}, crs="EPSG:4326")
 
             # Converter o GeoDataFrame para GeoJSON
