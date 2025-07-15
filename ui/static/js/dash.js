@@ -41,9 +41,9 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                     text: 'DER´s Insertion Analysis: ' + sub +': '+ circ +' '+ tipo_dia +' '+ano +'/'+ mes + '<br>' + txt_title
                 },
                 scene: {
-                    xaxis: { title: { text: '% GD' } },
-                    yaxis: { title: { text: 'Quantity of Buses' } },
-                    zaxis: { title: { text: 'Probability' } }
+                    xaxis: { title: { text: 'PV Penetration %' } },
+                    yaxis: { title: { text: 'Buses %' } },
+                    zaxis: { title: { text: 'Probability %' } }
                 },
                 autosize: false,
                 width: 800,
@@ -78,6 +78,7 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
             console.log(data)
             const ctx1 = document.getElementById('myChart1').getContext('2d', { willReadFrequently: true });
             const ctx2 = document.getElementById('myChart2').getContext('2d', { willReadFrequently: true });
+            var str_dist = document.getElementById('distribuidora').options[document.getElementById('distribuidora').selectedIndex].text;
             //console.log(data[0].values)
             //console.log(data[4].values)
             //console.log(data[0].ctmt)
@@ -152,7 +153,7 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
 
                         title: {
                             display: true,
-                            text: 'EDP-SP - Circuit Daily Loading'
+                            text: `${str_dist} - Circuit Daily Loading`
                         },
                         subtitle: {
                             display: true,
@@ -222,7 +223,7 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
 
                         title: {
                             display: true,
-                            text: 'EDP-SP - Circuit Daily Loading'
+                            text: `${str_dist} - Circuit Daily Loading`
                         },
                         subtitle: {
                             display: true,
@@ -252,14 +253,14 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
             //myChart1.data.datasets[1].data = data[4];
 
             myChart1.options.plugins.legend.align = 'end';
-            myChart1.options.plugins.subtitle.text = 'Sundays - ' + ano + '- ' + mes;
+            myChart1.options.plugins.subtitle.text = 'Workdays - ' + ano + '- ' + mes;
             if (num_lines > max_legend) {
                 myChart1.options.plugins.legend.display = false
                 //myChart1.defaults.global.legend.display = false
             }
             myChart1.update();
             myChart2.options.plugins.legend.align = 'end';
-            myChart2.options.plugins.subtitle.text = 'Workdays - '+ ano + ' - ' + mes;
+            myChart2.options.plugins.subtitle.text = 'Sundays - '+ ano + ' - ' + mes;
             if (num_lines > max_legend) {
                 myChart2.options.plugins.legend.display = false
                 //myChart2.defaults.global.legend.display = false
@@ -272,11 +273,11 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
 }
 
 
-function transformer_loading(dist) {
+function transformer_loading(dist, ano, mes) {
     // Captura o valor do parâmetro 'dist' da URL
     //const dist = "{{ dist }}";
     document.body.style.cursor = 'wait';  // Cursor de espera
-    fetch(`/data/${dist}`)  // Atenção ao tipo de aspas - backticks
+    fetch(`/data?distribuidora=${dist}&ano=${ano}&mes=${mes}`)  // Atenção ao tipo de aspas - backticks
         .then(response => {
             if (!response.ok){
                 alert("No Data Found!")
@@ -287,6 +288,7 @@ function transformer_loading(dist) {
         .then(data => {
             var groupLabel1 = []
             var groupLabel2 = []
+            var str_dist = document.getElementById('distribuidora').options[document.getElementById('distribuidora').selectedIndex].text;
             for (const [key, val] of Object.entries(data[1])) {
                 groupLabel2.push(val)
             }
@@ -360,7 +362,7 @@ function transformer_loading(dist) {
 
                         title: {
                             display: true,
-                            text: 'EDP-SP - Power Transformer Loading'
+                            text: `${str_dist} - Power Transformer Loading`
                         },
                         subtitle: {
                             display: true,
@@ -424,7 +426,7 @@ function transformer_loading(dist) {
                         },
                         title: {
                             display: true,
-                            text: 'EDP-SP - Power Transformer Loading'
+                            text: `${str_dist} - Power Transformer Loading`
                         },
                         subtitle: {
                             display: true,
@@ -491,7 +493,7 @@ function transformer_loading(dist) {
                         },
                         title: {
                             display: true,
-                            text: 'EDP-SP - Power Transformer Loading - Time of Day of Occurrence'
+                            text: `${str_dist} - Power Transformer Loading - Time of Day of Occurrence`
                         },
                         subtitle: {
                             display: true,
@@ -559,7 +561,7 @@ function transformer_loading(dist) {
                         },
                         title: {
                             display: true,
-                            text: 'EDP-SP - Power Transformer Loading - Time of Day of Occurrence'
+                            text: `${str_dist} - Power Transformer Loading - Time of Day of Occurrence`
                         },
                         subtitle: {
                             display: true,
@@ -587,6 +589,7 @@ function losses(dist, subestacao, circuito, scenario, tipo_dia, ano, mes) {
         .then(data => {
             var groupLabel1 = []
             var groupLabel2 = []
+            var str_dist = document.getElementById('distribuidora').options[document.getElementById('distribuidora').selectedIndex].text;
             for (const [key, val] of Object.entries(data[2])) {
                 groupLabel2.push(val)
             }
@@ -649,7 +652,7 @@ function losses(dist, subestacao, circuito, scenario, tipo_dia, ano, mes) {
 
                         title: {
                             display: true,
-                            text: 'EDP-SP - Circuit Losses'
+                            text: `${str_dist} - Circuit Losses`
                         },
                         subtitle: {
                             display: true,
@@ -711,7 +714,7 @@ function losses(dist, subestacao, circuito, scenario, tipo_dia, ano, mes) {
 
                         title: {
                             display: true,
-                            text: 'EDP-SP - Circuit Losses'
+                            text: `${str_dist} - Circuit Losses`
                         },
                         subtitle: {
                             display: true,

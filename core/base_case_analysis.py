@@ -27,7 +27,7 @@ run_multiprocess = False
 
 database = "40_2022"
 master_type_day = "DU"
-master_month = "12"
+master_month = "1"
 
 config = load_config(database)
 dist = config['dist']
@@ -41,7 +41,7 @@ list_sub = get_substations_list(engine)
 
 def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
     """
-    Reune as informações das simulações já realizadas para apresentar um resumo das perdas de energia das subestações
+    Reune as informações das simulações já realizadas para apresentar um resumo das perdas de energia das subestações.
     :param dist: Código da distribuidora.
     :param tipo_dia: Tipo de dia utilizado no cálculo do fluxo de potência.
     :param ano: Ano utilizado no cálculo do fluxo de potência.
@@ -54,7 +54,7 @@ def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
 
     for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base', str(dist))):
         for file in files:
-            if file.endswith(file_result):
+            if file.endswith(file_result) and 'SUB' not in file.upper():
                 print(file)
                 print(root)
                 try:
@@ -136,6 +136,8 @@ def substations_transformer_loading(dist, tipo_dia, ano, mes):
     plt_path = os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base', str(dist))
     subs_power.to_excel(f"{plt_path}/{ano}_{tipo_dia}_{mes}_sub_analysis.xlsx")
 
+    if subs_power.empty:
+        return
     # plot ---------------------------------------
     x = np.arange(len(subs_power['nome']))
     multiplier = 0
@@ -459,7 +461,7 @@ class SimuladorOpendss:
         self.dss.text("set maxcontroliter = 100")
         self.dss.text("set maxiterations = 100")
         self.dss.text("Set stepsize = 1h")
-        # self.dss.text("set number = 1")
+        self.dss.text("set number = 1")
         # self.dss.text("solve")
 
         # for meter_name in self.dss.meters.names:
@@ -480,7 +482,7 @@ class SimuladorOpendss:
         vuf_bus_violation_list = []
 
         for number in range(1, total_number + 1):
-            self.dss.text(f"set number={number}")
+            #self.dss.text(f"set number={number}")
             self.dss.monitors.reset_all()
             self.dss.solution.solve()
             # self.dss.meters.sample()
@@ -489,7 +491,7 @@ class SimuladorOpendss:
 
             status = self.dss.solution.converged
             if status == 0:
-                print(f'OpenDSS: File {self.dss_file} not solved!!!!')
+                print(f'OpenDSS: File {self.dss_file} not solved to time {number}!')
                 print(f"{self.dss.solution.event_log}\n")
                 logging.info(
                     f'OpenDSS: File {self.dss_file} not solved! Set number: {number} - event: {self.dss.solution.event_log}')
@@ -568,9 +570,11 @@ class SimuladorOpendss:
 
                 vuf_bus_dict[f"{bus_name.split('.')[0]}"] = vuf
                 """
-
-            max_vol = max(voltage_bus_dict.items(), key=lambda x: x[1])
-            min_vol = min(voltage_bus_dict.items(), key=lambda x: x[1])
+            if not voltage_bus_dict:
+                max_vol = min_vol = 0
+            else:
+                max_vol = max(voltage_bus_dict.items(), key=lambda x: x[1])
+                min_vol = min(voltage_bus_dict.items(), key=lambda x: x[1])
 
             # os valores de max e min poidem apresentar diferença nos caso onde existem valores iguais
             # max_vol = max(voltage_bus_dict.values())
@@ -727,8 +731,8 @@ if __name__ == '__main__':
         substations_losses(dist, 'DO', '2022', master_month)
         substations_losses(dist, 'DU', '2022', master_month)
         # teste: análise de carregamento das subestações
-        # substations_transformer_loading(dist, 'DU', '2022', master_month)
-        # substations_transformer_loading(dist, 'DO', '2022', master_month)
+        substations_transformer_loading(dist, 'DU', '2022', master_month)
+        substations_transformer_loading(dist, 'DO', '2022', master_month)
 
     print(f'Substation: process completed in {time.time() - proc_time_ini}.', flush=True)
 

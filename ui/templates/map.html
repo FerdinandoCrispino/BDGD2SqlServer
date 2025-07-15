@@ -4,12 +4,14 @@
 
 {% block content %}
 
+
+
 <div style="display: flex;">
     <!-- Menu lateral -->
     <div id="sidebar" style="width: 250px; padding: 8px; font-size:12px;">
 
         <label for="distribuidora">Utility:</label>
-        <select id="distribuidora" name="distribuidora" style="float:right;width:110px">
+        <select id="distribuidora" name="distribuidora" style="float:right;width:110px; max-height:50px;overflow-y:scroll">
             <option value="">Select</option>
             <option value="391">EDP_SP 2022</option>
             <option value="404">Energisa_MS 2022</option>
@@ -139,7 +141,13 @@
 
 <script src="{{url_for('static', filename='js/sidebar_base.js') }}"></script>
 
+<!-- Plotly -->
+<script src='https://cdn.plot.ly/plotly-3.0.1.js'></script>
+
+<script src="{{url_for('static', filename='js/dash_curtailment.js') }}"></script>
+
 <script>
+    const mapaDiv = document.getElementById('map');
     var slider = document.getElementById("myRange");
     var hour = document.getElementById("hour");
     hour.innerHTML = slider.value;
@@ -153,6 +161,24 @@
             var link = document.getElementById('applyFilters');
             link.click();
         }
+    }
+
+    function changeColor(id){
+        switch (id) {
+            case 0: color = "Salmon"; break;
+            case 1: color = "Brown"; break;
+            case 2: color = "Olive"; break;
+            case 3: color = "Green"; break;
+            case 4: color = "DarkSlateBlue"; break;
+            case 5: color = "DarkRed"; break;
+            case 7: color = "Blue"; break;
+            case 8: color = "DarkOrange"; break;
+            case 9: color = "DarkViolet"; break;
+            case 10: color = "DarkMagenta"; break;
+
+            default: color = "teal"; break;
+        }
+        return color
     }
 
     // Verifica se existe o arquivo
@@ -173,12 +199,12 @@
     for(let i = 0; i < userSelection.length; i++) {
         userSelection[i].addEventListener("click", function() {
             switch (userSelection[i].id) {
-                case 'map_circuito':
+                case 'map_ic':
                     mapatipo = 'colorbycircuit'
                     var link = document.getElementById('applyFilters');
                     link.click();
                     break;
-                case 'map_vll':
+                case 'map_vl':
                     mapatipo = 'color'
                     var link = document.getElementById('applyFilters');
                     link.click();
@@ -257,11 +283,12 @@
         map.forEachFeatureAtPixel(e.pixel, function (f, layer) {
             var nome_camada = f.get("tipo")
             //features.push(f);
-            console.log(nome_camada)
+            //console.log(nome_camada)
             //console.log('++++++++' + features.length)
 
-            var list_layers = ["segmentos", "SUB", "UNTRMT", "UNSEMT", "UNCRMT", "UNREMT", "UGMT", "UGBT", "UCBT", "UCMT",
-                                "SIN-Lines", "SIN-Subs", "SIN-EOL", "AT_SSD", "GERADOR_AT"]
+            var list_layers = ["segmentos", "SUB", "UNTRMT", "UNSEMT", "UNCRMT", "UNREMT", "UGMT", "UGBT", "UCBT",
+                               "UCMT", "SIN-Lines", "SIN-Subs", "SIN-EOL", "SIN-UFV", "SIN-UHE", "SIN-CGH", "SIN-PCH",
+                               "SIN-UTE_FOSSIL", "SIN-UTE_BIOMASS", "AT_SSD", "GERADOR_AT"]
             if (list_layers.includes(nome_camada)){
                 selected = f;
                 return true;
@@ -269,7 +296,9 @@
         });
         if (selected) {
             console.log(selected)
-            hora = document.getElementById("myRange").value
+            hora = document.getElementById("myRange").value;
+            const select_scenarios = scenarios.options[scenarios.selectedIndex].text;
+            //console.log(select_scenarios);
             switch (selected.get("tipo")) {
                 case 'SUB':
                     const h = selected.get("nome");
@@ -307,7 +336,16 @@
                                          // locale or a string like 'en-US' to override it.
                               { minimumFractionDigits: 5 }
                             );
-                    console.log('++++++++++++++' + h4)
+                    //console.log('++++++++++++++' + h4)
+                    if (select_scenarios == 'HOSTING CAPACITY'){
+                        h1 = (selected.get("bus1")).toLocaleString(
+                              undefined, // leave undefined to use the visitor's browser
+                                         // locale or a string like 'en-US' to override it.
+                              { minimumFractionDigits: 0 }
+                        );
+                        popup1.setInfo(h4 + '<br>Pac: '+ h5 + '<br>HC: '+ h1 +' kW <br> ' );
+                        break;
+                    }
                     //const result = h1 || h2 || h3;  //seleciona o primeiro valido (nao nulo ou vazio)
                     if (h1 && h2 && h3) {
                         popup1.setInfo(h4 + '<br>Time: ' + hora + '<br>Pac: '+ h5 + '<br>Va: '+ h1 +' pu <br> Vb: ' + h2 + ' pu <br> Vc: ' + h3 +' pu' );
@@ -418,24 +456,90 @@
                     const sin_s3 = selected.get("concessao");
                     const sin_s4 = selected.get("opera");
                     popup1.setInfo(sin_s1 + ' <br> Voltage: ' + sin_s2 + ' kV<br> Concession: ' + sin_s3 +
-                                    ' <br> Operação: ' +sin_s4);
+                                    ' <br> start: ' +sin_s4);
                     break;
                 case 'SIN-EOL':
-                    const eol1 = selected.get("nome_eol");
+                    const eol1 = selected.get("nome");
                     const eol2 = selected.get("power");
                     const eol3 = selected.get("ceg");
                     const eol4 = selected.get("prop");
                     const eol5 = selected.get("ini_oper");
 
                     popup1.setInfo(eol1 + ' <br> Power: ' + eol2 + ' kW<br> CEG: ' + eol3 +
-                                    ' <br> Owner: ' +eol4 + ' <br> Operação: ' + eol5);
+                                    ' <br> Owner: ' +eol4 + ' <br> Start: ' + eol5);
+                    break;
+                case 'SIN-UFV':
+                    const UFV1 = selected.get("nome");
+                    const UFV2 = selected.get("power");
+                    const UFV3 = selected.get("ceg");
+                    const UFV4 = selected.get("prop");
+                    const UFV5 = selected.get("ini_oper");
+
+                    popup1.setInfo(UFV1 + ' <br> Power: ' + UFV2 + ' kW<br> CEG: ' + UFV3 +
+                                    ' <br> Owner: ' +UFV4 + ' <br> Start: ' + UFV5);
+                    break;
+
+                case 'SIN-UHE':
+                    const uhe1 = selected.get("nome_uhe");
+                    const uhe2 = selected.get("power");
+                    const uhe3 = selected.get("ceg");
+                    const uhe4 = selected.get("prop");
+                    const uhe5 = selected.get("ini_oper");
+                    const uhe6 = selected.get("rio");
+
+                    popup1.setInfo(uhe1 + ' <br> Power: ' + uhe2 + ' kW<br> CEG: ' + uhe3 +
+                                    ' <br> Owner: ' +uhe4 + ' <br> Start: ' + uhe5 + ' <br> River: ' + uhe6);
+                    break;
+                case 'SIN-CGH':
+                    const cgh1 = selected.get("nome_uhe");
+                    const cgh2 = selected.get("power");
+                    const cgh3 = selected.get("ceg");
+                    const cgh4 = selected.get("prop");
+                    const cgh5 = selected.get("ini_oper");
+                    const cgh6 = selected.get("rio");
+
+                    popup1.setInfo(cgh1 + ' <br> Power: ' + cgh2 + ' kW<br> CEG: ' + cgh3 +
+                                    ' <br> Owner: ' +cgh4 + ' <br> Start: ' + cgh5 + ' <br> River: ' + cgh6);
+                    break;
+
+                case 'SIN-PCH':
+                    const pch1 = selected.get("nome_uhe");
+                    const pch2 = selected.get("power");
+                    const pch3 = selected.get("ceg");
+                    const pch4 = selected.get("prop");
+                    const pch5 = selected.get("ini_oper");
+                    const pch6 = selected.get("rio");
+
+                    popup1.setInfo(pch1 + ' <br> Power: ' + pch2 + ' kW<br> CEG: ' + pch3 +
+                                    ' <br> Owner: ' +pch4 + ' <br> Start: ' + pch5 + ' <br> River: ' + pch6);
+                    break;
+                case 'SIN-UTE_FOSSIL':
+                    const ute_f1 = selected.get("nome_uhe");
+                    const ute_f2 = selected.get("power");
+                    const ute_f3 = selected.get("ceg");
+                    const ute_f4 = selected.get("prop");
+                    const ute_f5 = selected.get("ini_oper");
+
+                    popup1.setInfo(ute_f1 + ' <br> Power: ' + ute_f2 + ' kW<br> CEG: ' + ute_f3 +
+                                    ' <br> Owner: ' + ute_f4 + ' <br> Start: ' + ute_f5 );
+                    break;
+                case 'SIN-UTE_BIOMASS':
+                    const ute_b1 = selected.get("nome_uhe");
+                    const ute_b2 = selected.get("power");
+                    const ute_b3 = selected.get("ceg");
+                    const ute_b4 = selected.get("prop");
+                    const ute_b5 = selected.get("ini_oper");
+
+                    popup1.setInfo(ute_b1 + ' <br> Power: ' + ute_b2 + ' kW<br> CEG: ' + ute_b3 +
+                                    ' <br> Owner: ' + ute_b4 + ' <br> Start: ' + ute_b5 );
                     break;
                 case 'AT_SSD':
                     const at_s1 = selected.get("linha");
-                    //const at_s2 = selected.get("nome");
+                    const at_s2 = selected.get("nome");
                     const at_s3 = selected.get("voltage");
+                    const at_s4 = selected.get("dist");
 
-                    popup1.setInfo('Linha: '+ at_s1 + '<br>'+ at_s3 + ' kV' );
+                    popup1.setInfo('Linha: '+ at_s1 + '<br>Dist: '+ at_s4 + '<br>V: '+ at_s3 + ' kV');
                     break;
                 case 'GERADOR_AT':
                     const at_g1 = selected.get("sub");
@@ -503,10 +607,30 @@
             if (content != "") {
                 popup.show(feature.getGeometry().getFirstCoordinate(), content);
             }
+        } else if (nome_camada == "SIN-UFV") {
+            mapaDiv.style.width = '60%';
+            console.log("Selecionei UFV!!!!");
+            var mes= document.getElementById('meses').value;
+            mes = mes.padStart(2, "0");
+            console.log(mes);
+            load_curtailment(feature.get("ceg"), "06", "2025", "UFV", feature.get("nome"))
+         } else if (nome_camada == "SIN-EOL") {
+            mapaDiv.style.width = '60%';
+            console.log("Selecionei EOL!!!!" + feature.get("ceg"));
+            var mes= document.getElementById('meses').value;
+            mes = mes.padStart(2, "0");
+            console.log(mes);
+            load_curtailment(feature.get("ceg"), "06", "2025", "EOL", feature.get("nome"))
         } else {
             nome_camada = "undefined";
             geocoder.getSource().clear();
             console.log('removed')
+            const myDiv = document.getElementById('chart-container');
+            if (myDiv){
+                console.log("div_remove!!!");
+                myDiv.remove();
+            }
+            mapaDiv.style.width = '100%';
         }
 
     });
@@ -537,12 +661,23 @@
                 }
             });
 
+            loadSSDAT();
             if (layerAT === false && document.getElementById('distribuidora').value != '') {
-                loadSSDAT();
-                loadSIN('subs');
-                loadSIN('linhas');
-                loadSIN('EOL');
-                loadSIN('UFV');
+                var myGrpoupLayersSIN = new ol.layer.Group({
+                    title: 'SIN',
+                    layers: []
+                });
+                map.addLayer(myGrpoupLayersSIN); //this add a new layergroup
+                loadSIN('SIN-Subsistema', myGrpoupLayersSIN);
+                loadSIN('subs', myGrpoupLayersSIN);
+                loadSIN('linhas', myGrpoupLayersSIN);
+                loadSIN('EOL', myGrpoupLayersSIN);
+                loadSIN('UFV', myGrpoupLayersSIN);
+                loadSIN('UHE', myGrpoupLayersSIN);
+                loadSIN('CGH', myGrpoupLayersSIN);
+                loadSIN('PCH', myGrpoupLayersSIN);
+                loadSIN('UTE_FOSSIL', myGrpoupLayersSIN);
+                loadSIN('UTE_BIOMASS', myGrpoupLayersSIN);
 
             }
         } else {
@@ -559,7 +694,7 @@
 
 
     // Função carrega dados do SIN Sistema Interligado Nacional (EPE)
-    function loadSIN(tipo){
+    function loadSIN(tipo, myGrpoupLayersSIN){
         var nome_layer = '';
         var nome_stilo = '';
         var meu_estilo
@@ -606,8 +741,69 @@
                         }))
                     });
 
+        } else if (tipo === 'UHE') {
+            req_func = '/get_data_at_UHE';
+            nome_layer = 'SIN-UHE';
+            meu_estilo = new ol.style.Style({
+                    image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            anchor: [0, 0],
+                            scale: 0.30,
+                            src: 'static/icon/UHE.png'
+                        }))
+                    });
+
+        } else if (tipo === 'CGH') {
+            req_func = '/get_data_at_CGH';
+            nome_layer = 'SIN-CGH';
+            meu_estilo = new ol.style.Style({
+                    image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            anchor: [0, 0],
+                            scale: 0.1,
+                            src: 'static/icon/CGH.png'
+                        }))
+                    });
+
+        } else if (tipo === 'PCH') {
+            req_func = '/get_data_at_PCH';
+            nome_layer = 'SIN-PCH';
+            meu_estilo = new ol.style.Style({
+                    image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            anchor: [0, 0],
+                            scale: 0.20,
+                            src: 'static/icon/pch.png'
+                        }))
+                    });
+
+        } else if (tipo === 'UTE_BIOMASS') {
+            req_func = '/get_data_at_UTE_BIOMASS';
+            nome_layer = 'SIN-UTE_BIOMASS';
+            meu_estilo = new ol.style.Style({
+                    image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            anchor: [0, 0],
+                            scale: 0.20,
+                            src: 'static/icon/UTE_BIOMASS.png'
+                        }))
+                    });
+
+        } else if (tipo === 'UTE_FOSSIL') {
+            req_func = '/get_data_at_UTE_FOSSIL';
+            nome_layer = 'SIN-UTE_FOSSIL';
+            meu_estilo = new ol.style.Style({
+                    image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                            anchor: [0, 0],
+                            scale: 0.25,
+                            src: 'static/icon/UTE_FOSSIL2.png'
+                        }))
+                    });
+
+        } else if (tipo === 'SIN-Subsistema') {
+            req_func = '/get_data_at_SIN_Subsistema';
+            nome_layer = 'SIN_subsistema';
+            meu_estilo = '';
+
         }
-        //console.log(req_func);
+        console.log(req_func);
+        console.log(tipo);
         fetch(req_func)
             .then(response => response.json())
             .then(data => {
@@ -615,6 +811,7 @@
                     console.error(data.error);
                     return;
                 }
+                //console.log(data);
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
                     featureProjection: 'EPSG:3857'
@@ -624,44 +821,66 @@
                     features: features
                 });
 
-
-                if (tipo === 'linhas') {
-                    // Função para adicionar estilos baseados na cor de cada feature
-                    function linha_estilo(feature) {
-                        return new ol.style.Style({
-                            stroke: new ol.style.Stroke({
-                                color: feature.get('cor'), // Cor da feature do GeoJSON
-                                width: 1
-                            })
+                switch (tipo) {
+                    case 'linhas':
+                        // Função para adicionar estilos baseados na cor de cada feature
+                        function linha_estilo(feature) {
+                            return new ol.style.Style({
+                                stroke: new ol.style.Stroke({
+                                    color: feature.get('cor'), // Cor da feature do GeoJSON
+                                    width: 1
+                                })
+                            });
+                        }
+                        var vectorLayer = new ol.layer.Vector({
+                            name: nome_layer,
+                            source: vectorSource,
+                            style: linha_estilo
                         });
-                    }
-                    var vectorLayer = new ol.layer.Vector({
-                        name: nome_layer,
-                        source: vectorSource,
-                        style: linha_estilo
-                    });
-                } else {
-                    var vectorLayer = new ol.layer.Vector({
-                        name: nome_layer,
-                        source: vectorSource,
-                        style: meu_estilo
-                    });
+                        break;
+                    case 'SIN-Subsistema':
+                        function poligono_estilo(feature) {
+                            return new ol.style.Style({
+                                fill: new ol.style.Fill({
+                                    color: feature.get('cor')
+                                }),
+                                stroke: new ol.style.Stroke({
+                                    color: 'black',
+                                    width: 1
+                                })
+                            });
+                        }
+
+                        var vectorLayer = new ol.layer.Vector({
+                            name: nome_layer,
+                            source: vectorSource,
+                            style: poligono_estilo
+                        });
+                        break;
+                    default:
+                        var vectorLayer = new ol.layer.Vector({
+                            name: nome_layer,
+                            source: vectorSource,
+                            style: meu_estilo,
+                            visible: false // Initially hidden
+                        });
                 }
 
-                map.addLayer(vectorLayer);
+                //map.addLayer(vectorLayer);
+                myGrpoupLayersSIN.getLayers().push(vectorLayer);
                 const extent = vectorSource.getExtent();
                 //map.getView().fit(extent, { duration: 500 });
             });
     }
 
-
     //loadSSDAT
     function loadSSDAT() {
         document.body.style.cursor = 'wait';  // Cursor de espera
         const distribuidora = document.getElementById('distribuidora').value;
-
+        const idx_dist = document.getElementById('distribuidora').selectedIndex;
+        const nome_dist = document.getElementById('distribuidora').options[idx_dist].text;;
         var myGrpoupLayers = new ol.layer.Group({
-            title: 'High Voltage',
+            title: nome_dist + '-AT',
             layers: []
         });
         map.addLayer(myGrpoupLayers); //this add a new layergroup
@@ -669,7 +888,10 @@
         fetch(`/api/ssdat?distribuidora=${distribuidora}`)
             .then(response => response.json())
             .then(data => {
-                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+                if (data.error) {
+                    //console.error(data.error);
+                    return;
+                }
 
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
@@ -681,10 +903,11 @@
                 });
 
                 // Função para adicionar estilos baseados na cor de cada feature
+                console.log(idx_dist)
                 function estiloSSDAT(feature) {
                     return new ol.style.Style({
                         stroke: new ol.style.Stroke({
-                            color: "DarkSlateBlue", // Cor da feature do GeoJSON
+                            color: changeColor(idx_dist), //"DarkSlateBlue", // Cor da feature do GeoJSON
                             width: 2
                         })
                     });
@@ -794,10 +1017,22 @@
 
         const url = `/api/segments?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}&scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}&hora=${hora}`
         console.log(url)
-        fetch(url)
-            .then(response => response.json())
+        fetch(url, {
+                method: "get",
+                headers: new Headers({"ngrok-skip-browser-warning": "69420"}),
+                })
+            .then(response => {
+                if (!response.ok){
+                    alert("No Data Found!")
+                    throw new Error ("No Data Found!")
+                }
+                return response.json();
+            })
             .then(data => {
-                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+                if (data.error) {
+                    console.error(data.error);
+                    return;
+                }
 
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {
@@ -807,13 +1042,92 @@
                 var vectorSource = new ol.source.Vector({
                     features: features
                 });
+                console.log("scenario");
+                console.log(scenario.toUpperCase());
 
+                let legendaContainer = document.getElementById('map-legend');
+                if (scenario.toUpperCase() == 'HOSTING CAPACITY'){
+
+                    // === [1] Calcula mínimo e máximo dos valores do atributo ===
+                    let valores = features.map(f => parseFloat(f.get('bus1'))).filter(v => !isNaN(v));
+                    let min = Math.min(...valores);
+                    let max = Math.max(...valores);
+                    console.log(valores);
+                    console.log(min);
+
+                    // === [2] Cria gradiente de cor multi-estágio ===
+                    const colorStops = [
+                        { r: 255, g: 0,   b: 0   },  // vermelho
+                        { r: 255, g: 255, b: 0   },  // amarelo
+                        { r: 0,   g: 255, b: 0   },  // verde
+                        { r: 0,   g: 0,   b: 255 }   // azul
+                    ];
+
+                    function interpolateColor(c1, c2, t) {
+                        const r = Math.round(c1.r + (c2.r - c1.r) * t);
+                        const g = Math.round(c1.g + (c2.g - c1.g) * t);
+                        const b = Math.round(c1.b + (c2.b - c1.b) * t);
+                        return `rgb(${r},${g},${b})`;
+                    }
+
+                    const nDivs = 10;
+                    const cores = [];
+                    for (let i = 0; i <= nDivs; i++) {
+                        const ratio = i / nDivs;
+                        const totalStops = colorStops.length - 1;
+                        const scaledRatio = ratio * totalStops;
+                        const lowerIndex = Math.floor(scaledRatio);
+                        const upperIndex = Math.min(lowerIndex + 1, totalStops);
+                        const localT = scaledRatio - lowerIndex;
+                        const interpolated = interpolateColor(colorStops[lowerIndex], colorStops[upperIndex], localT);
+                        cores.push(interpolated);
+                    }
+                    // === [3] Cria container da legenda (caso não exista) ===
+
+                    if (!legendaContainer) {
+                        legendaContainer = document.createElement('div');
+                        legendaContainer.id = 'map-legend';
+                        legendaContainer.style.position = 'absolute';
+                        legendaContainer.style.bottom = '80px';
+                        legendaContainer.style.left = '250px';
+                        legendaContainer.style.background = 'white';
+                        legendaContainer.style.padding = '10px';
+                        legendaContainer.style.border = '1px solid black';
+                        legendaContainer.style.fontSize = '12px';
+                        legendaContainer.style.boxShadow = '0 0 4px rgba(0,0,0,0.5)';
+                        document.body.appendChild(legendaContainer);
+                    }
+                    // === [4] Popula a legenda ===
+                    //let legendaHTML = `<b>Legend: ${mapatipo}</b><br>`;
+                    let legendaHTML = `<b>Hosting Capacity:</b><br>`;
+                    for (let i = 0; i <= nDivs; i++) {
+                        let valor = min + (i / nDivs) * (max - min);
+
+                        legendaHTML += `
+                            <div style="display:flex; align-items:center;">
+                                <div style="width:20px; height:10px; background:${cores[i]}; margin-right:3px;"></div>
+                                <span>${valor} kW</span>
+                            </div>
+                        `;
+                    }
+                    legendaContainer.innerHTML = legendaHTML;
+                } else {
+                    if (legendaContainer) {
+                        legendaContainer.style.display = 'none';
+                    }
+                }
                 // Função para adicionar estilos baseados na cor de cada feature
                 function estiloSegmento(feature) {
+                    if (scenario == 'Hosting Capacity'){
+                        var espessura = 4;
+
+                    } else {
+                        var espessura = 2
+                    }
                     return new ol.style.Style({
                         stroke: new ol.style.Stroke({
                             color: feature.get(mapatipo), // Cor da feature do GeoJSON
-                            width: 2
+                            width: espessura
                         })
                     });
                 }
@@ -894,7 +1208,10 @@
         fetch(`/api/SUB?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
             .then(response => response.json())
             .then(data => {
-                if (!data) return;  // Adiciona verificação para garantir que data não seja nulo
+                if (data.error) {
+                    //console.error(data.error);
+                    return;
+                }
 
                 var format = new ol.format.GeoJSON();
                 var features = format.readFeatures(data, {

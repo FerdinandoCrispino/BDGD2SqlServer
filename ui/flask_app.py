@@ -3,6 +3,8 @@ import sys
 
 import geopandas as gpd
 import pandas as pd
+import numpy as np
+
 from colour import Color
 from flask import Flask, render_template, request, Response, url_for, redirect, jsonify
 from flask import flash
@@ -28,8 +30,43 @@ sys.path.append('../')
 # Configuração do Flask
 server = Flask(__name__)
 server.secret_key = "123456"
+
+SIN_DATA_GDB = 'EPE_SIN_data.gdb'
+
 # Caminho para o arquivo Geodatabase
-GDB_PATH = os.path.join(os.path.dirname(__file__), 'data', 'sin_data.gdb')
+GDB_PATH = os.path.join(os.path.dirname(__file__), 'data', SIN_DATA_GDB)
+
+
+@server.route('/curt_data/')
+def read_data_curt():
+    ceg = request.args.get('ceg')
+    src = request.args.get('source')
+    mes = request.args.get('mes')
+    ano = request.args.get('ano')
+
+    path_result = os.path.abspath('curtailment')
+    path_conf = os.path.join(path_result, src)
+
+    if src == "UFV":
+        file_name = f'RESTRICAO_COFF_FOTOVOLTAICA_DETAIL_{ano}_{mes}.parquet'
+    elif src == "EOL":
+        file_name = f'RESTRICAO_COFF_EOLICA_DETAIL_{ano}_{mes}.parquet'
+
+    try:
+        df = pd.read_parquet(os.path.join(path_conf, file_name))
+        df = df[df.ceg == ceg]
+
+        df["coff"] = np.where((df["val_geracaoestimada"] - df["val_geracaoverificada"]) < 0, 0,
+                              (df["val_geracaoestimada"] - df["val_geracaoverificada"]))
+
+        df = df[['din_instante', 'val_geracaoverificada', 'coff']].copy()
+        #df['din_instante'] = df['din_instante'].apply(lambda x: x.strftime("%Y%m%d"))
+
+        data = df.values.tolist()
+        return jsonify(data)
+    except Exception as e:
+        print(f'Error with fife {file_name}')
+        return jsonify({"error": str(e)}), 500
 
 
 @server.route('/z_data/')
@@ -47,17 +84,17 @@ def read_surface_data():
         circuito = f'SUB_{subestacao}'
 
     path_result = os.path.abspath('static/scenarios')
-    path_conf = os.path.join(path_result, scenario, str(distribuidora), subestacao, circuito, tipo_dia, ano , mes)
+    path_conf = os.path.join(path_result, scenario, str(distribuidora), subestacao, circuito, tipo_dia, ano, mes)
     if not distribuidora:
         print(f'Selecione uma distribuidora')
         return jsonify("error Selecione uma distribuidora"), 404
 
     if type_case == 'case1':
-        file = 'frecuencia_porcentaje_B VminVmax_vs_Pen_mod.csv'
+        file = f'{ano}_{tipo_dia}_{mes}_{circuito}_VminVmax.csv'
     elif type_case == 'case2':
-        file = 'frecuencia_porcentaje_B Vmin_vs_Pen_mod.csv'
+        file = f'{ano}_{tipo_dia}_{mes}_{circuito}_Vmin.csv'
     elif type_case == 'case3':
-        file = 'frecuencia_porcentaje_B Vmax_vs_Pen_mod.csv'
+        file = f'{ano}_{tipo_dia}_{mes}_{circuito}_Vmax.csv'
 
     try:
         df = pd.read_csv(os.path.join(path_conf, file), header=None, na_filter=False)
@@ -92,7 +129,7 @@ def daily_power_circuit():
     list_data_dict = dict()
     tipo_dia = ''
     path_result = os.path.abspath('static/scenarios')
-    path_conf = os.path.join(path_result, scenario,  conf['dist'], subestacao)
+    path_conf = os.path.join(path_result, scenario, conf['dist'], subestacao)
 
     if not distribuidora:
         print(f'Selecione uma distribuidora')
@@ -122,7 +159,7 @@ def daily_power_circuit():
                     data_list = df_data['P'].values.tolist()
 
                     list_data_dict = {'values': data_list, 'ctmt': str(df_data['circuit'][0]), 'time': label_time,
-                                      'sub': df_data['SUB'][0], 'tipo_dia': tipo_dia }
+                                      'sub': df_data['SUB'][0], 'tipo_dia': tipo_dia}
 
                     list_data.append(list_data_dict.copy())
 
@@ -174,6 +211,7 @@ def render_data_losses():
             df_data = df1[['SUB', 'circuit', 'losses']].copy()
             if subestacao:
                 df_data = df_data[(df_data.SUB == subestacao)]
+            df_data['circuit'] = df_data['circuit'].astype(str)
             label_list = df_data['circuit'].values.tolist()
             label_list1 = df_data['SUB'].values.tolist()
             data_list_losses = df_data['losses'].values.tolist()
@@ -190,15 +228,17 @@ def render_data_losses():
         return jsonify({"error": str(e)}), 500
 
 
-@server.route('/data/<distribuidora>', methods=['GET'])
-def render_data(distribuidora):
-    #print(f'route data: {distribuidora}')
+@server.route('/data/', methods=['GET'])
+def render_data():
+    # print(f'route data: {distribuidora}')
+    ano = request.args.get('ano')
+    mes = request.args.get('mes')
     list_data = []
     path_result = 'static/scenarios/base'
     tipo_dias = ['DO', 'DU']
 
     for tipo_dia in tipo_dias:
-        file_result = f'{tipo_dia}_12_sub_analysis.xlsx'
+        file_result = f'{ano}_{tipo_dia}_{mes}_sub_analysis.xlsx'
         path_all_result = os.path.join(path_result, conf['dist'], file_result)
         print(path_all_result)
 
@@ -209,7 +249,7 @@ def render_data(distribuidora):
             try:
                 xls = pd.ExcelFile(path_all_result)
                 df1 = xls.parse(xls.sheet_names[0])
-                df_data = df1[['nome', 'sub', 'P_max', 'P_min','P_time_max', 'P_time_min']].copy()
+                df_data = df1[['nome', 'sub', 'P_max', 'P_min', 'P_time_max', 'P_time_min']].copy()
                 df_data['nome'] = df_data['nome'].str[5:-3]
 
                 label_list = df_data['nome'].values.tolist()
@@ -234,34 +274,6 @@ def render_data(distribuidora):
                 list_data.append(data_time_min)
             except Exception as e:
                 print(f"Erro ao carregar o arquivo Excel: {e}")
-
-    file_result = 'DU_12_sub_analysis.xlsx'
-    path_all_result = os.path.join(path_result, conf['dist'], file_result)
-    xls = pd.ExcelFile(path_all_result)
-    df2 = xls.parse(xls.sheet_names[0])
-    df_data = df2[['sub', 'nome', 'P_max', 'P_min', 'P_time_max', 'P_time_min']].copy()
-    df_data['nome'] = df_data['nome'].str[5:-3]
-
-    # result = df_data.to_dict(orient='records')
-    label_list = df_data['nome'].values.tolist()
-    label_list1 = df_data['sub'].values.tolist()
-    data_list_pmax_4 = df_data['P_max'].values.tolist()
-    data_list_pmax_5 = df_data['P_min'].values.tolist()
-    data_list_pmax_6 = df_data['P_time_max'].values.tolist()
-    data_list_pmax_7 = df_data['P_time_min'].values.tolist()
-
-    data4 = {k: v for k, v in zip(label_list, data_list_pmax_4)}
-    list_data.append(data4)
-    data5 = {k: v for k, v in zip(label_list, data_list_pmax_5)}
-    list_data.append(data5)
-    data6 = {k: v for k, v in zip(label_list, data_list_pmax_6)}
-    list_data.append(data6)
-    data7 = {k: v for k, v in zip(label_list, data_list_pmax_7)}
-    list_data.append(data7)
-    data8 = {k: v for k, v in zip(label_list, label_list)}
-    list_data.append(data8)
-    data9 = {k: v for k, v in zip(label_list, label_list1)}
-    list_data.append(data9)
 
     return jsonify(list_data)
 
@@ -720,12 +732,13 @@ def create_geojson_from_points_gerador_at(points_ger_at):
 
 
 def get_coords_ssdat_from_db():
-    query = f'''Select  point_x1 as start_longitude, POINT_y1 as start_latitude, 
+    query = f'''Select  b.cod_id as descr, point_x1 as start_longitude, POINT_y1 as start_latitude, 
                     point_x2 as end_longitude, POINT_y2 as end_latitude,
                     PAC_1, PAC_2, CT_COD_OP, COMP,  c.NOME, c.TEN_NOM, t.TEN
                 from sde.SSDAT s
                 left join sde.ctat c on c.PAC_INI = s.pac_1 or c.PAC_INI = s.PAC_2
                 left join [GEO_SIGR_DDAD_M10].sde.TTEN t on c.TEN_NOM = t.COD_ID
+                left join sde.arat b on s.dist = b.dist
                 order by CT_COD_OP
                 ;
                 '''
@@ -744,6 +757,22 @@ def get_coords_ssdat_from_db():
     """
     # Considera que os trechos com o mesmo CT_COD_OP tem a mesma tensão.
     ssdat_ini = rows[rows['TEN'] > 0]
+
+    #
+    if ssdat_ini.empty:
+        query = f'''Select  b.cod_id as descr, point_x1 as start_longitude, POINT_y1 as start_latitude, 
+                        point_x2 as end_longitude, POINT_y2 as end_latitude,
+                        PAC_1, PAC_2, CT_COD_OP, COMP,  c.NOME, c.TEN_NOM, t.TEN
+                    from sde.SSDAT s
+                    left join sde.ctat c on c.COD_ID = s.CT_COD_OP
+                    left join [GEO_SIGR_DDAD_M10].sde.TTEN t on c.TEN_NOM = t.COD_ID
+                    left join sde.arat b on s.dist = b.dist
+                    order by CT_COD_OP
+                    ;
+                    '''
+        rows = return_query_as_dataframe(query, engine)
+        ssdat_ini = rows[rows['TEN'] > 0]
+
     for index, row in ssdat_ini.iterrows():
         voltage = row['TEN']
         nome = row['NOME']
@@ -752,7 +781,7 @@ def get_coords_ssdat_from_db():
 
     rows["TIPO"] = "AT_SSD"
     points = [((row["start_longitude"], row["start_latitude"]), (row["end_longitude"], row["end_latitude"]),
-               row["CT_COD_OP"], row["COMP"], row["NOME"], row["TEN"], rows["TIPO"])
+               row["CT_COD_OP"], row["COMP"], row["NOME"], row["TEN"], row["TIPO"], row["descr"])
               for index, row in rows.iterrows()]
     return points
 
@@ -766,16 +795,16 @@ def create_geojson_from_points_SSDAT(points_ssdat):
     nome_linha = []
     voltage = []
 
-    for start, end, ct_cod, comp, nome, ten_nom, tipo in points_ssdat:
+    for start, end, ct_cod, comp, nome, ten_nom, tipo, descr in points_ssdat:
         lines.append(LineString([start, end]))
         ct_cod_at.append(ct_cod)
         comp_linha.append(comp)
         nome_linha.append(nome)
-        voltage.append(ten_nom/1000)
+        voltage.append(ten_nom / 1000)
 
     # Criar um GeoDataFrame com as geometrias e dados extras
-    gdf = gpd.GeoDataFrame({'geometry': lines, 'linha': ct_cod_at, 'nome': nome,  'voltage': voltage, 'tipo': tipo},
-                           crs="EPSG:4326")
+    gdf = gpd.GeoDataFrame({'geometry': lines, 'linha': ct_cod_at, 'nome': nome, 'voltage': voltage, 'tipo': tipo,
+                            'dist': descr}, crs="EPSG:4326")
     # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
 
     # Converter o GeoDataFrame para GeoJSON
@@ -984,28 +1013,80 @@ def read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_di
         for index, js in enumerate(json_files):
             print(js)
             with open(os.path.join(path_json_file, js), 'r') as json_file:
-                json_text = json.load(json_file)[hora-1]
+                json_text = json.load(json_file)[hora - 1]
                 dados_combinados.update(json_text)
         return dados_combinados
     else:
         # Opening JSON file
-        month = 1  # TODO mes da simulação anual. Por enquanto, sempre sera utilizado o mes 1
+        #month = 1
         if scenario.lower() == 'base':
             json_file = f"{circuito}.json"
+        elif scenario.lower() == 'hosting capacity':
+            json_file = f"{circuito}.json"
         else:
-            json_file = f"{circuito}_sc{month}.json"
+            json_file = f"{circuito}_sc{mes}.json"
 
         path_json_file = os.path.join(parent, path_flask_static, scenario, distribuidora, subestacao, circuito,
                                       tipo_dia, ano, mes, json_file).replace('\\', '/')
         print(path_json_file)
         try:
-            f = open(path_json_file, 'r')
-            result = json.load(f)[hora-1]
-            # returns JSON object as a list
-            return result
+            with open(path_json_file, 'r') as f:
+                result = json.load(f)[hora - 1]
+                # returns JSON object as a list
+                return result
         except Exception as e:
             print(f"File not found: {path_json_file}. {e}")
             return None
+
+
+# Função para criar GeoJSON a partir dos segmentos de retas e dados de hosting capacity
+def create_geojson_from_segments_hc(line_segments, json_data):
+    # Criar uma lista de geometria de segmentos de linha a partir dos pontos
+
+    hc_max = max(json_data.items(), key=lambda x: x[1])[1]
+    # hc_min = min(json_data.items(), key=lambda x: x[1])[1]
+    hc_min = 0
+
+    # lines = [LineString([start, end]) for start, end in line_segments]
+    lines = []
+    cores = []
+    colorByCircuit = []
+    bus1 = []
+    bus2 = []
+    bus3 = []
+    circ = []
+    pac2 = []
+    # Define the start and end colors
+    start_color = Color("red")
+    end_color = Color("blue")
+    gradient_colors = list(start_color.range_to(end_color, len(line_segments)))
+
+    for start, end, pac, ctmt, cor, nome in line_segments:
+        lines.append(LineString([start, end]))
+        colorByCircuit.append(cor)
+        if json_data is not None:
+            hc_bus1 = json_data.get(f"{pac}".lower())
+
+        else:
+            hc_bus1 = ''
+
+        color_intensity = (hc_bus1 - hc_min) / (hc_max - hc_min)
+        cores.append(str(gradient_colors[int(color_intensity * (len(line_segments)-1))]))
+
+        #cores.append(cor)
+        bus1.append(hc_bus1)
+        circ.append(ctmt)
+        pac2.append(pac)
+    # Criar um GeoDataFrame com as geometrias e dados extras
+    gdf = gpd.GeoDataFrame({'geometry': lines, 'color': cores, 'colorbycircuit': colorByCircuit,
+                            'ctmt': ctmt, 'bus1': bus1,
+                            'tipo': nome, 'pac': pac2}, crs="EPSG:4326")
+    # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
+
+    # Converter o GeoDataFrame para GeoJSON
+    geojson = gdf.to_json()
+
+    return geojson
 
 
 # Função para criar GeoJSON a partir dos segmentos de retas
@@ -1264,9 +1345,16 @@ def segments():
         print(f"Selecione uma subestação!")
         return None  # retornar erro!
     line_segments = get_coords_SSDMT_from_db(subestacao, circuito)
-    # Leitura do arquivo de resultados do fluxo de potencia
-    json_data = read_json_from_result(conf['dist'], subestacao, circuito, scenario, tipo_dia, ano, mes, hora)
-    geojson = create_geojson_from_segments(line_segments, json_data)
+    if scenario == "Hosting Capacity":
+        # Leitura do arquivo de resultados do hosting capacity
+        json_data_hc = read_json_from_result(conf['dist'], subestacao, circuito, scenario, tipo_dia, ano, mes, 0)
+        if json_data_hc is None:
+            return jsonify({"error: No Data found to Hosting Capacity!"}), 500
+        geojson = create_geojson_from_segments_hc(line_segments, json_data_hc)
+    else:
+        # Leitura do arquivo de resultados do fluxo de potencia
+        json_data = read_json_from_result(conf['dist'], subestacao, circuito, scenario, tipo_dia, ano, mes, hora)
+        geojson = create_geojson_from_segments(line_segments, json_data)
     return geojson, 200, {'Content-Type': 'application/json'}
 
 
@@ -1338,26 +1426,68 @@ def get_table_data(sumario, id_summary):
 
 
 # leitura dos dados do arquivo GDB do SIN
+@server.route('/get_data_at_SIN_Subsistema')
+def get_data_at_SIN_Subsistema():
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'Subsistema_do_Sistema_Interligado_Nacional')
+    return my_gdb_sin.read_gdb_SIN_subsistema_to_json()
+
+
+# leitura dos dados do arquivo GDB do SIN
+@server.route('/get_data_at_UTE_BIOMASS')
+def get_data_at_UTE_BIOMASS():
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'UTE_Biomassa___Base_Existente')
+    return my_gdb_sin.read_gdb_UTE_BIOMASS_to_json()
+
+
+# leitura dos dados do arquivo GDB do SIN
+@server.route('/get_data_at_UTE_FOSSIL')
+def get_data_at_UTE_FOSSIL():
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'UTE_Fóssil___Base_Existente')
+    return my_gdb_sin.read_gdb_UTE_FOSSIL_to_json()
+
+
+# leitura dos dados do arquivo GDB do SIN
+@server.route('/get_data_at_CGH')
+def get_data_at_CGH():
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'CGH___Base_Existente')
+    return my_gdb_sin.read_gdb_CGH_to_json()
+
+
+# leitura dos dados do arquivo GDB do SIN
+@server.route('/get_data_at_PCH')
+def get_data_at_PCH():
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'PCH___Base_Existente')
+    return my_gdb_sin.read_gdb_PCH_to_json()
+
+
+# leitura dos dados do arquivo GDB do SIN
+@server.route('/get_data_at_UHE')
+def get_data_at_UHE():
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'UHE___Base_Existente')
+    return my_gdb_sin.read_gdb_uhe_to_json()
+
+
+# leitura dos dados do arquivo GDB do SIN
 @server.route('/get_data_at_UFV')
 def get_data_at_UFV():
-    my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'UFV___Base_Existente')
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'UFV___Base_Existente')
     return my_gdb_sin.read_gdb_ufv_to_json()
 
 
 # leitura dos dados do arquivo GDB do SIN
 @server.route('/get_data_at_EOL')
 def get_data_at_EOL():
-    my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'EOL___Base_Existente')
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'EOL___Base_Existente')
     return my_gdb_sin.read_gdb_eol_to_json()
 
 
 # leitura dos dados do arquivo GDB do SIN
 @server.route('/get_data_at_sub')
 def get_data_at_sub():
-    #my_gdb_sin = geo_tools.GeoDataSIN('subs_SIN.geojson')
-    #return my_gdb_sin.read_geojson_subs()
+    # my_gdb_sin = geo_tools.GeoDataSIN('subs_SIN.geojson')
+    # return my_gdb_sin.read_geojson_subs()
 
-    my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'Subestações___Base_Existente')
+    my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'Subestações___Base_Existente')
     return my_gdb_sin.read_gdb_sub_to_json()
 
 
@@ -1367,8 +1497,8 @@ def get_data_at():
     my_gdb_sin = geo_tools.GeoDataSIN('Linhas_SIN.geojson')
     return my_gdb_sin.read_geojson_line()
 
-    #my_gdb_sin = geo_tools.GeoDataSIN('sin_data.gdb', 'Linhas_de_Transmissão___Base_Existente')
-    #return my_gdb_sin.read_gdb_line_to_json()
+    # my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'Linhas_de_Transmissão___Base_Existente')
+    # return my_gdb_sin.read_gdb_line_to_json()
 
 
 def long_running_task():
@@ -1432,8 +1562,16 @@ def list_scenarios():
     return jsonify(dir_list), 200
 
 
-if __name__ == '__main__':
-    server.run(host='0.0.0.0', use_reloader=False, debug=True)
+@server.before_request
+def before_request():
+    if not request.is_secure:
+        url = request.url.replace('http://', 'https://', 1)
+        code = 301
+        return redirect(url, code=code)
 
+
+if __name__ == '__main__':
+    server.run(host='0.0.0.0', use_reloader=False, debug=True, ssl_context=('cert.pem', 'key.pem'))
+    #server.run(host='0.0.0.0', use_reloader=False, debug=True)
     # Para rodar na linha de comando
     # C:\_BDGD2SQL\BDGD2SqlServer\venv\Scripts\activate.bat && python.exe C:\_BDGD2SQL\BDGD2SqlServer\ui\flask_app.py

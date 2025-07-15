@@ -168,18 +168,18 @@
            </a>
          </li>
          <li>
-           <a href="#" onclick="load_gd_insertion('case1','VminVmax_vs_Pen'); return false;" title="GD Penetration Analysis" data-parent="sc_type2">
-             <span class="links_name">VminVmax_vs_Pen</span>
+           <a href="#" onclick="load_gd_insertion('case1','Undervoltage & Overvoltage'); return false;" title="GD Penetration Analysis" data-parent="sc_type2">
+             <span class="links_name">Undervoltage & Overvoltage</span>
            </a>
          </li>
          <li>
-           <a href="#" onclick="load_gd_insertion('case2','Vmin_vs_Pen'); return false;" title="GD Penetration Analysis" data-parent="sc_type2">
-             <span class="links_name">Vmin_vs_Pen</span>
+           <a href="#" onclick="load_gd_insertion('case2','Undervoltage'); return false;" title="GD Penetration Analysis" data-parent="sc_type2">
+             <span class="links_name">Undervoltage</span>
            </a>
          </li>
          <li>
-           <a href="#" onclick="load_gd_insertion('case3','Vmax_vs_Pen'); return false;" title="GD Penetration Analysis" data-parent="sc_type2">
-             <span class="links_name">Vmax_vs_Pen</span>
+           <a href="#" onclick="load_gd_insertion('case3','Overvoltage'); return false;" title="GD Penetration Analysis" data-parent="sc_type2">
+             <span class="links_name">Overvoltage</span>
            </a>
          </li>
 
@@ -226,7 +226,7 @@
         const dist_text = t.options[t.selectedIndex].text;
         console.log(type_case)
         document.body.style.cursor = 'wait';  // Cursor de espera
-        load_gd_penetrion_analysis(document.getElementById('distribuidora').value,
+        load_gd_penetrion_analysis(document.getElementById('distribuidora').selectedOptions[0].getAttribute('info'),
                                     document.getElementById('subestacao').value,
                                     document.getElementById('scenarios').value,
                                     document.getElementById('circuito').value,
@@ -246,7 +246,12 @@
             return;
         }
         document.body.style.cursor = 'wait';  // Cursor de espera
-        transformer_loading(document.getElementById('distribuidora').value)
+        var t = document.getElementById("distribuidora");
+        var dist_text = t.options[t.selectedIndex].text;
+        var ano = dist_text.slice(-4);
+        transformer_loading(document.getElementById('distribuidora').selectedOptions[0].getAttribute('info'),
+                            ano,
+                            document.getElementById('meses').value)
         document.body.style.cursor = 'default';  // Cursor normal
     }
 
@@ -261,7 +266,7 @@
         var ano = dist_text.slice(-4);
         console.log(ano);
         document.body.style.cursor = 'wait';  // Cursor de espera
-        losses(document.getElementById('distribuidora').value,
+        losses(document.getElementById('distribuidora').selectedOptions[0].getAttribute('info'),
             document.getElementById('subestacao').value,
             document.getElementById('circuito').value,
             document.getElementById('scenarios').value,
@@ -278,11 +283,17 @@
             console.log('Select a Utility!')
             return;
         }
+        if (!document.getElementById('subestacao').value){
+            //alert('Select a substation!');
+            console.log('Select a Substation!')
+            //return;
+        }
+
         document.body.style.cursor = 'wait';  // Cursor de espera
         var t = document.getElementById("distribuidora");
         var dist_text = t.options[t.selectedIndex].text;
         var ano = dist_text.slice(-4);
-        daily_load(document.getElementById('distribuidora').value,
+        daily_load(document.getElementById('distribuidora').selectedOptions[0].getAttribute('info'),
             document.getElementById('subestacao').value,
             document.getElementById('circuito').value,
             document.getElementById('scenarios').value,
