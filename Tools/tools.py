@@ -49,12 +49,14 @@ def load_config_list_dist(config_path="../config_database.yml") -> list:
 
     if 'Irradiance' in config_bdgd:
         config_bdgd.remove('Irradiance')
+    if 'curtailment' in config_bdgd:
+        config_bdgd.remove('curtailment')
 
     for cod_dist in config_bdgd:
         name = config["databases"][cod_dist]['database']
         dist = config["databases"][cod_dist]['dist']
         short_name = name[16:]
-        short_name =  config["databases"][cod_dist]['dist_name']
+        short_name = config["databases"][cod_dist]['dist_name']
         list_dist.append([cod_dist, name, short_name, dist])
     return list_dist
 

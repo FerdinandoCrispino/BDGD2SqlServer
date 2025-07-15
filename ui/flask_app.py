@@ -14,6 +14,9 @@ import geo_tools
 import io
 import threading
 
+import random
+from datetime import datetime
+
 # execução da geração dos arquivos DSS pelo navegador.
 import core.electric_data as run_dss_files_generators
 
@@ -37,35 +40,192 @@ SIN_DATA_GDB = 'EPE_SIN_data.gdb'
 GDB_PATH = os.path.join(os.path.dirname(__file__), 'data', SIN_DATA_GDB)
 
 
+# request data for usianas
+@server.route('/usinas_data')
+def read_data_usinas():
+    ceg = request.args.get('ceg')
+    src = request.args.get('source')
+    mes = request.args.get('mes')
+    ano = request.args.get('ano')
+    dia = request.args.get('dia')
+    if dia in ['null', '', 'undefined']:
+        dia = None
+
+    path_result = os.path.abspath('curtailment')
+    path_conf = os.path.join(path_result, "USINAS")
+
+    try:
+        # Leitura do arquivo de RELACIONAMENTO_USINA_CONJUNTO
+        file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
+        df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
+
+        file_name = f'GERACAO_USINA-2_{ano}_{mes}.parquet'
+
+        if src in ["UHE", "CGH", "PCH"]:
+            tipo = 'HIDROELÉTRICA'
+        elif src in ["UTE"]:
+            tipo = 'TÉRMICA'
+        else:
+            raise ValueError("source not find!")
+
+        df_usinas = pd.read_parquet(os.path.join(path_conf, file_name), filters=[('nom_tipousina', '==', f'{tipo}')])
+        df_usinas = df_usinas[df_usinas.ceg == ceg]
+        # if df_usinas.empty:
+        #    df_usinas_fill = df_usinas[df_usinas['id_ons'].astype(str).str.contains(df_rel['id_ons_conjunto'].iloc[0])]
+        if dia is not None:
+            df_usinas = df_usinas[df_usinas['din_instante'].dt.day == int(dia)]
+
+        df_fill = df_usinas.fillna(0)
+
+        df_usinas = df_usinas[['din_instante', 'val_geracao', 'nom_usina', 'id_ons', 'ceg']].copy()
+        data = df_usinas.values.tolist()
+        return jsonify(data)
+    except Exception as e:
+        print(f'Error with fife {file_name} - {e}')
+        return jsonify({"error": str(e)}), 500
+
+
+# request data for curtailment e capacity factor to UFV and EOL
 @server.route('/curt_data/')
 def read_data_curt():
     ceg = request.args.get('ceg')
     src = request.args.get('source')
     mes = request.args.get('mes')
     ano = request.args.get('ano')
+    dia = request.args.get('dia', None)
+
+    if dia in ['null', '']:
+        dia = None
+
+    path_result = os.path.abspath('curtailment')
+    path_conf = os.path.join(path_result, src)
+
+    if src == "UFV":
+        file_name = f'RESTRICAO_COFF_FOTOVOLTAICA_{ano}_{mes}.parquet'
+    elif src == "EOL":
+        file_name = f'RESTRICAO_COFF_EOLICA_{ano}_{mes}.parquet'
+
+    try:
+        # Leitura do arquivo de RELACIONAMENTO_USINA_CONJUNTO
+        file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
+        df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
+
+        # Leitura do arquivo das restrições das usinas EOL ou UFV
+        df = pd.read_parquet(os.path.join(path_conf, file_name))
+        df_fill = df[df.ceg == ceg]
+
+        if df_fill.empty:
+            # df_fc_fill = df_fc[df_fc.id_ons == df['id_ons'].iloc[0]]
+            df_fill = df[df['id_ons'].astype(str).str.contains(df_rel['id_ons_conjunto'].iloc[0])]
+
+        if not df_fill.empty:
+            df_fill = df_fill[['din_instante', 'val_geracao', 'val_geracaolimitada', 'id_ons', 'cod_razaorestricao',
+                               'cod_origemrestricao']].copy()
+            # Filter for workdays (Monday=0 to Friday=4)
+            # df_workdays = df[df['Date'].dt.weekday < 5]
+            if dia is not None:
+                df_fill = df_fill[df_fill['din_instante'].dt.day == int(dia)]
+
+            df_fill = df_fill.fillna(0)
+
+        data = df_fill.values.tolist()
+
+        # Leitura do arquivo do fator de capacidade dos empreendiemntos
+        file_name_fc = f'FATOR_CAPACIDADE-2_{ano}_{mes}.parquet'
+
+        df_fc = pd.read_parquet(os.path.join(path_result, file_name_fc))
+        df_fc_fill = df_fc[df_fc.ceg == ceg]
+
+        if df_fc_fill.empty:
+            # df_fc_fill = df_fc[df_fc.id_ons == df['id_ons'].iloc[0]]
+            df_fc_fill = df_fc[df_fc['id_ons'].astype(str).str.contains(df_rel['id_ons_conjunto'].iloc[0])]
+
+        if not df_fc_fill.empty:
+            df_fc_fill = df_fc_fill[['din_instante', 'val_fatorcapacidade', 'nom_usina_conjunto']].copy()
+            # 'errors='coerce'' will turn non-convertible values into NaN (Not a Number)
+            df_fc_fill['val_fatorcapacidade'] = pd.to_numeric(df_fc_fill['val_fatorcapacidade'], errors='coerce')
+
+        if dia is not None:
+            df_fc_fill = df_fc_fill[df_fc_fill['din_instante'].dt.day == int(dia)]
+
+        data2 = df_fc_fill.values.tolist()
+        data = [data, data2]
+
+        return jsonify(data)
+    except Exception as e:
+        print(f'Error with fife {file_name} - {e}')
+        return jsonify({"error": str(e)}), 500
+
+
+# request data for curtailment e capacity factor to UFV and EOL
+@server.route('/curt_data_detail/')
+def read_data_curt_datail():
+    ceg = request.args.get('ceg')
+    src = request.args.get('source')
+    mes = request.args.get('mes')
+    ano = request.args.get('ano')
+    dia = request.args.get('dia', None)
+
+    if dia in ['null', '']:
+        dia = None
 
     path_result = os.path.abspath('curtailment')
     path_conf = os.path.join(path_result, src)
 
     if src == "UFV":
         file_name = f'RESTRICAO_COFF_FOTOVOLTAICA_DETAIL_{ano}_{mes}.parquet'
+        flag_column_mane = 'flg_dadoirradianciainvalido'
+
     elif src == "EOL":
         file_name = f'RESTRICAO_COFF_EOLICA_DETAIL_{ano}_{mes}.parquet'
+        flag_column_mane = 'flg_dadoventoinvalido'
 
     try:
         df = pd.read_parquet(os.path.join(path_conf, file_name))
         df = df[df.ceg == ceg]
-
-        df["coff"] = np.where((df["val_geracaoestimada"] - df["val_geracaoverificada"]) < 0, 0,
+        df.rename(columns={flag_column_mane: 'flg_dado_invalido'}, inplace=True)
+        # O dado é considerado inválido (flag = 1) e será atribuido 0 para o valor do coff
+        df["coff"] = np.where((df["val_geracaoestimada"] - df["val_geracaoverificada"] < 0)
+                              | (df['flg_dado_invalido']), 0,
                               (df["val_geracaoestimada"] - df["val_geracaoverificada"]))
 
-        df = df[['din_instante', 'val_geracaoverificada', 'coff']].copy()
-        #df['din_instante'] = df['din_instante'].apply(lambda x: x.strftime("%Y%m%d"))
+        df = df[['din_instante', 'val_geracaoverificada', 'coff', 'id_ons']].copy()
+
+        # Filter for workdays (Monday=0 to Friday=4)
+        # df_workdays = df[df['Date'].dt.weekday < 5]
+        if dia is not None:
+            df = df[df['din_instante'].dt.day == int(dia)]
 
         data = df.values.tolist()
+
+        # Leitura do arquivo de RELACIONAMENTO_USINA_CONJUNTO
+        file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
+        df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
+
+        # Leitura do arquivo do fator de capacidade dos empreendiemntos
+        file_name_fc = f'FATOR_CAPACIDADE-2_{ano}_{mes}.parquet'
+
+        df_fc = pd.read_parquet(os.path.join(path_result, file_name_fc))
+        df_fc_fill = df_fc[df_fc.ceg == ceg]
+
+        if df_fc_fill.empty:
+            # df_fc_fill = df_fc[df_fc.id_ons == df['id_ons'].iloc[0]]
+            df_fc_fill = df_fc[df_fc['id_ons'].astype(str).str.contains(df_rel['id_ons_conjunto'].iloc[0])]
+
+        if not df_fc_fill.empty:
+            df_fc_fill = df_fc_fill[['din_instante', 'val_fatorcapacidade', 'nom_usina_conjunto']].copy()
+            # 'errors='coerce'' will turn non-convertible values into NaN (Not a Number)
+            df_fc_fill['val_fatorcapacidade'] = pd.to_numeric(df_fc_fill['val_fatorcapacidade'], errors='coerce')
+
+        if dia is not None:
+            df_fc_fill = df_fc_fill[df_fc_fill['din_instante'].dt.day == int(dia)]
+
+        data2 = df_fc_fill.values.tolist()
+        data = [data, data2]
+
         return jsonify(data)
     except Exception as e:
-        print(f'Error with fife {file_name}')
+        print(f'Error with fife {file_name} - {e}')
         return jsonify({"error": str(e)}), 500
 
 
@@ -104,6 +264,64 @@ def read_surface_data():
         return jsonify(data)
     except Exception as e:
         print(f'Error with fife {file}')
+        return jsonify({"error": str(e)}), 500
+
+
+# Simula dados
+ESTADOS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MS', 'MT', 'MG', 'PA', 'PB', 'PR',
+           'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
+ANOS = [2023, 2024, 2025]
+MESES = list(range(1, 13))
+DIAS = list(range(1, 29))
+
+
+@server.route('/dashcurtailment')
+def render_dashcurtailment():
+    return render_template('dashcurtailment.html', estados=ESTADOS, anos=ANOS)
+
+
+@server.route("/get_date_options", methods=["POST"])
+def get_date_options():
+    ano = int(request.json.get("ano", datetime.now().year))
+    return jsonify({"meses": MESES, "dias": DIAS})
+
+
+@server.route("/get_data", methods=["POST"])
+def get_data():
+    estado = request.json.get("estado")
+    ano = request.json.get("ano")
+    mes = request.json.get("mes")
+    dia = request.json.get("dia")
+
+    try:
+        conf = load_config('curtailment')
+        engine = create_connection(conf)
+        query = f'''SELECT [id_subsistema], [nom_subsistema], [id_estado], [nom_estado], [nom_usina]
+                    ,[id_ons], [ceg],[din_instante],[val_geracao], [val_geracaolimitada], [val_disponibilidade]
+                    ,[cod_razaorestricao],[cod_origemrestricao]      
+                    ,[GeracaoReal], [GeracaoCortada], [GeracaoAjustada]
+                    FROM [DBONS].[dbo].[CURTAILMENT]
+                    WHERE id_estado ='{estado}' and din_instante ='{ano}/{mes}/{dia}'
+                '''
+        rows = return_query_as_dataframe(query, engine)
+        rows = rows.fillna(0)
+
+        charts = []
+        for i in range(6):
+            if i == 0:
+                x = rows['din_instante']
+                y = rows['val_geracao']
+            if i == 1:
+                x = rows['din_instante']
+                y = rows['val_geracaolimitada']
+            if i > 1:
+                x = rows['din_instante']
+                y = rows['val_disponibilidade']
+
+
+            charts.append({"x": x.tolist(), "y": y.tolist()})
+        return jsonify(charts)
+    except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 
@@ -1018,7 +1236,7 @@ def read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_di
         return dados_combinados
     else:
         # Opening JSON file
-        #month = 1
+        # month = 1
         if scenario.lower() == 'base':
             json_file = f"{circuito}.json"
         elif scenario.lower() == 'hosting capacity':
@@ -1042,6 +1260,9 @@ def read_json_from_result(distribuidora, subestacao, circuito, scenario, tipo_di
 # Função para criar GeoJSON a partir dos segmentos de retas e dados de hosting capacity
 def create_geojson_from_segments_hc(line_segments, json_data):
     # Criar uma lista de geometria de segmentos de linha a partir dos pontos
+    if json_data is None:
+        print('Erro: dados inexistentes de HC!')
+        return
 
     hc_max = max(json_data.items(), key=lambda x: x[1])[1]
     # hc_min = min(json_data.items(), key=lambda x: x[1])[1]
@@ -1064,16 +1285,16 @@ def create_geojson_from_segments_hc(line_segments, json_data):
     for start, end, pac, ctmt, cor, nome in line_segments:
         lines.append(LineString([start, end]))
         colorByCircuit.append(cor)
-        if json_data is not None:
-            hc_bus1 = json_data.get(f"{pac}".lower())
 
-        else:
-            hc_bus1 = ''
+        hc_bus1 = json_data.get(f"{pac}".lower())
+        if hc_bus1 is None:
+            print('Erro: Verifique os dados de resultado do HC!')
+            # hc_bus1 = hc_max
 
         color_intensity = (hc_bus1 - hc_min) / (hc_max - hc_min)
-        cores.append(str(gradient_colors[int(color_intensity * (len(line_segments)-1))]))
+        cores.append(str(gradient_colors[int(color_intensity * (len(line_segments) - 1))]))
 
-        #cores.append(cor)
+        # cores.append(cor)
         bus1.append(hc_bus1)
         circ.append(ctmt)
         pac2.append(pac)
@@ -1426,8 +1647,8 @@ def get_table_data(sumario, id_summary):
 
 
 # leitura dos dados do arquivo GDB do SIN
-@server.route('/get_data_at_SIN_Subsistema')
-def get_data_at_SIN_Subsistema():
+@server.route('/get_data_at_SIN_Subsystems')
+def get_data_at_SIN_Subsystems():
     my_gdb_sin = geo_tools.GeoDataSIN(SIN_DATA_GDB, 'Subsistema_do_Sistema_Interligado_Nacional')
     return my_gdb_sin.read_gdb_SIN_subsistema_to_json()
 
@@ -1561,17 +1782,17 @@ def list_scenarios():
     print(dir_list)
     return jsonify(dir_list), 200
 
-
+"""
 @server.before_request
 def before_request():
     if not request.is_secure:
         url = request.url.replace('http://', 'https://', 1)
         code = 301
         return redirect(url, code=code)
-
+"""
 
 if __name__ == '__main__':
-    server.run(host='0.0.0.0', use_reloader=False, debug=True, ssl_context=('cert.pem', 'key.pem'))
-    #server.run(host='0.0.0.0', use_reloader=False, debug=True)
+    #server.run(host='0.0.0.0', use_reloader=False, debug=True, ssl_context=('cert.pem', 'key.pem'))
+    server.run(host='0.0.0.0', use_reloader=False, debug=True)
     # Para rodar na linha de comando
     # C:\_BDGD2SQL\BDGD2SqlServer\venv\Scripts\activate.bat && python.exe C:\_BDGD2SQL\BDGD2SqlServer\ui\flask_app.py

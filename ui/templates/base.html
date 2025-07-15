@@ -179,9 +179,15 @@
                     </div>
                 </li>
                 {% endif %}
-                <li class="nav-item">
-                    <a class="nav-link" href="/dashboard">Dashboard</a>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="navbarDash" role="button"
+                       data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Dashboard</a>
+                    <div class="dropdown-menu" aria-labelledby="navbarScenarios">
+                        <a class="dropdown-item" href="/dashboard">Scenarios</a>
+                        <a class="dropdown-item" href="/dashcurtailment">Curtailment</a>
+                    </div>
                 </li>
+
                 <li class="nav-item">
                     <a class="nav-link disabled" href="/sobre">About</a>
                 </li>
