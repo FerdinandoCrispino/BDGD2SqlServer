@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+</head>
+<body>
+
+    <div>
+        Estado:
+        <select id="estado">
+            {% for estado in estados %}
+            <option value="{{ estado }}">{{ estado }}</option>
+            {% endfor %}
+        </select>
+        Ano:
+        <select id="ano">
+            {% for a in anos %}
+            <option value="{{ a }}">{{ a }}</option>
+            {% endfor %}
+        </select>
+        Mês:
+        <select id="mes"></select>
+        Dia:
+        <select id="dia"></select>
+    </div>
+
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px;">
+        {% for i in range(6) %}
+        <div id="chart{{ i }}" style="height: 300px;"></div>
+        {% endfor %}
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashCurtailment.js') }}"></script>
+</body>
+</html>
+

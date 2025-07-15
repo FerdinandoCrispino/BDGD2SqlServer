@@ -607,20 +607,34 @@
             if (content != "") {
                 popup.show(feature.getGeometry().getFirstCoordinate(), content);
             }
+        // Dados de curtailment
         } else if (nome_camada == "SIN-UFV") {
             mapaDiv.style.width = '60%';
-            console.log("Selecionei UFV!!!!");
+            console.log("Selecionei UFV!!!!" + feature.get("ceg"));
             var mes= document.getElementById('meses').value;
             mes = mes.padStart(2, "0");
             console.log(mes);
-            load_curtailment(feature.get("ceg"), "06", "2025", "UFV", feature.get("nome"))
-         } else if (nome_camada == "SIN-EOL") {
+            load_curtailment_area(feature.get("ceg"), "06", "2025", "UFV", feature.get("nome"), null);
+
+
+        } else if (nome_camada == "SIN-EOL") {
             mapaDiv.style.width = '60%';
             console.log("Selecionei EOL!!!!" + feature.get("ceg"));
             var mes= document.getElementById('meses').value;
             mes = mes.padStart(2, "0");
             console.log(mes);
-            load_curtailment(feature.get("ceg"), "06", "2025", "EOL", feature.get("nome"))
+            load_curtailment_area(feature.get("ceg"), "06", "2025", "EOL", feature.get("nome"), null);
+
+        // Dados de usinas UHE
+        } else if (["SIN-UHE" ,"SIN-UTE_FOSSIL", "SIN-UTE_BIOMASS", "SIN-CGH", "SIN-PCH"].includes(nome_camada)) {
+            mapaDiv.style.width = '60%';
+            console.log("Selecionei UHE!!!!" + feature.get("ceg"));
+            var mes= document.getElementById('meses').value;
+            mes = mes.padStart(2, "0");
+            console.log(mes);
+            console.log (nome_camada.substring(4,7))
+            load_data_usinas(feature.get("ceg"), "06", "2025", nome_camada.substring(4,7), feature.get("nome_uhe"));
+
         } else {
             nome_camada = "undefined";
             geocoder.getSource().clear();
@@ -668,7 +682,7 @@
                     layers: []
                 });
                 map.addLayer(myGrpoupLayersSIN); //this add a new layergroup
-                loadSIN('SIN-Subsistema', myGrpoupLayersSIN);
+                loadSIN('SIN-Subsystems', myGrpoupLayersSIN);
                 loadSIN('subs', myGrpoupLayersSIN);
                 loadSIN('linhas', myGrpoupLayersSIN);
                 loadSIN('EOL', myGrpoupLayersSIN);
@@ -735,7 +749,7 @@
             meu_estilo = new ol.style.Style({
                     image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
 
-                            anchor: [0, 0],
+                            anchor: [0.6, 0.6],
                             scale: 0.20,
                             src: 'static/icon/ufv.svg'
                         }))
@@ -746,7 +760,7 @@
             nome_layer = 'SIN-UHE';
             meu_estilo = new ol.style.Style({
                     image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
-                            anchor: [0, 0],
+                            anchor: [0.5, 0.5],
                             scale: 0.30,
                             src: 'static/icon/UHE.png'
                         }))
@@ -757,7 +771,7 @@
             nome_layer = 'SIN-CGH';
             meu_estilo = new ol.style.Style({
                     image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
-                            anchor: [0, 0],
+                            anchor: [0.5, 0.5],
                             scale: 0.1,
                             src: 'static/icon/CGH.png'
                         }))
@@ -768,7 +782,7 @@
             nome_layer = 'SIN-PCH';
             meu_estilo = new ol.style.Style({
                     image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
-                            anchor: [0, 0],
+                            anchor: [0.5, 0.5],
                             scale: 0.20,
                             src: 'static/icon/pch.png'
                         }))
@@ -779,7 +793,7 @@
             nome_layer = 'SIN-UTE_BIOMASS';
             meu_estilo = new ol.style.Style({
                     image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
-                            anchor: [0, 0],
+                            anchor: [0.5, 0.5],
                             scale: 0.20,
                             src: 'static/icon/UTE_BIOMASS.png'
                         }))
@@ -790,15 +804,15 @@
             nome_layer = 'SIN-UTE_FOSSIL';
             meu_estilo = new ol.style.Style({
                     image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
-                            anchor: [0, 0],
+                            anchor: [0.5, 0.5],
                             scale: 0.25,
                             src: 'static/icon/UTE_FOSSIL2.png'
                         }))
                     });
 
-        } else if (tipo === 'SIN-Subsistema') {
-            req_func = '/get_data_at_SIN_Subsistema';
-            nome_layer = 'SIN_subsistema';
+        } else if (tipo === 'SIN-Subsystems') {
+            req_func = '/get_data_at_SIN_Subsystems';
+            nome_layer = 'SIN_subsystems';
             meu_estilo = '';
 
         }
@@ -838,7 +852,7 @@
                             style: linha_estilo
                         });
                         break;
-                    case 'SIN-Subsistema':
+                    case 'SIN-Subsystems':
                         function poligono_estilo(feature) {
                             return new ol.style.Style({
                                 fill: new ol.style.Fill({

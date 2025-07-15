@@ -60,7 +60,6 @@ class GeoDataSIN:
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
-
     def read_gdb_SIN_subsistema_to_json(self):
         geo = []
         reg = []
@@ -84,7 +83,7 @@ class GeoDataSIN:
                 uf.append(UF)
                 subs.append(SUBS)
                 nome_reg.append(NOME)
-                nome.append('SIN-Subsistema')
+                nome.append('SIN-Subsystems')
                 cor.append(mapeamento_SIN_Subsistema.get(SUBS, "LightBlue"))
             # Criar um GeoDataFrame com as geometrias e dados extras
             gdf = gpd.GeoDataFrame(

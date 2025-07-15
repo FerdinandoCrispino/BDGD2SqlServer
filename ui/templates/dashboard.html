@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+
+</body>
+</html>
+
+
+<!-- Plotly -->
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+<script type="text/javascript">
+    var chart = {{graphJSON | safe}};
+    var data = chart["data"];
+    var layout = chart["layout"];
+    var config = {responsive: true};
+    Plotly.newPlot("chart", data, layout, config);
+</script>
