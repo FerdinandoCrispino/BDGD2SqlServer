@@ -1056,7 +1056,7 @@
                 var vectorSource = new ol.source.Vector({
                     features: features
                 });
-                console.log("scenario");
+                //console.log("scenario");
                 console.log(scenario.toUpperCase());
 
                 let legendaContainer = document.getElementById('map-legend');
@@ -1064,10 +1064,11 @@
 
                     // === [1] Calcula mínimo e máximo dos valores do atributo ===
                     let valores = features.map(f => parseFloat(f.get('bus1'))).filter(v => !isNaN(v));
-                    let min = Math.min(...valores);
+                    //let min = Math.min(...valores);
+                    let min = 0;
                     let max = Math.max(...valores);
-                    console.log(valores);
-                    console.log(min);
+                    //console.log(valores);
+                    //console.log(min);
 
                     // === [2] Cria gradiente de cor multi-estágio ===
                     const colorStops = [
@@ -1097,7 +1098,6 @@
                         cores.push(interpolated);
                     }
                     // === [3] Cria container da legenda (caso não exista) ===
-
                     if (!legendaContainer) {
                         legendaContainer = document.createElement('div');
                         legendaContainer.id = 'map-legend';
@@ -1125,6 +1125,7 @@
                         `;
                     }
                     legendaContainer.innerHTML = legendaHTML;
+                    legendaContainer.style.display = ''
                 } else {
                     if (legendaContainer) {
                         legendaContainer.style.display = 'none';
