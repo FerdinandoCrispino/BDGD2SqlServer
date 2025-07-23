@@ -268,10 +268,11 @@ def read_surface_data():
 
 
 # Simula dados
-ESTADOS = ['AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MS', 'MT', 'MG', 'PA', 'PB', 'PR',
+ESTADOS = ['All', 'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MS', 'MT', 'MG', 'PA', 'PB', 'PR',
            'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
 ANOS = [2023, 2024, 2025]
 MESES = list(range(1, 13))
+MESES.insert(0, 'All')
 DIAS = list(range(1, 29))
 
 
@@ -293,33 +294,193 @@ def get_data():
     mes = request.json.get("mes")
     dia = request.json.get("dia")
 
+    query_estado = ''
+    if estado != 'All':
+        query_estado = f" and id_estado = '{estado}'"
+    query_mes = ''
+    if mes != 'All':
+        query_mes = f" and MONTH(din_instante) = '{mes}'"
+
     try:
         conf = load_config('curtailment')
         engine = create_connection(conf)
-        query = f'''SELECT [id_subsistema], [nom_subsistema], [id_estado], [nom_estado], [nom_usina]
-                    ,[id_ons], [ceg],[din_instante],[val_geracao], [val_geracaolimitada], [val_disponibilidade]
-                    ,[cod_razaorestricao],[cod_origemrestricao]      
-                    ,[GeracaoReal], [GeracaoCortada], [GeracaoAjustada]
-                    FROM [DBONS].[dbo].[CURTAILMENT]
-                    WHERE id_estado ='{estado}' and din_instante ='{ano}/{mes}/{dia}'
+
+        query = f'''
+                SELECT din_instante, id_estado,  nom_usina, cod_razaorestricao,  val_geracaoreferencia , 
+                val_geracaolimitada
+                    FROM [DBONS].[dbo].[CURTAILMENT]      
+                    WHERE YEAR(din_instante) = {ano} {query_estado} {query_mes}
+                    and cod_razaorestricao not in ('nan', '')
                 '''
         rows = return_query_as_dataframe(query, engine)
         rows = rows.fillna(0)
+        # Create a new column based on a condition (like CASE WHEN)
+        rows['curt'] = np.where(rows['val_geracaoreferencia'] - rows['val_geracaolimitada'] > 0,
+                                (rows['val_geracaoreferencia'] - rows['val_geracaolimitada']) / 2000,
+                                0)
 
+        # Copy columns to a new DataFrame
+        coff_usinas = rows[['nom_usina', 'cod_razaorestricao', 'curt']].copy()
+        # Group by power plant
+        coff_usinas = coff_usinas.groupby(['nom_usina', 'cod_razaorestricao'])['curt'].sum().reset_index()
+        # PIVOT table from cod_razaorestricao
+        coff_usinas = coff_usinas.pivot(index='nom_usina', columns='cod_razaorestricao', values='curt')
+        coff_usinas = coff_usinas.fillna(0)
+        # sort values
+        #coff_usinas['row_sum'] = coff_usinas.sum(axis=1)
+        #coff_usinas = coff_usinas.sort_values(by='row_sum', ascending=False)  # For descending order
+        coff_usinas = coff_usinas.reset_index()
+
+        # Curtailment Rate (%) = (Curtailment Energy / Total Potential Generation) x 100
+        curt_total_all_plant = rows['curt'].sum()
+        energy_max_all_plant = rows['val_geracaoreferencia'].sum()/2000
+        coff_ratio = rows[['nom_usina', 'curt']].copy()
+        coff_ratio = coff_ratio.groupby(['nom_usina', ])['curt'].sum().reset_index()
+        # Curtailment Rate (%)
+        coff_ratio['coff_ratio'] = (coff_ratio['curt'] / (curt_total_all_plant + energy_max_all_plant)) * 100
+        coff_ratio = coff_ratio.sort_values(by='coff_ratio', ascending=False)
+
+        # Copy columns to a new DataFrame
+        coff_estado = rows[['id_estado', 'cod_razaorestricao', 'curt']].copy()
+        # Group by state
+        coff_estado = coff_estado.groupby(['id_estado', 'cod_razaorestricao'])['curt'].sum().reset_index()
+        coff_estado = coff_estado.pivot(index='id_estado', columns='cod_razaorestricao', values='curt')
+        coff_estado = coff_estado.fillna(0)
+
+        coff_estado['row_sum'] = coff_estado.sum(axis=1)
+        coff_estado = coff_estado.sort_values(by='row_sum', ascending=True)  # For descending order
+        coff_estado = coff_estado.reset_index()
+
+
+        # Copy columns to a new DataFrame
+        coff_mes = rows[['din_instante', 'cod_razaorestricao', 'curt']].copy()
+        coff_mes['mes'] = coff_mes['din_instante'].dt.month
+        coff_mes['mes_abr'] = coff_mes['din_instante'].dt.month_name().str[:3]
+        coff_mes = coff_mes[['mes_abr', 'mes', 'cod_razaorestricao', 'curt']]
+        # Group by state
+        coff_mes = coff_mes.groupby(['mes_abr', 'mes', 'cod_razaorestricao'])['curt'].sum().reset_index()
+        coff_mes = coff_mes.pivot(index=['mes_abr', 'mes'], columns='cod_razaorestricao', values='curt')
+        coff_mes = coff_mes.fillna(0)
+        coff_mes = coff_mes.reset_index()
+        coff_mes = coff_mes.sort_values(by='mes', ascending=True)
+
+        # Copy columns to a new DataFrame
+        coff_dia = rows[['din_instante', 'cod_razaorestricao', 'curt']].copy()
+        coff_dia['dia'] = coff_dia['din_instante'].dt.day_name()
+        coff_dia['ndia'] = coff_dia['din_instante'].dt.weekday
+        coff_dia = coff_dia[['ndia', 'dia', 'cod_razaorestricao', 'curt']]
+        # Group by state
+        coff_dia = coff_dia.groupby(['ndia', 'dia', 'cod_razaorestricao'])['curt'].sum().reset_index()
+        coff_dia = coff_dia.pivot(index=['ndia', 'dia'], columns='cod_razaorestricao', values='curt')
+        coff_dia = coff_dia.fillna(0)
+        coff_dia = coff_dia.reset_index()
+        coff_dia = coff_dia.sort_values(by='ndia', ascending=True)
+
+        # Copy columns to a new DataFrame
+        coff_hour = rows[['din_instante', 'cod_razaorestricao', 'curt']].copy()
+        coff_hour['hour'] = coff_hour['din_instante'].dt.hour
+
+        coff_hour = coff_hour[['hour', 'cod_razaorestricao', 'curt']]
+        # Group by state
+        coff_hour = coff_hour.groupby(['hour', 'cod_razaorestricao'])['curt'].sum().reset_index()
+        coff_hour = coff_hour.pivot(index=['hour'], columns='cod_razaorestricao', values='curt')
+        coff_hour = coff_hour.fillna(0)
+        coff_hour = coff_hour.reset_index()
+        coff_hour = coff_hour.sort_values(by='hour', ascending=True)
+
+        """
+        query = f'''
+                    SELECT nom_usina, cod_razaorestricao,  
+                    SUM(CASE 
+                                WHEN ([val_disponibilidade] - [val_geracao]) > 0 
+                                THEN ([val_disponibilidade] - [val_geracao]) 
+                                ELSE 0 
+                            END
+                        )/2000 AS curt
+                    FROM [DBONS].[dbo].[CURTAILMENT]      
+                    where YEAR(din_instante) ='{ano}' and cod_razaorestricao not in ('nan', '')
+                    group by nom_usina, cod_razaorestricao
+                    order by  nom_usina
+                '''
+        rows = return_query_as_dataframe(query, engine)
+        rows = rows.fillna(0)
+        # pivoted_table = rows.pivot_table(index='nom_usina', columns='cod_razaorestricao', values='curt', aggfunc=None)
+        coff_usinas = rows.pivot(index='nom_usina', columns='cod_razaorestricao', values='curt')
+        coff_usinas = coff_usinas.fillna(0)
+        coff_usinas = coff_usinas.reset_index()
+        
+        query = f'''
+                    SELECT id_estado,  cod_razaorestricao,  
+                        SUM(CASE 
+                                WHEN ([val_disponibilidade] - [val_geracao]) > 0 
+                                THEN ([val_disponibilidade] - [val_geracao]) 
+                                ELSE 0 
+                            END
+                        )/2000 AS curt
+                    FROM [DBONS].[dbo].[CURTAILMENT]      
+                    WHERE YEAR(din_instante) = {ano} and cod_razaorestricao not in ('nan', '')
+                    GROUP BY id_estado, cod_razaorestricao
+                    ORDER BY id_estado, cod_razaorestricao;
+                '''
+        rows = return_query_as_dataframe(query, engine)
+        rows = rows.fillna(0)
+        coff_estado = rows.pivot(index='id_estado', columns='cod_razaorestricao', values='curt')
+        coff_estado = coff_estado.fillna(0)
+        coff_estado = coff_estado.reset_index()
+
+        query = f'''
+                    SELECT  MONTH(din_instante) mes, cod_razaorestricao,  
+                        SUM(CASE 
+                                WHEN ([val_disponibilidade] - [val_geracao]) > 0 
+                                THEN ([val_disponibilidade] - [val_geracao]) 
+                                ELSE 0 
+                            END
+                        )/2000 AS curt
+                    FROM [DBONS].[dbo].[CURTAILMENT]      
+                    where YEAR(din_instante) = {ano} and cod_razaorestricao not in ('nan', '')
+                    group by MONTH(din_instante), cod_razaorestricao
+                    order by MONTH(din_instante), cod_razaorestricao;
+                '''
+        rows = return_query_as_dataframe(query, engine)
+        rows = rows.fillna(0)
+        coff_mes = rows.pivot(index='mes', columns='cod_razaorestricao', values='curt')
+        coff_mes = coff_mes.fillna(0)
+        coff_mes = coff_mes.reset_index()
+        """
         charts = []
         for i in range(6):
             if i == 0:
-                x = rows['din_instante']
-                y = rows['val_geracao']
-            if i == 1:
-                x = rows['din_instante']
-                y = rows['val_geracaolimitada']
-            if i > 1:
-                x = rows['din_instante']
-                y = rows['val_disponibilidade']
+                x = coff_usinas['nom_usina']
+                y1 = coff_usinas['CNF']
+                y2 = coff_usinas['ENE']
+                y3 = coff_usinas['REL']
+            elif i == 1:
+                x = coff_ratio['nom_usina']
+                y1 = coff_ratio['coff_ratio']
+                y2 = pd.Series([])
+                y3 = pd.Series([])
+            elif i == 2:
+                x = coff_estado['id_estado']
+                y1 = coff_estado['CNF']
+                y2 = coff_estado['ENE']
+                y3 = coff_estado['REL']
+            elif i == 3:
+                x = coff_mes['mes_abr']
+                y1 = coff_mes['CNF']
+                y2 = coff_mes['ENE']
+                y3 = coff_mes['REL']
+            elif i == 4:
+                x = coff_dia['dia']
+                y1 = coff_dia['CNF']
+                y2 = coff_dia['ENE']
+                y3 = coff_dia['REL']
+            elif i == 5:
+                x = coff_hour['hour']
+                y1 = coff_hour['CNF']
+                y2 = coff_hour['ENE']
+                y3 = coff_hour['REL']
 
-
-            charts.append({"x": x.tolist(), "y": y.tolist()})
+            charts.append({"x": x.tolist(), "y1": y1.tolist(), "y2": y2.tolist(), "y3": y3.tolist()})
         return jsonify(charts)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -1782,6 +1943,7 @@ def list_scenarios():
     print(dir_list)
     return jsonify(dir_list), 200
 
+
 """
 @server.before_request
 def before_request():
@@ -1792,7 +1954,7 @@ def before_request():
 """
 
 if __name__ == '__main__':
-    #server.run(host='0.0.0.0', use_reloader=False, debug=True, ssl_context=('cert.pem', 'key.pem'))
+    # server.run(host='0.0.0.0', use_reloader=False, debug=True, ssl_context=('cert.pem', 'key.pem'))
     server.run(host='0.0.0.0', use_reloader=False, debug=True)
     # Para rodar na linha de comando
     # C:\_BDGD2SQL\BDGD2SqlServer\venv\Scripts\activate.bat && python.exe C:\_BDGD2SQL\BDGD2SqlServer\ui\flask_app.py
