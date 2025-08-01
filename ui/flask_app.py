@@ -274,8 +274,8 @@ def read_surface_data():
                  f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_-0.9.csv',
                  f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_1.0.csv']
 
-    elif type_case == 'BESS':
-        path_dir_base = 'PF Study Scenario'
+    elif type_case in ('BESS_Losses', 'BESS_RPF'):
+        path_dir_base = 'BESS Study Scenario'
         files = [f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_5_5.csv',
                  f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_6_4.csv',
                  f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_7_3.csv',

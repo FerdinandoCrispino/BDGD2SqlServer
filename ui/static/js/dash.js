@@ -17,77 +17,67 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
             }
             var surf_data = [];
             var layout = {};
-            var columnId = 7;           // coluna de dados das perdas
+            var columnId = 7;           // coluna de dados para o fluxo reverso
             var columnMediumId = 2;     // coluna de dados das Mediana das perdas
             var txtTitleplot = 'Reverse Power Flow';
             var xmax = 0;               // linha horizontal
             var y_set = 0;              // linha horizontal
+            txtsubtitle = ['FP: 0.8 ind.', 'FP: 0.8 cap.', 'FP: 0.9 ind.', 'FP: 0.9 cap.', 'FP: 1.0', '']
+            colorLine = ['red', 'blue', 'green', 'DeepPink', 'black'];
             if (type_case == 'PF_Losses') {
-                columnId = 6;       // coluna de dados para o fluxo reverso
-                columnMediumId = 1  // coluna de dados para as medinas do fluxo reverso
+                columnId = 6;           // coluna de dados das perdas
+                columnMediumId = 1      // coluna de dados para as medinas do fluxo reverso
                 txtTitleplot = 'Energy Losses Analysis';
             }
-            console.log(txtTitleplot);
+            if (type_case == 'BESS_Losses')  {
+                txtsubtitle = ['PV/BESS: 0.5 ', 'PV/BESS: 0.6', 'PV/BESS: 0.7', 'PV/BESS: 0.9', '', '']
+                columnId = 6;           // coluna de dados para as perdas
+                columnMediumId = 1      // coluna de dados para as medinas do fluxo reverso
+                txtTitleplot = 'Energy Losses Analysis';
+
+            } else if (type_case == 'BESS_RPF') {
+                txtsubtitle = ['PV/BESS: 0.5 ', 'PV/BESS: 0.6', 'PV/BESS: 0.7', 'PV/BESS: 0.9', '', '']
+                columnId = 7;           // coluna de dados para o fluxo reverso
+                columnMediumId = 2;     // coluna de dados das Mediana das perdas
+                txtTitleplot = 'Reverse Power Flow';
+            }
+
             destroy_charts(4);
             removeCanvas(4);
             switch (type_case) {
+                case 'BESS_Losses':
+                case 'BESS_RPF':
                 case 'PF_Losses':
                 case 'PF_RPF':
-                    txtsubtitle = ['FP: 0.8 ind.', 'FP: 0.8 cap.', 'FP: 0.9 ind.', 'FP: 0.9 cap.', 'FP: 1.0', '']
-                    //console.log(data[0].slice(1).map(row => row[0]) );
+
+                    let max_data = data.length-1;
                     data.forEach((item, index) => {
-                        if (index == 5) {
+                        if (index == max_data) {
                             //console.log(item);
                             const medium_penetration = item[0].slice(0).map(row => row[0]);
                             x_max = Math.max(...medium_penetration);
                             //console.log(medium_penetration);
-                            const medium_ener_losses1 = item[0].slice(0).map(row => row[columnMediumId]);
-                            //onsole.log(medium_ener_losses1);
-                            const medium_ener_losses2 = item[1].slice(0).map(row => row[columnMediumId]);
-                            const medium_ener_losses3 = item[2].slice(0).map(row => row[columnMediumId]);
-                            const medium_ener_losses4 = item[3].slice(0).map(row => row[columnMediumId]);
-                            const medium_ener_losses5 = item[4].slice(0).map(row => row[columnMediumId]);
-                            const mediumtrace1 = {
-                                type: 'scatter',
-                                mode: "lines",
-                                line: {color: 'red'},  //line: {color: 'red', width: 1, shape: 'spline'},
-                                x: medium_penetration,
-                                y: medium_ener_losses1,
-                                name: txtsubtitle[0],
-                            };
-                            const mediumtrace2 = {
-                                type: 'scatter',
-                                mode: "lines",
-                                line: {color: 'blue'},  //line: {color: 'red', width: 1, shape: 'spline'},
-                                x: medium_penetration,
-                                y: medium_ener_losses2,
-                                name: txtsubtitle[1],
-                            };
-                            const mediumtrace3 = {
-                                type: 'scatter',
-                                mode: "lines",
-                                line: {color: 'green'},  //line: {color: 'red', width: 1, shape: 'spline'},
-                                x: medium_penetration,
-                                y: medium_ener_losses3,
-                                name: txtsubtitle[2],
-                            };
-                            const mediumtrace4 = {
-                                type: 'scatter',
-                                mode: "lines",
-                                line: {color: 'DeepPink'},  //line: {color: 'red', width: 1, shape: 'spline'},
-                                x: medium_penetration,
-                                y: medium_ener_losses4,
-                                name: txtsubtitle[3],
-                            };
-                            const mediumtrace5 = {
-                                type: 'scatter',
-                                mode: "lines",
-                                line: {color: 'black'},  //line: {color: 'red', width: 1, shape: 'spline'},
-                                x: medium_penetration,
-                                y: medium_ener_losses5,
-                                name: txtsubtitle[4],
-                            };
-                            var all_mediumData = [mediumtrace1, mediumtrace2, mediumtrace3, mediumtrace4, mediumtrace5];
+                            let medium_ener_losses = new Array(); // Creates an empty array
+                            let mediumtrace = new Array();
+                            for (let i = 0; i <= item.length-1; i++) {
+                                medium_ener_losses[i] = item[i].slice(0).map(row => row[columnMediumId]);
+                                //const medium_ener_losses2 = item[1].slice(0).map(row => row[columnMediumId]);
+                                //const medium_ener_losses3 = item[2].slice(0).map(row => row[columnMediumId]);
+                                //const medium_ener_losses4 = item[3].slice(0).map(row => row[columnMediumId]);
+                                //const medium_ener_losses5 = item[4].slice(0).map(row => row[columnMediumId]);
+                                mediumtrace[i] = {
+                                    type: 'scatter',
+                                    mode: "lines",
+                                    line: {color: colorLine[i]},  //line: {color: 'red', width: 1, shape: 'spline'},
+                                    x: medium_penetration,
+                                    y: medium_ener_losses[i],
+                                    name: txtsubtitle[i],
+                                };
+                            }
+                            var all_mediumData = [];
+                            for (let i = 0; i <= item.length-1; i++) {
+                                all_mediumData.push(mediumtrace[i])
+                            }
                             surf_data.push(all_mediumData);
 
                         } else {
@@ -118,7 +108,8 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                                 text: 'Energy Losses (kWh)',
                                 font: { size: 11, color: 'black' }
                             },
-                            zeroline: false
+                            zeroline: false,
+                            nticks: 4,
                         },
                         xaxis: {
                             title: {
@@ -132,7 +123,7 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                         },
                         shapes: [
                             {
-                              type: 'line',
+                              type: 'line',     // threshold line
                               x0: 0, // Starting x-coordinate of the line (relative to the plot area)
                               y0: y_set, // Starting y-coordinate of the line (data value)
                               x1: x_max, // Ending x-coordinate of the line (relative to the plot area, 1 means full width)
@@ -146,12 +137,6 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                     };
                     break;
 
-                case 'BESS':
-                    console.log(data);
-
-
-
-                    break;
                 default:
                     const x = data[0].slice(1); // Primeira linha (exceto o primeiro valor) = eixo X
                     const y = data.slice(1).map(row => row[0]); // Primeira coluna (exceto o cabeçalho) = eixo Y
@@ -224,8 +209,8 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                 if (surf_data.length > 1) {
                     var layout2 = JSON.parse(JSON.stringify(layout));  // clone para evitar conflito
                     layout2.title.text = txtTitleplot + '<br>' + txtsubtitle[i-1] ;
-                    if (type_case == 'PF_Losses'){
-                        console.log('Teste valores inicial:');
+                    if (type_case == 'PF_Losses' || type_case == 'BESS_Losses'){
+                        //console.log('Teste valores inicial:');
                         layout2.shapes[0].y0 = surf_data[i-1][0].y[0];
                         layout2.shapes[0].y1 = surf_data[i-1][0].y[0]
                     }
