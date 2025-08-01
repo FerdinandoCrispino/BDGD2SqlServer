@@ -17,23 +17,36 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
             }
             var surf_data = [];
             var layout = {};
+            var columnId = 7;           // coluna de dados das perdas
+            var columnMediumId = 2;     // coluna de dados das Mediana das perdas
+            var txtTitleplot = 'Reverse Power Flow';
+            var xmax = 0;               // linha horizontal
+            var y_set = 0;              // linha horizontal
+            if (type_case == 'PF_Losses') {
+                columnId = 6;       // coluna de dados para o fluxo reverso
+                columnMediumId = 1  // coluna de dados para as medinas do fluxo reverso
+                txtTitleplot = 'Energy Losses Analysis';
+            }
+            console.log(txtTitleplot);
             destroy_charts(4);
             removeCanvas(4);
             switch (type_case) {
-                case 'PF':
+                case 'PF_Losses':
+                case 'PF_RPF':
                     txtsubtitle = ['FP: 0.8 ind.', 'FP: 0.8 cap.', 'FP: 0.9 ind.', 'FP: 0.9 cap.', 'FP: 1.0', '']
                     //console.log(data[0].slice(1).map(row => row[0]) );
                     data.forEach((item, index) => {
                         if (index == 5) {
-                            console.log(item);
+                            //console.log(item);
                             const medium_penetration = item[0].slice(0).map(row => row[0]);
-                            console.log(medium_penetration);
-                            const medium_ener_losses1 = item[0].slice(0).map(row => row[1]);
-                             console.log(medium_ener_losses1);
-                            const medium_ener_losses2 = item[1].slice(0).map(row => row[1]);
-                            const medium_ener_losses3 = item[2].slice(0).map(row => row[1]);
-                            const medium_ener_losses4 = item[3].slice(0).map(row => row[1]);
-                            const medium_ener_losses5 = item[4].slice(0).map(row => row[1]);
+                            x_max = Math.max(...medium_penetration);
+                            //console.log(medium_penetration);
+                            const medium_ener_losses1 = item[0].slice(0).map(row => row[columnMediumId]);
+                            //onsole.log(medium_ener_losses1);
+                            const medium_ener_losses2 = item[1].slice(0).map(row => row[columnMediumId]);
+                            const medium_ener_losses3 = item[2].slice(0).map(row => row[columnMediumId]);
+                            const medium_ener_losses4 = item[3].slice(0).map(row => row[columnMediumId]);
+                            const medium_ener_losses5 = item[4].slice(0).map(row => row[columnMediumId]);
                             const mediumtrace1 = {
                                 type: 'scatter',
                                 mode: "lines",
@@ -79,24 +92,25 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
 
                         } else {
                             const penetration = item.slice(0).map(row => row[0]);
-                            const ener_losses = item.slice(0).map(row => row[6]); //  coluna (exceto o cabeçalho)
+                            x_max = Math.max(...penetration);
+                            const ener_losses = item.slice(0).map(row => row[columnId]); //  coluna (exceto o cabeçalho)
                             console.log(penetration);
                             console.log(ener_losses);
                             var data = [{
                                 type: 'box',
                                 x: penetration,
                                 y: ener_losses,
-                                boxmean: true, // Show mean line  ( true | "sd" | false )
-                                boxpoints: false, //( "all" | "outliers" | "suspectedoutliers" | false )
+                                boxmean: true,     // Show mean line  ( true | "sd" | false )
+                                boxpoints: false,  //( "all" | "outliers" | "suspectedoutliers" | false )
                             }];
                             surf_data.push(data);
                         }
                     });
 
-                    console.log(surf_data);
+                    //console.log(surf_data);
                     layout = {
                         title: {
-                            text: 'Energy Losses Analysis',
+                            text: txtTitleplot,
                             font: { size: 14, color: 'black' }
                         },
                         yaxis: {
@@ -116,10 +130,27 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                                 size: 10 // Set the font size for x-axis tick labels
                             },
                         },
+                        shapes: [
+                            {
+                              type: 'line',
+                              x0: 0, // Starting x-coordinate of the line (relative to the plot area)
+                              y0: y_set, // Starting y-coordinate of the line (data value)
+                              x1: x_max, // Ending x-coordinate of the line (relative to the plot area, 1 means full width)
+                              y1: y_set, // Ending y-coordinate of the line (data value)
+                              line: {
+                                color: 'red',
+                                width: 2,
+                                dash: 'dot' // Optional: 'solid', 'dot', 'dash', 'longdash', 'dashdot', 'longdashdot'
+                              }
+                            }],
                     };
                     break;
+
                 case 'BESS':
                     console.log(data);
+
+
+
                     break;
                 default:
                     const x = data[0].slice(1); // Primeira linha (exceto o primeiro valor) = eixo X
@@ -192,7 +223,12 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                 chart.style.height = '20vw';
                 if (surf_data.length > 1) {
                     var layout2 = JSON.parse(JSON.stringify(layout));  // clone para evitar conflito
-                    layout2.title.text = 'Energy Losses Analysis ' + '<br>' + txtsubtitle[i-1] ;
+                    layout2.title.text = txtTitleplot + '<br>' + txtsubtitle[i-1] ;
+                    if (type_case == 'PF_Losses'){
+                        console.log('Teste valores inicial:');
+                        layout2.shapes[0].y0 = surf_data[i-1][0].y[0];
+                        layout2.shapes[0].y1 = surf_data[i-1][0].y[0]
+                    }
                 } else {
                     layout2 = layout;
                 }

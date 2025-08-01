@@ -266,7 +266,7 @@ def read_surface_data():
     elif type_case == 'case3':
         file = f'{ano}_{tipo_dia}_{mes}_{circuito}_Vmax.csv'
 
-    elif type_case == 'PF':
+    elif type_case in ('PF_Losses', 'PF_RPF'):
         path_dir_base = 'PF Study Scenario'
         files = [f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_0.8.csv',
                  f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_-0.8.csv',
