@@ -3,6 +3,7 @@ import sys
 
 import geopandas as gpd
 import pandas as pd
+
 import numpy as np
 
 from colour import Color
@@ -27,6 +28,8 @@ sys.path.append(parent)
 import Tools.summary as resumo
 from Tools.tools import return_query_as_dataframe, create_connection, load_config, load_config_list_dist
 
+pd.options.mode.copy_on_write = True
+
 task_running = False  # Variável para evitar múltiplas execuções simultâneas -- control_bus
 
 sys.path.append('../')
@@ -40,7 +43,7 @@ SIN_DATA_GDB = 'EPE_SIN_data.gdb'
 GDB_PATH = os.path.join(os.path.dirname(__file__), 'data', SIN_DATA_GDB)
 
 
-# request data for usianas
+# request data for usianas selected into map
 @server.route('/usinas_data')
 def read_data_usinas():
     ceg = request.args.get('ceg')
@@ -85,7 +88,7 @@ def read_data_usinas():
         return jsonify({"error": str(e)}), 500
 
 
-# request data for curtailment e capacity factor to UFV and EOL
+# request data for curtailment and capacity factor to UFV and EOL
 @server.route('/curt_data/')
 def read_data_curt():
     ceg = request.args.get('ceg')
@@ -109,6 +112,7 @@ def read_data_curt():
         # Leitura do arquivo de RELACIONAMENTO_USINA_CONJUNTO
         file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
         df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
+        df_rel.sort_values(by='dat_iniciorelacionamento', ascending=False, inplace=True)
 
         # Leitura do arquivo das restrições das usinas EOL ou UFV
         df = pd.read_parquet(os.path.join(path_conf, file_name))
@@ -119,8 +123,13 @@ def read_data_curt():
             df_fill = df[df['id_ons'].astype(str).str.contains(df_rel['id_ons_conjunto'].iloc[0])]
 
         if not df_fill.empty:
-            df_fill = df_fill[['din_instante', 'val_geracao', 'val_geracaolimitada', 'id_ons', 'cod_razaorestricao',
-                               'cod_origemrestricao']].copy()
+            df_fill['curt'] = np.where(
+                df_fill.loc[:, 'val_geracaoreferencia'] - df_fill.loc[:, 'val_geracaolimitada'] > 0,
+                (df_fill.loc[:, 'val_geracaoreferencia'] - df_fill.loc[:, 'val_geracaolimitada']),
+                0)
+
+            df_fill = df_fill[['din_instante', 'val_geracao', 'curt', 'val_geracaoreferencia', 'val_disponibilidade',
+                               'val_geracaolimitada', 'id_ons', 'cod_razaorestricao', 'cod_origemrestricao']].copy()
             # Filter for workdays (Monday=0 to Friday=4)
             # df_workdays = df[df['Date'].dt.weekday < 5]
             if dia is not None:
@@ -249,6 +258,7 @@ def read_surface_data():
         print(f'Selecione uma distribuidora')
         return jsonify("error Selecione uma distribuidora"), 404
 
+    files = []
     if type_case == 'case1':
         file = f'{ano}_{tipo_dia}_{mes}_{circuito}_VminVmax.csv'
     elif type_case == 'case2':
@@ -256,9 +266,39 @@ def read_surface_data():
     elif type_case == 'case3':
         file = f'{ano}_{tipo_dia}_{mes}_{circuito}_Vmax.csv'
 
+    elif type_case == 'PF':
+        path_dir_base = 'PF Study Scenario'
+        files = [f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_0.8.csv',
+                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_-0.8.csv',
+                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_0.9.csv',
+                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_-0.9.csv',
+                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_1.0.csv']
+
+    elif type_case == 'BESS':
+        path_dir_base = 'PF Study Scenario'
+        files = [f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_5_5.csv',
+                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_6_4.csv',
+                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_7_3.csv',
+                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_9_1.csv']
+
     try:
+        if len(files) > 0:
+            all_data = []
+            medium_data = []
+            for file in files:
+                df = pd.read_csv(os.path.join(path_conf, file), na_filter=False)
+                df_medium_data = df.groupby("Pen")[
+                    ["Energy Losses", "Min Fluxo Subestacao", "B VminVmax"]].median().reset_index()
+                data_medium = df_medium_data.values.tolist()
+                data = df.values.tolist()
+                all_data.append(data)
+                medium_data.append(data_medium)
+
+            # acrescenta a lista com os valores das medianas.
+            all_data.append(medium_data)
+            return jsonify(all_data)
+
         df = pd.read_csv(os.path.join(path_conf, file), header=None, na_filter=False)
-        # print(df)
         data = df.values.tolist()
         # print(data)
         return jsonify(data)
@@ -270,10 +310,11 @@ def read_surface_data():
 # Simula dados
 ESTADOS = ['All', 'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MS', 'MT', 'MG', 'PA', 'PB', 'PR',
            'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
-ANOS = [2023, 2024, 2025]
+ANOS = [2025, 2024, 2023, 2022]
 MESES = list(range(1, 13))
 MESES.insert(0, 'All')
 DIAS = list(range(1, 29))
+DIAS.insert(0, 'All')
 
 
 @server.route('/dashcurtailment')
@@ -327,13 +368,13 @@ def get_data():
         coff_usinas = coff_usinas.pivot(index='nom_usina', columns='cod_razaorestricao', values='curt')
         coff_usinas = coff_usinas.fillna(0)
         # sort values
-        #coff_usinas['row_sum'] = coff_usinas.sum(axis=1)
-        #coff_usinas = coff_usinas.sort_values(by='row_sum', ascending=False)  # For descending order
+        # coff_usinas['row_sum'] = coff_usinas.sum(axis=1)
+        # coff_usinas = coff_usinas.sort_values(by='row_sum', ascending=False)  # For descending order
         coff_usinas = coff_usinas.reset_index()
 
         # Curtailment Rate (%) = (Curtailment Energy / Total Potential Generation) x 100
         curt_total_all_plant = rows['curt'].sum()
-        energy_max_all_plant = rows['val_geracaoreferencia'].sum()/2000
+        energy_max_all_plant = rows['val_geracaoreferencia'].sum() / 2000
         coff_ratio = rows[['nom_usina', 'curt']].copy()
         coff_ratio = coff_ratio.groupby(['nom_usina', ])['curt'].sum().reset_index()
         # Curtailment Rate (%)
@@ -350,7 +391,6 @@ def get_data():
         coff_estado['row_sum'] = coff_estado.sum(axis=1)
         coff_estado = coff_estado.sort_values(by='row_sum', ascending=True)  # For descending order
         coff_estado = coff_estado.reset_index()
-
 
         # Copy columns to a new DataFrame
         coff_mes = rows[['din_instante', 'cod_razaorestricao', 'curt']].copy()

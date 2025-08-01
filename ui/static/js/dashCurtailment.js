@@ -48,7 +48,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const estado = estadoEl.value;
         const ano = parseInt(anoEl.value) || new Date().getFullYear();
         const mes = parseInt(mesEl.value) || 'All';
-        const dia = parseInt(diaEl.value) || 1;
+        const dia = parseInt(diaEl.value) || 'All';
 
         const payload = { estado, ano, mes, dia };
 
@@ -76,7 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             var layout = {
                 barmode: 'stack',
-                title: { text: title_chart[i] +'<br>' + ano + subtitle,
+                title: { text: title_chart[i] +'<br><span style="font-size: 12px;">' + ano + subtitle + '</span>',
                          font: { size: 14, color: 'black' }
                 },
                 xaxis: {

@@ -270,6 +270,9 @@ function load_curtailment_area(ceg, mes, ano, source, txt_title, dia) {
             const x = x_dates.map(date => date.toISOString()); // para Plotly
             const y1 = data[0].slice(0).map(row => row[1]);
             const y2 = data[0].slice(0).map(row => row[2]);
+            const y3 = data[0].slice(0).map(row => row[3]);
+            const y4 = data[0].slice(0).map(row => row[4]);
+            const y5 = data[0].slice(0).map(row => row[5]);
             //console.log (x);
             //console.log (y1);
             //console.log (y2);
@@ -314,7 +317,7 @@ function load_curtailment_area(ceg, mes, ano, source, txt_title, dia) {
 
 
             const trace1 = {
-                fill: 'tonexty',
+                fill: 'tozeroy',
                 fillcolor: 'rgba(170, 150, 30, 0.4)', // with 30% opacity
                 type: 'scatter',
                 x: x,
@@ -328,7 +331,7 @@ function load_curtailment_area(ceg, mes, ano, source, txt_title, dia) {
             };
 
             const trace2 = {
-                fill: 'tonexty',
+                fill: 'tozeroy',
                 fillcolor: 'rgba(30, 53, 201, 0.4)',
                 type: 'scatter',
                 x: x,
@@ -339,7 +342,33 @@ function load_curtailment_area(ceg, mes, ano, source, txt_title, dia) {
                     color: 'rgba(30, 53, 201,0.7)',
 
                 },
+            };
 
+            const trace3 = {
+                type: 'scatter',
+                mode: "lines",
+                line: {color: 'red'},  //line: {color: 'red', width: 1, shape: 'spline'},
+                x: x,
+                y: y3,
+                name: 'Energy Reference',
+            };
+
+            const trace4 = {
+                type: 'scatter',
+                mode: "lines",
+                line: {color: 'black', width: 1},
+                x: x,
+                y: y4,
+                name: 'Energy Availability',
+            };
+
+            const trace5 = {
+                type: 'scatter',
+                mode: "lines",
+                line: {color: 'black', width: 1, dash: 'dash',},
+                x: x,
+                y: y5,
+                name: 'Energy Limited',
             };
 
             var layout = {
@@ -381,10 +410,11 @@ function load_curtailment_area(ceg, mes, ano, source, txt_title, dia) {
 
             };
             var config = {
-              responsive: true
+              responsive: true,
+              scrollZoom: true
             };
 
-            var surf_data = [trace2, trace1];
+            var surf_data = [ trace2, trace1, trace3, trace4, trace5];
             layout.transition = {
                 duration: 800,
                 easing: 'cubic-in-out'

@@ -11,7 +11,7 @@
 """
 import os
 import pandas as pd
-from Tools.tools import create_connection, load_config
+from tools import create_connection, load_config
 
 
 # Verifica se existe o município

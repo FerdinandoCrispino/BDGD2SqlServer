@@ -15,50 +15,191 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                 //console.error(data.error);
                 return;
             }
-            const x = data[0].slice(1); // Primeira linha (exceto o primeiro valor) = eixo X
-            const y = data.slice(1).map(row => row[0]); // Primeira coluna (exceto o cabeçalho) = eixo Y
-            const z = data.slice(1).map(row => row.slice(1)); // Valores Z
-            //console.log (x)
-            //console.log (y)
-            //console.log (z)
-            const surf_data = [{
-                type: 'surface',
-                x: x,
-                y: y,
-                z: z,
-                colorscale: 'Viridis',
-                contours: {
-                    z: {
-                      show:true,
-                      usecolormap: true,
-                      highlightcolor:"#42f462",
-                      project:{z: true}
-                    }
-                  }
-            }];
-            var layout = {
-                title: {
-                    text: 'DER´s Insertion Analysis: ' + sub +': '+ circ +' '+ tipo_dia +' '+ano +'/'+ mes + '<br>' + txt_title
-                },
-                scene: {
-                    xaxis: { title: { text: 'PV Penetration %' } },
-                    yaxis: { title: { text: 'Buses %' } },
-                    zaxis: { title: { text: 'Probability %' } }
-                },
-                autosize: false,
-                width: 800,
-                height: 700,
-                margin: {
-                    l: 65,
-                    r: 20,
-                    b: 65,
-                    t: 30,
-                }
+            var surf_data = [];
+            var layout = {};
+            destroy_charts(4);
+            removeCanvas(4);
+            switch (type_case) {
+                case 'PF':
+                    txtsubtitle = ['FP: 0.8 ind.', 'FP: 0.8 cap.', 'FP: 0.9 ind.', 'FP: 0.9 cap.', 'FP: 1.0', '']
+                    //console.log(data[0].slice(1).map(row => row[0]) );
+                    data.forEach((item, index) => {
+                        if (index == 5) {
+                            console.log(item);
+                            const medium_penetration = item[0].slice(0).map(row => row[0]);
+                            console.log(medium_penetration);
+                            const medium_ener_losses1 = item[0].slice(0).map(row => row[1]);
+                             console.log(medium_ener_losses1);
+                            const medium_ener_losses2 = item[1].slice(0).map(row => row[1]);
+                            const medium_ener_losses3 = item[2].slice(0).map(row => row[1]);
+                            const medium_ener_losses4 = item[3].slice(0).map(row => row[1]);
+                            const medium_ener_losses5 = item[4].slice(0).map(row => row[1]);
+                            const mediumtrace1 = {
+                                type: 'scatter',
+                                mode: "lines",
+                                line: {color: 'red'},  //line: {color: 'red', width: 1, shape: 'spline'},
+                                x: medium_penetration,
+                                y: medium_ener_losses1,
+                                name: txtsubtitle[0],
+                            };
+                            const mediumtrace2 = {
+                                type: 'scatter',
+                                mode: "lines",
+                                line: {color: 'blue'},  //line: {color: 'red', width: 1, shape: 'spline'},
+                                x: medium_penetration,
+                                y: medium_ener_losses2,
+                                name: txtsubtitle[1],
+                            };
+                            const mediumtrace3 = {
+                                type: 'scatter',
+                                mode: "lines",
+                                line: {color: 'green'},  //line: {color: 'red', width: 1, shape: 'spline'},
+                                x: medium_penetration,
+                                y: medium_ener_losses3,
+                                name: txtsubtitle[2],
+                            };
+                            const mediumtrace4 = {
+                                type: 'scatter',
+                                mode: "lines",
+                                line: {color: 'DeepPink'},  //line: {color: 'red', width: 1, shape: 'spline'},
+                                x: medium_penetration,
+                                y: medium_ener_losses4,
+                                name: txtsubtitle[3],
+                            };
+                            const mediumtrace5 = {
+                                type: 'scatter',
+                                mode: "lines",
+                                line: {color: 'black'},  //line: {color: 'red', width: 1, shape: 'spline'},
+                                x: medium_penetration,
+                                y: medium_ener_losses5,
+                                name: txtsubtitle[4],
+                            };
+                            var all_mediumData = [mediumtrace1, mediumtrace2, mediumtrace3, mediumtrace4, mediumtrace5];
+                            surf_data.push(all_mediumData);
+
+                        } else {
+                            const penetration = item.slice(0).map(row => row[0]);
+                            const ener_losses = item.slice(0).map(row => row[6]); //  coluna (exceto o cabeçalho)
+                            console.log(penetration);
+                            console.log(ener_losses);
+                            var data = [{
+                                type: 'box',
+                                x: penetration,
+                                y: ener_losses,
+                                boxmean: true, // Show mean line  ( true | "sd" | false )
+                                boxpoints: false, //( "all" | "outliers" | "suspectedoutliers" | false )
+                            }];
+                            surf_data.push(data);
+                        }
+                    });
+
+                    console.log(surf_data);
+                    layout = {
+                        title: {
+                            text: 'Energy Losses Analysis',
+                            font: { size: 14, color: 'black' }
+                        },
+                        yaxis: {
+                            title: {
+                                text: 'Energy Losses (kWh)',
+                                font: { size: 11, color: 'black' }
+                            },
+                            zeroline: false
+                        },
+                        xaxis: {
+                            title: {
+                                text: 'Penetration (%)',
+                                font: { size: 11, color: 'black' }
+                            },
+                            nticks: 11,
+                            tickfont: {
+                                size: 10 // Set the font size for x-axis tick labels
+                            },
+                        },
+                    };
+                    break;
+                case 'BESS':
+                    console.log(data);
+                    break;
+                default:
+                    const x = data[0].slice(1); // Primeira linha (exceto o primeiro valor) = eixo X
+                    const y = data.slice(1).map(row => row[0]); // Primeira coluna (exceto o cabeçalho) = eixo Y
+                    const z = data.slice(1).map(row => row.slice(1)); // Valores Z
+
+                    // filtro dos dados para gerar a curva de probabilidade
+                    const xValues = data.slice(1).map(row => row[0]);
+                    columnIndex = 50;
+                    const yValues = data.slice(1).map(row => row[columnIndex]);
+                    console.log (xValues);
+                    console.log (yValues);
+
+                    data = [{
+                        type: 'surface',
+                        x: x,
+                        y: y,
+                        z: z,
+                        colorscale: 'Viridis',
+                        contours: {
+                            z: {
+                              show:true,
+                              usecolormap: true,
+                              highlightcolor:"#42f462",
+                              project:{z: true}
+                            }
+                          }
+                    }];
+                    surf_data.push(data);
+                    layout = {
+                        title: {
+                            text: 'DER´s Insertion Analysis: ' + sub +': '+ circ +' '+ tipo_dia +' '+ano +'/'+ mes + '<br>' + txt_title,
+                            font: { size: 14, color: 'black' }
+                        },
+                        scene: {
+                            xaxis: { title: { text: 'PV Penetration %' } },
+                            yaxis: { title: { text: 'Buses %' } },
+                            zaxis: { title: { text: 'Probability %' } }
+                        },
+                        autosize: true,
+                        width: 450,
+                        height: 350,
+                        margin: {
+                            l: 0,
+                            r: 10,
+                            b: 5,
+                            t: 30,
+                        }
+                    };
+                    break;
             };
 
-            destroy_charts(4);
-
-            Plotly.newPlot('chart-container', surf_data, layout);
+            removedivChart(6);
+            const chartContainer = document.getElementById(`chart-container`);
+            for (let i = 1; i <= 6; i++) {
+                const graphDiv = document.createElement('div');
+                graphDiv.id = `chart${i}`;
+                graphDiv.style.width = '58vh';
+                graphDiv.style.height = '20vw';
+                graphDiv.style.display = 'inline-block';
+                chartContainer.appendChild(graphDiv);
+            }
+            console.log(surf_data.length)
+            var config = {
+                responsive: true,
+                scrollZoom: true
+            };
+            for (let i = 1; i <= surf_data.length; i++) {
+                const chart = document.getElementById(`chart${i}`);
+                chart.style.height = '20vw';
+                if (surf_data.length > 1) {
+                    var layout2 = JSON.parse(JSON.stringify(layout));  // clone para evitar conflito
+                    layout2.title.text = 'Energy Losses Analysis ' + '<br>' + txtsubtitle[i-1] ;
+                } else {
+                    layout2 = layout;
+                }
+                Plotly.newPlot(chart, surf_data[i-1], layout2, config);
+            }
+            // implementa o eventListener para selecionar o DIv e aumentar o gráfico
+            createEventChart();
 
         })
 }
@@ -76,6 +217,9 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
         })
         .then(data => {
             console.log(data)
+            // verifica se existe e cria os elementos necessaris para colocar os graficos
+            createCanvas(4);
+            removedivChart(6);
             const ctx1 = document.getElementById('myChart1').getContext('2d', { willReadFrequently: true });
             const ctx2 = document.getElementById('myChart2').getContext('2d', { willReadFrequently: true });
             var str_dist = document.getElementById('distribuidora').options[document.getElementById('distribuidora').selectedIndex].text;
@@ -89,6 +233,7 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
             // verificar se exitem muitas legendas no grafico e desabilitar caso for maior que um valor máximo
             const num_lines = Object.entries(data).length;
             const max_legend = 20;
+
 
             // limpa para poder reutilizar.
             destroy_charts(4);
@@ -271,7 +416,6 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
         .catch(error => console.log('Error loading chart data:', error));
     document.body.style.cursor = 'default';  // Cursor normal
 }
-
 
 function transformer_loading(dist, ano, mes) {
     // Captura o valor do parâmetro 'dist' da URL
@@ -730,6 +874,47 @@ function losses(dist, subestacao, circuito, scenario, tipo_dia, ano, mes) {
         .catch(error => console.error('Error loading chart data:', error));
 }
 
+
+function removeCanvas(num_chart) {
+    for (let i = 1; i <= num_chart; i++) {
+        const canvas = document.getElementById('myChart' + i);
+        console.log('RemoveCanvas:');
+        console.log(canvas);
+        if (canvas) { // Check if the canvas element exists before trying to remove it
+            const parentNode = canvas.parentNode;
+            parentNode.removeChild(canvas);
+        }
+    }
+}
+function removedivChart(num_chart) {
+    for (let i = 1; i <= num_chart; i++) {
+        const myDiv = document.getElementById('chart' + i);
+        //console.log('RemoveDIVChart:');
+        //console.log(myDiv);
+        if (myDiv) { // Check if the element exists before trying to remove it
+            const parentNode = myDiv.parentNode;
+            parentNode.removeChild(myDiv);
+        }
+    }
+}
+
+function createCanvas(num_chart) {
+    const elementeExist =  document.getElementById('myChart1');
+
+    if (elementeExist){
+        console.log(elementeExist)
+        return;
+    }
+    const chartContainer = document.getElementById(`chart-container`);
+    for (let i = 1; i <= num_chart; i++) {
+        const graphDiv = document.createElement('canvas');
+        graphDiv.id = `myChart${i}`;
+        //graphDiv.style.width = '58vh';
+        graphDiv.style.display = 'inline-block';
+        chartContainer.appendChild(graphDiv);
+    }
+}
+
 function destroy_charts(num_chart) {
     for (let i = 1; i <= num_chart; i++) {
         try {
@@ -741,3 +926,52 @@ function destroy_charts(num_chart) {
     }
     Plotly.purge('chart-container');
 }
+
+function createEventChart(){
+    // Objeto para guardar o estado de cada div
+    const divEstados = new WeakMap();
+
+    // Seleciona todos os divs com a classe
+    const divs = document.querySelectorAll(".js-plotly-plot");
+    console.log('divs');
+    console.log(divs);
+    divs.forEach(div => {
+
+        div.addEventListener("dblclick", () => {
+            const estadoAtual = divEstados.get(div) || {
+                isMaximized: false,
+                width: div.offsetWidth + "px",
+                height: div.offsetHeight + "px",
+                top: div.offsetTop + "px",
+                left: div.offsetLeft + "px",
+                position: getComputedStyle(div).position
+            };
+
+            if (!estadoAtual.isMaximized) {
+                // Maximiza o painel
+                div.style.position = "fixed";
+                div.style.top = "0";
+                div.style.left = "0";
+                div.style.width = "100vw";
+                div.style.height = "100vh";
+                div.style.zIndex = "9999";
+
+                divEstados.set(div, { ...estadoAtual, isMaximized: true });
+
+            } else {
+                // Restaura para o tamanho original
+                div.style.position = estadoAtual.position;
+                div.style.top = estadoAtual.top;
+                div.style.left = estadoAtual.left;
+                div.style.width = estadoAtual.width;
+                div.style.height = estadoAtual.height;
+                div.style.zIndex = "";
+
+                divEstados.set(div, { ...estadoAtual, isMaximized: false });
+            }
+            Plotly.Plots.resize(div);
+        });
+    });
+ };
+
+
