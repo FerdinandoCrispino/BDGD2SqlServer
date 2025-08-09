@@ -1,20 +1,31 @@
 # Arquivo de configurações para o script Hosting_Capacity.py
-databases:
+# TODO - FEEDERS
+#data_HC:
+#    utility: '391'
+#    substation: 'APA'
+#    feeder:
+#        - 'RAPA1301'
+#        - 'RAPA1302'
+#        - 'RAPA1303'
+#        - 'RAPA1304'
+#        - 'RAPA1391'
+#    year: '2022'
+#    month: '1'
+#    type_day: 'DU'
+#    max_kw: 5000
+#    step_kw: 100
+#    ov_threshold: 1.05
+#    loadmult: 0.2
+
+# TODO - SUBSTATIONS
+data_HC:
     utility: '391'
-    substation: 'CSO'
-    feeder:
-        - 'RCSO1301'
-        - 'RCSO1302'
-        - 'RCSO1303'
-        - 'RCSO1304'
-        - 'RCSO1305'
-        - 'RCSO1306'
-        - 'RCSO1307'
-        - 'RCSO1308'
-        - 'RCSO3402'
+    substation:
+        - 'ASPTEST'
+        - 'AVPTEST'
     year: '2022'
-    month: '1'
-    type_day: 'DU'
+    month: [1, 7]
+    type_day: ['DU', 'DO']
     max_kw: 5000
     step_kw: 100
     ov_threshold: 1.05
