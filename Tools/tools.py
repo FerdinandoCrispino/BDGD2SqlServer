@@ -1272,8 +1272,8 @@ def calc_du_sa_do_mes(ano, mes: int) -> dict:
     }
 
 
-def circuit_by_bus(pac: str, dist):
-    config = load_config(dist)
+def circuit_by_bus(pac: str, database):
+    config = load_config(database)
     engine = create_connection(config)
     pac = pac.upper()
     query = f'''
@@ -1288,12 +1288,12 @@ def circuit_by_bus(pac: str, dist):
     return ctmt
 
 
-def municipio_from_load(load, dist):
+def municipio_from_load(load, database):
     """
     Obtem o cod do munício onde está instalada uma carga.
     :return:
     """
-    config = load_config(dist)
+    config = load_config(database)
     engine = create_connection(config)
     # load = load.upper()
     tabelas = ["UCBT", "UCMT"]
@@ -1311,8 +1311,8 @@ def municipio_from_load(load, dist):
     return False
 
 
-def irrad_by_municipio(cod_municipio, mes,  dist):
-    config = load_config(dist)
+def irrad_by_municipio(cod_municipio, mes,  database):
+    config = load_config(database)
     engine = create_connection(config)
     query = f'''
                 SELECT avg([GT(I)_MEAN]) as irrad, avg([GT(I)_STD]) as irrad_std, hora
@@ -1330,8 +1330,8 @@ def irrad_by_municipio(cod_municipio, mes,  dist):
     return irrad['irrad'].tolist()
 
 
-def temp_amb_by_municipio(cod_municipio, mes,  dist):
-    config = load_config(dist)
+def temp_amb_by_municipio(cod_municipio, mes,  database):
+    config = load_config(database)
     engine = create_connection(config)
     query = f'''
             SELECT avg(T2M_MEAN) as temperatura, avg(T2M_STD) as temp_std, hora
@@ -1399,14 +1399,15 @@ def fator_autoconsumo(classe):
     return fator_auto
 
 
-def list_substation(dist):
+def list_substation(database):
     """
     Busca a lista de códigos de subestações próprias de uma distribuidora.
     :param dist:
     :return:
     """
-    config = load_config(dist)
+    config = load_config(database)
     engine = create_connection(config)
+    dist = config['dist']
     query = f'''
                 SELECT COD_ID 
                 FROM SDE.SUB 

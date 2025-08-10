@@ -444,6 +444,7 @@ function transformer_loading(dist, ano, mes) {
     document.body.style.cursor = 'wait';  // Cursor de espera
     fetch(`/data?distribuidora=${dist}&ano=${ano}&mes=${mes}`)  // Atenção ao tipo de aspas - backticks
         .then(response => {
+            //console.log(response);
             if (!response.ok){
                 alert("No Data Found!")
                 throw new Error ("No Data Found!")
@@ -460,8 +461,11 @@ function transformer_loading(dist, ano, mes) {
             for (const [key] of Object.entries(data[0])) {
                 groupLabel1.push(key)
             }
-            console.log(groupLabel1)
-            console.log(groupLabel2)
+            //console.log(groupLabel1)
+            //console.log(groupLabel2)
+            // verifica se existe e cria os elementos necessaris para colocar os graficos
+            createCanvas(4);
+            removedivChart(6);
             const ctx1 = document.getElementById('myChart1').getContext('2d', { willReadFrequently: true });
             const ctx2 = document.getElementById('myChart2').getContext('2d', { willReadFrequently: true });
             const ctx3 = document.getElementById('myChart3').getContext('2d', { willReadFrequently: true });
@@ -763,6 +767,9 @@ function losses(dist, subestacao, circuito, scenario, tipo_dia, ano, mes) {
             }
             //console.log(groupLabel1)
             //console.log(groupLabel2)
+            // verifica se existe e cria os elementos necessaris para colocar os graficos
+            createCanvas(4);
+            removedivChart(6);
             const ctx1 = document.getElementById('myChart1').getContext('2d', { willReadFrequently: true });
             const ctx2 = document.getElementById('myChart2').getContext('2d', { willReadFrequently: true });
 

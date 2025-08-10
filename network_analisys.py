@@ -77,8 +77,8 @@ def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
 
 
 if __name__ == "__main__":
-
-    config = load_config('391')
+    database = '391'
+    config = load_config(database)
     # Conectando ao banco de dados sqlserver using sqlalchemy
     try:
         engine = create_connection(config)

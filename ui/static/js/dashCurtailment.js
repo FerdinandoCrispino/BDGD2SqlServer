@@ -70,10 +70,13 @@ document.addEventListener("DOMContentLoaded", () => {
         const xaxis_title = ['Power Plant', 'Power Plant', 'State', 'Month', 'Day of Week', 'Hour of the Day', '', '', ''];
         const yaxis_title = ['Energy (MWh)', 'Curtailment Ratio %', 'Energy (MWh)', 'Energy (MWh)', 'Energy (MWh)', 'Energy (MWh)', '', '', ''];
 
+        if (charts === undefined ) {
+
+            document.body.style.cursor = 'default';  // Cursor normal
+            return;
+        }
+        console.log(charts);
         charts.forEach((chart, i) => {
-            if (chart.x === undefined || chart.x.length == 0 ) {
-                return;
-            }
             var layout = {
                 barmode: 'stack',
                 title: { text: title_chart[i] +'<br><span style="font-size: 12px;">' + ano + subtitle + '</span>',

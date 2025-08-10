@@ -3,7 +3,6 @@ import sys
 
 import geopandas as gpd
 import pandas as pd
-
 import numpy as np
 
 from colour import Color
@@ -14,22 +13,19 @@ from shapely.geometry import LineString, Point
 import geo_tools
 import io
 import threading
-
-import random
+from pathlib import Path
 from datetime import datetime
-
-# execução da geração dos arquivos DSS pelo navegador.
-import core.electric_data as run_dss_files_generators
 
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
 sys.path.append(parent)
 
+# execução da geração dos arquivos DSS pelo navegador.
+import core.electric_data as run_dss_files_generators
 import Tools.summary as resumo
 from Tools.tools import return_query_as_dataframe, create_connection, load_config, load_config_list_dist
 
 pd.options.mode.copy_on_write = True
-
 task_running = False  # Variável para evitar múltiplas execuções simultâneas -- control_bus
 
 sys.path.append('../')
@@ -547,12 +543,19 @@ def daily_power_circuit():
     list_data = []
     list_data_dict = dict()
     tipo_dia = ''
-    path_result = os.path.abspath('static/scenarios')
-    path_conf = os.path.join(path_result, scenario, conf['dist'], subestacao)
+
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    # Caminho fixo para static/scenarios
+    path_conf_teste = project_root / 'ui' / 'static' / 'scenarios' / scenario / conf['dist'] / subestacao
+
+    path_conf = os.path.join(os.path.dirname(__file__), 'static/scenarios', scenario, conf['dist'], subestacao).replace('\\', '/')
 
     if not distribuidora:
-        print(f'Selecione uma distribuidora')
-        return jsonify("error Selecione uma distribuidora"), 404
+        print(f'Select a utility!')
+        return jsonify("Error: Select a utility"), 404
 
     if circuito:
         path_conf = os.path.join(path_conf, circuito)
@@ -664,6 +667,7 @@ def render_data():
         # Verifique se o caminho está correto
         if not os.path.exists(path_all_result):
             print(f"Erro: O arquivo '{path_all_result}' não existe. Verifique o caminho e tente novamente.")
+            return jsonify("error Dados inexistentes"), 404
         else:
             try:
                 xls = pd.ExcelFile(path_all_result)
@@ -693,6 +697,7 @@ def render_data():
                 list_data.append(data_time_min)
             except Exception as e:
                 print(f"Erro ao carregar o arquivo Excel: {e}")
+                return jsonify({"error": str(e)}), 404
 
     return jsonify(list_data)
 
@@ -1975,9 +1980,15 @@ def control_bus():
 
 @server.route('/list_scenarios')
 def list_scenarios():
-    root = 'static/scenarios'
-    current = os.path.dirname(os.path.realpath(__file__))
-    scenarios_path = os.path.join(current, root).replace('\\', '/')
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto (2 níveis acima do arquivo atual, ajuste se necessário)
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    # Caminho fixo para static/scenarios
+    scenarios_path = project_root / 'ui' / 'static' / 'scenarios'
+    # root = 'static/scenarios'
+    # current = os.path.dirname(os.path.realpath(__file__))
+    # scenarios_path = os.path.join(current, root).replace('\\', '/')
     print(scenarios_path)
     dir_list = os.listdir(scenarios_path)
     print(dir_list)
