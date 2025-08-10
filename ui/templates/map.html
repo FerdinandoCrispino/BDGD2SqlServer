@@ -147,6 +147,10 @@
 <script src="{{url_for('static', filename='js/dash_curtailment.js') }}"></script>
 
 <script>
+    <!--Filter scenarios combobox -->
+    const allItemsScenarios = ['BASE', 'HOSTING CAPACITY'];
+    populateScenarios(allItemsScenarios);
+
     const mapaDiv = document.getElementById('map');
     var slider = document.getElementById("myRange");
     var hour = document.getElementById("hour");
@@ -391,7 +395,7 @@
                     const gmt5 = selected.get("demanda");
                     //console.log ('----++++++---------' + selected.length )
                     popup1.setInfo('CTMT:' + gmt1 + '<br> CEG: ' + gmt2 + '<br> Power: ' + gmt3 +
-                                   ' kW <br> Voltage: ' + gmt4 + ' V <br> Demand: ' + gmt5 + ' kW');
+                                   ' kW <br> Voltage: ' + gmt4 + ' V <br> Max Demand: ' + gmt5 + ' kW');
                     break;
                 case 'UGBT':
                     const gbt1 = selected.get("ctmt");
@@ -419,7 +423,7 @@
                     const cr2 = selected.get("banc");
                     const cr3 = selected.get("pot");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo('CTMT:' + cr1 + '<br> Power: ' + cr3 + ' kW <br> Bank: ' + cr2  );
+                    popup1.setInfo('CTMT:' + cr1 + '<br> Power: ' + cr3 + ' kVAr <br> Bank: ' + cr2  );
                     break;
                 case 'UNREMT':
                     const re1 = selected.get("ctmt");
@@ -439,7 +443,7 @@
                     const ucm5 = selected.get("fas_con");
                     const ucm6 = selected.get("ceg");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo('CTMT:' + ucm1 + '<br> Power: ' + ucm2 + ' kW<br> Type: ' + ucm3 + '<br> Livre: ' +
+                    popup1.setInfo('CTMT:' + ucm1 + '<br> Power: ' + ucm2 + ' kW<br> Type: ' + ucm3 + '<br> Free Consumers: ' +
                                    ucm4 + '<br> Phases: ' + ucm5 + '<br> CEG: ' + ucm6);
                     break;
                 case 'SIN-Lines':
@@ -1575,6 +1579,7 @@
         fetch(`/api/UGMT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
             .then(response => {
                 if (response.status === 404) {
+                    document.body.style.cursor = 'default';  // Cursor normal
                     console.error("Erro 404: Recurso não encontrado.");
                     return;
                 }

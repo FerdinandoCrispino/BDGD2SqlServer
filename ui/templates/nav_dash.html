@@ -214,7 +214,24 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js" ></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js" ></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/1.1.1/chartjs-plugin-zoom.min.js"></script>
+
+<!-- Load plotly.js into the DOM -->
+<script src='https://cdn.plot.ly/plotly-3.0.1.min.js'></script>
+<!--<script src='https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.17/d3.min.js'></script>-->
+
+<!--<script src="{{url_for('static', filename='js/dash_plotly.js') }}"></script> -->
+<script src="{{url_for('static', filename='js/sidebar_base.js') }}"></script>
 <script>
+
+    // Garante rodar só depois do DOM estar pronto - preenche List Combobox scenarios
+    // document.addEventListener('DOMContentLoaded', () => {
+    const allItemsScenarios = ['ALL'];
+    populateScenarios(allItemsScenarios);
+
+
     function filter_list(scenario) {
         let input, filter, ul, li, a, i, txtValue;
         input = scenario
@@ -222,13 +239,13 @@
         filter = input.toUpperCase();
         console.log(filter)
         ul = document.getElementById("list_study");
-        console.log(ul)
+        //console.log(ul)
         li = ul.getElementsByTagName("li");
         for (i = 0; i < li.length; i++) {
             a = li[i].getElementsByTagName("a")[0];
             //txtValue = a.textContent || a.innerText;
             txtValue = a.getAttribute("data-parent");
-             console.log(txtValue)
+            //console.log(txtValue)
             if (txtValue.toUpperCase().indexOf(filter) > -1) {
                 li[i].style.display = "";
             } else {
@@ -335,27 +352,26 @@
         }
     });
 
-    window.addEventListener('load', function() {
-        document.getElementById('study_p').innerHTML = document.getElementById('scenarios').value;
-        //console.log(document.getElementById('scenarios').value)
+    window.addEventListener('scenariosLoaded', function(e) {
+        console.log('Combo carregado. Valor inicial:', e.detail.value);
+        // Aqui você pode chamar o que precisa depois que o combo estiver pronto
+        filter_list(e.detail.value);
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const comboboxScenarios = document.getElementById('scenarios');
+        document.getElementById('study_p').innerHTML =comboboxScenarios.options[1];
+        console.log('aqui');
+        console.log(comboboxScenarios.selectedIndex);
+        console.log(comboboxScenarios);
         filter_list(document.getElementById('scenarios').value);
     });
 
     document.getElementById('scenarios').addEventListener('change', function() {
         document.getElementById('study_p').innerHTML = document.getElementById('scenarios').value;
-        console.log(document.getElementById('scenarios').value)
+        console.log(document.getElementById('scenarios'))
         filter_list(document.getElementById('scenarios').value);
     });
 
 </script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js" ></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js" ></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/1.1.1/chartjs-plugin-zoom.min.js"></script>
 
-<script src="{{url_for('static', filename='js/sidebar_base.js') }}"></script>
-
-<!-- Load plotly.js into the DOM -->
-<script src='https://cdn.plot.ly/plotly-3.0.1.min.js'></script>
-<!--<script src='https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.17/d3.min.js'></script>-->
-
-<!--<script src="{{url_for('static', filename='js/dash_plotly.js') }}"></script> -->

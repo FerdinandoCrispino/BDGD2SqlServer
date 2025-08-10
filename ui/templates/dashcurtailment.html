@@ -7,21 +7,21 @@
 <body>
 
     <div>
-        Estado:
+        State:
         <select id="estado">
             {% for estado in estados %}
             <option value="{{ estado }}">{{ estado }}</option>
             {% endfor %}
         </select>
-        Ano:
+        Year:
         <select id="ano">
             {% for a in anos %}
             <option value="{{ a }}">{{ a }}</option>
             {% endfor %}
         </select>
-        Mês:
+        Month:
         <select id="mes"></select>
-        Dia:
+        Day:
         <select id="dia"></select>
     </div>
 
