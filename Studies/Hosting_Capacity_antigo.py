@@ -13,8 +13,6 @@ import string
 import yaml
 import json
 import multiprocessing
-import itertools
-import sys
 
 # TODO - EXPLICAR O FUNCIONAMENTO HORÁRIO DO ESTUDO
 """ 
@@ -328,11 +326,6 @@ class HCSteps:
         """
         return [f"{d}:\\" for d in string.ascii_uppercase if pathlib.Path(f"{d}:\\").exists()]
 
-        # """
-        #     Retorna apenas a unidade C:\.
-        # """
-        # return ["C:\\"]
-
     @staticmethod
     def find_file(filename: str, search_path: str) -> pathlib.Path | None:
         """
@@ -344,33 +337,10 @@ class HCSteps:
                 return pathlib.Path(root) / filename
         return None
 
-    @staticmethod
-    def discover_feeders_for_substation(project_root: pathlib.Path, utility: str, substation: str) -> list:
-        """
-        Espera que os feeders sejam subpastas dentro de:
-        <project_root>/dss/<utility>/<substation>/
-        Cada subpasta encontrada é considerada um feeder (ex: RAPA1301).
-        """
-        base = project_root / f"dss/{utility}/{substation}"
-        feeders = []
-        if base.exists():
-            for entry in base.iterdir():
-                if entry.is_dir():
-                    feeders.append(entry.name)
-        return feeders
-
 def run_multiprocess(args):
-    # TODO - USAR PARA O CONFIG_HC EM SUBESTAÇÕES
-    feeder, substation, month, type_day, config = args
-    filename = f"{type_day}_{month}_Master_{config['utility']}_{substation}_{feeder}.dss"
-    print(f"🚀 Processando o Alimentador: {filename} | {multiprocessing.current_process().name}")
-
-
-    # TODO - USAR PARA O CONFIG_HC PARA ALIMENTADORES
-    # feeder, config = args
-    # print(f"🚀 Iniciando processamento do alimentador: {feeder}; Processador: {multiprocessing.current_process().name}.\n")
-    # filename = f"{config['type_day']}_{config['month']}_Master_{config['utility']}_{config['substation']}_{feeder}.dss"
-
+    feeder, config = args
+    print(f"🚀 Iniciando processamento do alimentador: {feeder}; Processador: {multiprocessing.current_process().name}.\n")
+    filename = f"{config['type_day']}_{config['month']}_Master_{config['utility']}_{config['substation']}_{feeder}.dss"
     dss = py_dss_interface.DSS()
 
     all_errors = list()
@@ -389,10 +359,10 @@ def run_multiprocess(args):
         # Directory to save the .csv file
         project_root = HCSteps._find_project_root()
         relative_path = pathlib.Path(
-            f"ui/static/scenarios/Hosting Capacity/{config['utility']}/{substation}/{feeder}/{type_day}/{config['year']}/{month}")
+            f"ui/static/scenarios/Hosting Capacity/{config['utility']}/{config['substation']}/{feeder}/{config['type_day']}/{config['year']}/{config['month']}")
         base_path = project_root / relative_path
         base_path.mkdir(parents=True, exist_ok=True)
-        csv_path = base_path / f"HC_{feeder}_{month}_{type_day}.csv"
+        csv_path = base_path / f"HC_{feeder}_{config['month']}_{config['type_day']}.csv"
 
         # Execute Hosting Capacity
         data_hc, error_log = HCSteps(dss, dss_file, config["max_kw"], config["step_kw"], config["ov_threshold"], config["loadmult"]).hosting_capacity()
@@ -400,7 +370,7 @@ def run_multiprocess(args):
         if error_log:
             all_errors.extend(error_log)
             df_errors = pd.DataFrame(all_errors)
-            errors_path = base_path / f"errors_convergence_{feeder}_{month}_{type_day}.csv"
+            errors_path = base_path / f"errors_convergence_{feeder}_{config['month']}_{config['type_day']}.csv"
             df_errors.to_csv(errors_path, index=False)
             #print(f"⛔ ERRO: De convergência no alimentador {feeder}. E salvos em: {errors_path}.")
 
@@ -417,7 +387,7 @@ def run_multiprocess(args):
         with open(json_path, "w", encoding="utf-8") as f:
             json.dump([hc_dict], f, indent=4)
 
-        print(f"✅ Alimentador {filename} processado com sucesso.")
+        print(f"✅ Alimentador {feeder} processado com sucesso.")
 
     except FileNotFoundError:
         print(f"❌ Alimentador '{feeder}'; Arquivo '{filename}' não encontrado.")
@@ -430,56 +400,20 @@ if __name__ == '__main__':
     config_path = os.path.join(base_dir, "config_hc.yml")
 
     with open(config_path, "r") as file:
-        config = yaml.safe_load(file)["data_HC"]
+        config = yaml.safe_load(file)["databases"]
 
-    # TODO - USAR PARA O CONFIG_HC EM SUBESTAÇÕES
-    substations = config["substation"] if isinstance(config["substation"], list) else [config["substation"]]
-    months = config["month"] if isinstance(config["month"], list) else [config["month"]]
-    type_days = config["type_day"] if isinstance(config["type_day"], list) else [config["type_day"]]
-
-    project_root = HCSteps._find_project_root()
-
-    all_tasks = []
-    for sub in substations:
-        # Discover feeders in the expected folder structure
-        feeders = HCSteps.discover_feeders_for_substation(project_root, config['utility'], sub)
-
-        # Optional fallback: if no feeders discovered, try config key "feeder"
-        if not feeders and "feeder" in config:
-            feeders = config["feeder"] if isinstance(config["feeder"], list) else [config["feeder"]]
-
-        if not feeders:
-            print(f"⚠️  Nenhum feeder encontrado para subestação '{sub}'.")
-            continue
-
-        for feeder in feeders:
-            for month in months:
-                for td in type_days:
-                    all_tasks.append((feeder, sub, month, td, config))
-
-    if not all_tasks:
-        print("Nenhuma tarefa criada. Verifique o config_hc.yml e a existência de pastas de feeders.")
-        sys.exit(1)
-
-    # TODO - USAR PARA O CONFIG_HC PARA ALIMENTADORES
-    # feeders = config["feeder"] if isinstance(config["feeder"], list) else [config["feeder"]]
+    feeders = config["feeder"] if isinstance(config["feeder"], list) else [config["feeder"]]
 
     # To use multiprocess write TRUE
     multiprocess = True
 
     if multiprocess:
         cpu_cores = multiprocessing.cpu_count() - 1
-        print(f"⚡ Utilizando {cpu_cores} processadores.")
+        print(f"Utilizando {cpu_cores} processadores.")
 
-        # TODO - USAR PARA O CONFIG_HC EM SUBESTAÇÕES
         with multiprocessing.Pool(processes=cpu_cores) as pool:
-            pool.map(run_multiprocess, all_tasks)
+            pool.map(run_multiprocess, [(feeder, config) for feeder in feeders])
 
-        # TODO - USAR APENAS PARA O CONFIG_HC PARA ALIMENTADORES
-        # with multiprocessing.Pool(processes=cpu_cores) as pool:
-        #     pool.map(run_multiprocess, [(feeder, config) for feeder in feeders])
-
-    # TODO - USAR APENAS PARA O CONFIG_HC PARA ALIMENTADORES E MULTIPROCESS FALSE
     else:
         for feeder in feeders:
             print(f"🚀 Iniciando processamento do alimentador: {feeder}; Processador: {multiprocessing.current_process().name}.\n")

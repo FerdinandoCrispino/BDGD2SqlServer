@@ -1,32 +1,80 @@
-# Arquivo de configurações para o script Hosting_Capacity.py
-# TODO - FEEDERS
-#data_HC:
-#    utility: '391'
-#    substation: 'APA'
-#    feeder:
-#        - 'RAPA1301'
-#        - 'RAPA1302'
-#        - 'RAPA1303'
-#        - 'RAPA1304'
-#        - 'RAPA1391'
-#    year: '2022'
-#    month: '1'
-#    type_day: 'DU'
-#    max_kw: 5000
-#    step_kw: 100
-#    ov_threshold: 1.05
-#    loadmult: 0.2
-
-# TODO - SUBSTATIONS
+# Arquivo de configurações para o script Hosting_Capacity_antigo.py
 data_HC:
-    utility: '391'
-    substation:
-        - 'ASPTEST'
-        - 'AVPTEST'
-    year: '2022'
-    month: [1, 7]
-    type_day: ['DU', 'DO']
-    max_kw: 5000
-    step_kw: 100
-    ov_threshold: 1.05
-    loadmult: 0.2
+  utility_path: "C:/BDGD2SqlServer/dss/391"
+  utility: '391'
+  substation:
+    - 'APA'
+    - 'ARA'
+    - 'ASP'
+    - 'AVP'
+    - 'BCU'
+    - 'BIR'
+    - 'BOI'
+    - 'BON'
+    - 'BRR'
+    - 'CAC'
+    - 'CAR'
+    - 'CJO'
+    - 'CMB'
+    - 'COL'
+    - 'CPA'
+    - 'CRU'
+    - 'CSO'
+    - 'DBE'
+    - 'DUT'
+    - 'FER'
+    - 'GOP'
+    - 'GUE'
+    - 'GUL'
+    - 'GUR'
+    - 'INP'
+    - 'IPO'
+    - 'ITQ'
+    - 'JAC'
+    - 'JAM'
+    - 'JAR'
+    - 'JCE'
+    - 'JNO'
+    - 'JUQ'
+    - 'KMA'
+    - 'LOR'
+    - 'MAP'
+    - 'MAS'
+    - 'MCI'
+    - 'MRE'
+    - 'MTQ'
+    - 'OLR'
+    - 'PED'
+    - 'PID'
+    - 'PIL'
+    - 'PME'
+    - 'PNO'
+    - 'POA'
+    - 'PRT'
+    - 'PTE'
+    - 'ROS'
+    - 'SAT'
+    - 'SBR'
+    - 'SJC'
+    - 'SKO'
+    - 'SLU'
+    - 'SLZ'
+    - 'SSC'
+    - 'SUZ'
+    - 'TAU'
+    - 'UBA'
+    - 'UNA'
+    - 'URB'
+    - 'USS'
+    - 'VGA'
+    - 'VHE'
+    - 'VJS'
+    - 'VSL'
+  feeder:
+  year: '2022'
+  month: [1, 7]
+  type_day: ['DU', 'DO']
+  max_kw: 5000
+  step_kw: 100
+  ov_threshold: 1.05
+  loadmult: 0.2
