@@ -1,3 +1,16 @@
+const originalFetch = window.fetch;
+window.fetch = async function (...args) {
+    console.log("FETCH interceptado:", args[0]); // mostra URL solicitada
+
+    // Executa o fetch original
+    const response = await originalFetch(...args);
+
+    console.log("URL final após redirecionamentos:", response.url);
+    console.log("Status:", response.status);
+
+    return response;
+};
+
 function create_area_chart (ceg, dia, mes, ano, source, txt_title, typeChart) {
     const existing = document.getElementById('chart-container');
     if (existing) {

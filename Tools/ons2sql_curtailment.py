@@ -7,6 +7,7 @@
 """
 import os
 import pandas as pd
+import numpy as np
 from Tools.tools import create_connection, load_config
 
 
@@ -36,13 +37,15 @@ class InportDataONS:
                     # Verifica se o diretório principal existe
                     if not os.path.exists(path_files):
                         raise FileNotFoundError(f"A pasta '{path_files}' não existe.")
-
-                    for chunk in pd.read_csv(os.path.join(path_files, file_name), chunksize=5000, sep=self.sep):
+                    print(f'Insert {table_name_sql}')
+                    for chunk in pd.read_csv(os.path.join(path_files, file_name), chunksize=50000, sep=self.sep, low_memory=False):
                         #for col in chunk.select_dtypes(include='object').columns:
                         #    chunk[col] = chunk[col].astype(str)
-
+                        chunk.drop_duplicates(inplace=True)
+                        chunk.replace(np.NAN, 0, inplace=True)
                         chunk.to_sql(table_name_sql, engine, schema=schema, if_exists='append', index=False,
                                      chunksize=1000, method=None)
+                        print('Insert 50000 lines...')
                 except Exception as e:
                     print(f"Erro ao processar o arquivo '{path_files}': {e}")
 
@@ -51,11 +54,12 @@ class InportDataONS:
 
 
 if __name__ == '__main__':
-    #table_name_sql = 'CURTAILMENT'
-    #file_name = 'Curtailment_Total_Processed.csv'
-    table_name_sql = 'USINA_CONJUNTO'
-    file_name = 'RELACIONAMENTO_USINA_CONJUNTO.csv'
-
-    impdata = InportDataONS(table_name_sql, file_name, ';')
+    table_name_sql = 'wind_CURTAILMENT'
+    file_name = 'Curtailment_Total_Processed.csv'
+    #table_name_sql = 'USINA_CONJUNTO'
+    #file_name = 'RELACIONAMENTO_USINA_CONJUNTO.csv'
+    #table_name_sql = 'solar_CURTAILMENT'
+    #file_name = 'Curtailment_Solar_Total.csv'
+    impdata = InportDataONS(table_name_sql, file_name, ',')
     impdata.run_import_data()
 

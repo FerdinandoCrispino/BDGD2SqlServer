@@ -3,10 +3,72 @@
 <head>
     <title>Dashboard</title>
     <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
-</head>
-<body>
+    <link rel="icon" type="image/png" href="../static/icon/favicon.png" sizes="192x192">
 
-    <div>
+    <style>
+    .button {
+      border-radius: 1px;
+      background-color: #f4511e;
+      border: none;
+      color: #FFFFFF;
+      text-align: center;
+      font-size: 16px;
+      padding: 5px;
+      width: 80px;
+      transition: all 0.5s;
+      cursor: pointer;
+      margin: 1px;
+    }
+    .button span {
+      cursor: pointer;
+      display: inline-block;
+      position: relative;
+      transition: 0.5s;
+    }
+    .button span:after {
+      content: '\00bb';
+      position: absolute;
+      opacity: 0;
+      top: 0;
+      right: -20px;
+      transition: 0.5s;
+    }
+    .button:hover span {
+      padding-right: 15px;
+    }
+    .button:hover span:after {
+      opacity: 1;
+      right: 0;
+    }
+
+    select {
+      min-width: 60px; /* Sets a minimum width */
+      //border: 2px solid #dddddd;
+      background: #eeeeee;
+      padding: 4px;
+      transition: 0.4s;
+    }
+    select,
+    ::picker(select) {
+      appearance: base-select;
+    }
+    select:hover,
+    select:focus {
+      background: #dddddd;
+    }
+    </style>
+
+</head>
+
+<body>
+    <div style="background-color: lightblue;">
+        <button class="button" onclick="location.href='/map'" type="button"><span>Home </span></button>
+        Energy Source:
+        <select id="source">
+            {% for source in sources %}
+            <option value="{{ source }}">{{ source }}</option>
+            {% endfor %}
+        </select>
         State:
         <select id="estado">
             {% for estado in estados %}
@@ -21,8 +83,7 @@
         </select>
         Month:
         <select id="mes"></select>
-        Day:
-        <select id="dia"></select>
+
     </div>
 
     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px;">

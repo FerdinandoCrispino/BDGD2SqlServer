@@ -85,7 +85,7 @@ def read_data_usinas():
 
 
 # request data for curtailment and capacity factor to UFV and EOL
-@server.route('/curt_data/')
+@server.route('/curt_data')
 def read_data_curt():
     ceg = request.args.get('ceg')
     src = request.args.get('source')
@@ -163,7 +163,7 @@ def read_data_curt():
 
 
 # request data for curtailment e capacity factor to UFV and EOL
-@server.route('/curt_data_detail/')
+@server.route('/curt_data_detail')
 def read_data_curt_datail():
     ceg = request.args.get('ceg')
     src = request.args.get('source')
@@ -234,7 +234,7 @@ def read_data_curt_datail():
         return jsonify({"error": str(e)}), 500
 
 
-@server.route('/z_data/')
+@server.route('/z_data')
 def read_surface_data():
     distribuidora = request.args.get('distribuidora')
     subestacao = request.args.get('subestacao')
@@ -248,8 +248,9 @@ def read_surface_data():
     if not circuito:
         circuito = f'SUB_{subestacao}'
 
-    path_result = os.path.abspath('static/scenarios')
-    path_conf = os.path.join(path_result, scenario, str(distribuidora), subestacao, circuito, tipo_dia, ano, mes)
+    path_conf = os.path.abspath(
+        f'static/scenarios/{scenario}/{str(distribuidora)}/{subestacao}/{circuito}/{tipo_dia}/{ano}/{mes}')
+
     if not distribuidora:
         print(f'Selecione uma distribuidora')
         return jsonify("error Selecione uma distribuidora"), 404
@@ -303,10 +304,11 @@ def read_surface_data():
         return jsonify({"error": str(e)}), 500
 
 
-# Simula dados
+# dados para os filtros do curtailment
+SOURCES = ['WIND', 'SOLAR']
 ESTADOS = ['All', 'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MS', 'MT', 'MG', 'PA', 'PB', 'PR',
            'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
-ANOS = [2025, 2024, 2023, 2022]
+ANOS = [2025, 2024]
 MESES = list(range(1, 13))
 MESES.insert(0, 'All')
 DIAS = list(range(1, 29))
@@ -315,21 +317,21 @@ DIAS.insert(0, 'All')
 
 @server.route('/dashcurtailment')
 def render_dashcurtailment():
-    return render_template('dashcurtailment.html', estados=ESTADOS, anos=ANOS)
+    return render_template('dashcurtailment.html', estados=ESTADOS, anos=ANOS, sources=SOURCES)
 
 
 @server.route("/get_date_options", methods=["POST"])
 def get_date_options():
     ano = int(request.json.get("ano", datetime.now().year))
-    return jsonify({"meses": MESES, "dias": DIAS})
+    return jsonify({"meses": MESES, "dias": DIAS, "sources": SOURCES})
 
 
 @server.route("/get_data", methods=["POST"])
 def get_data():
+    source = request.json.get("source", "wind")
     estado = request.json.get("estado")
     ano = request.json.get("ano")
     mes = request.json.get("mes")
-    dia = request.json.get("dia")
 
     query_estado = ''
     if estado != 'All':
@@ -345,7 +347,7 @@ def get_data():
         query = f'''
                 SELECT din_instante, id_estado,  nom_usina, cod_razaorestricao,  val_geracaoreferencia , 
                 val_geracaolimitada
-                    FROM [DBONS].[dbo].[CURTAILMENT]      
+                    FROM [DBONS].[dbo].[{source}_CURTAILMENT]      
                     WHERE YEAR(din_instante) = {ano} {query_estado} {query_mes}
                     and cod_razaorestricao not in ('nan', '')
                 '''
@@ -522,7 +524,7 @@ def get_data():
         return jsonify({"error": str(e)}), 500
 
 
-@server.route('/dashboard/')
+@server.route('/dashboard')
 def render_dashboard():
     dist = request.args.get('codigoDistribuidora')
     print(dist)
@@ -551,7 +553,8 @@ def daily_power_circuit():
     # Caminho fixo para static/scenarios
     path_conf_teste = project_root / 'ui' / 'static' / 'scenarios' / scenario / conf['dist'] / subestacao
 
-    path_conf = os.path.join(os.path.dirname(__file__), 'static/scenarios', scenario, conf['dist'], subestacao).replace('\\', '/')
+    path_conf = os.path.join(os.path.dirname(__file__), 'static/scenarios', scenario, conf['dist'], subestacao).replace(
+        '\\', '/')
 
     if not distribuidora:
         print(f'Select a utility!')
@@ -650,14 +653,20 @@ def render_data_losses():
         return jsonify({"error": str(e)}), 500
 
 
-@server.route('/data/', methods=['GET'])
+@server.route('/data', methods=['GET'])
 def render_data():
     # print(f'route data: {distribuidora}')
     ano = request.args.get('ano')
     mes = request.args.get('mes')
     list_data = []
-    path_result = 'static/scenarios/base'
+    # path_result = 'static/scenarios/base'
     tipo_dias = ['DO', 'DU']
+
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto (2 níveis acima do arquivo atual, ajuste se necessário)
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    path_result = project_root / 'ui' / 'static' / 'scenarios' / 'base'
 
     for tipo_dia in tipo_dias:
         file_result = f'{ano}_{tipo_dia}_{mes}_sub_analysis.xlsx'

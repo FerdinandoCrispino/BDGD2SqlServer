@@ -1,8 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
+    const sourceEl = document.getElementById("source");
     const estadoEl = document.getElementById("estado");
     const anoEl = document.getElementById("ano");
     const mesEl = document.getElementById("mes");
-    const diaEl = document.getElementById("dia");
 
     async function postJSON(url, data) {
         const response = await fetch(url, {
@@ -32,26 +32,19 @@ document.addEventListener("DOMContentLoaded", () => {
         const ano = parseInt(anoEl.value) || new Date().getFullYear();
         const data = await postJSON("/get_date_options", { ano: ano });
         populateSelect(mesEl, data.meses);
-        await updateDayOptions(); // encadeia dias depois de meses
-    }
-
-    async function updateDayOptions() {
-        const ano = parseInt(anoEl.value) || new Date().getFullYear();
-        const mes = parseInt(mesEl.value) || 1;
-        const data = await postJSON("/get_date_options", { ano: ano, mes: mes });
-        populateSelect(diaEl, data.dias);
         await loadCharts(); // encadeia carregamento de gráficos
     }
 
+
     async function loadCharts() {
         document.body.style.cursor = 'wait';  // Cursor de espera
+        const source = sourceEl.value;
         const estado = estadoEl.value;
         const ano = parseInt(anoEl.value) || new Date().getFullYear();
         const mes = parseInt(mesEl.value) || 'All';
-        const dia = parseInt(diaEl.value) || 'All';
 
-        const payload = { estado, ano, mes, dia };
-
+        const payload = { source, estado, ano, mes };
+        console.log(source);
         const charts = await postJSON("/get_data", payload);
 
         let subtitle = '';
@@ -79,7 +72,7 @@ document.addEventListener("DOMContentLoaded", () => {
         charts.forEach((chart, i) => {
             var layout = {
                 barmode: 'stack',
-                title: { text: title_chart[i] +'<br><span style="font-size: 12px;">' + ano + subtitle + '</span>',
+                title: { text: source + ' ' + title_chart[i] +'<br><span style="font-size: 12px;">' + ano + subtitle + '</span>',
                          font: { size: 14, color: 'black' }
                 },
                 xaxis: {
@@ -148,10 +141,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Eventos
+    sourceEl.addEventListener("change", loadCharts);
     estadoEl.addEventListener("change", updateDateOptions);
     anoEl.addEventListener("change", updateDateOptions);
-    mesEl.addEventListener("change", updateDayOptions);
-    diaEl.addEventListener("change", loadCharts);
+    mesEl.addEventListener("change", loadCharts);
 
     // Inicialização com valores seguros
     updateDateOptions();

@@ -67,6 +67,18 @@
         border: none;
         border-radius: 5px;
     }
+
+    .isDisabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+    .isDisabled > a {
+      color: currentColor;
+      display: inline-block;  /* IE11/ MS Edge bug */
+      pointer-events: none;
+      text-decoration: none;
+    }
+
 </style>
 
 <!-- Navbar Bootstrap dashboard
@@ -143,23 +155,23 @@
            </a>
          </li>
          <li>
-           <a href="#" title="Voltage Analysys" data-parent="Base-sc_type1">
-             <span class="links_name">Voltage Analysys</span>
-           </a>
-         </li>
-         <li>
            <a href="#" onclick="load_power_circuit(); return false;" title="Power Circuit" data-parent="Base-sc_type1">
              <span class="links_name">Power Circuit</span>
            </a>
          </li>
          <li>
-           <a href="#" title="Reverse Power Flow" data-parent="Base-sc_type1">
-             <span class="links_name">Reverse Power Flow</span>
+           <a href="#" title="Voltage Analysys" aria-disabled="true" data-parent="Base-sc_type1">
+             <span class="isDisabled">Voltage Analysys</span>
            </a>
          </li>
          <li>
-           <a href="#" title="Voltage Unbalance" data-parent="Base-sc_type1">
-             <span class="links_name">Voltage Unbalance</span>
+           <a href="#" title="Reverse Power Flow" role="link" aria-disabled="true" data-parent="Base-sc_type1">
+             <span class="isDisabled">Reverse Power Flow</span>
+           </a>
+         </li>
+         <li>
+           <a href="#" title="Voltage Unbalance" aria-disabled="true" data-parent="Base-sc_type1">
+             <span class="isDisabled">Voltage Unbalance</span>
            </a>
          </li>
          <li>
@@ -356,6 +368,7 @@
         console.log('Combo carregado. Valor inicial:', e.detail.value);
         // Aqui você pode chamar o que precisa depois que o combo estiver pronto
         filter_list(e.detail.value);
+        document.getElementById('study_p').innerHTML = e.detail.value;
     });
 
     document.addEventListener('DOMContentLoaded', function() {

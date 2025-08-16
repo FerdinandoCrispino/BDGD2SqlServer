@@ -777,9 +777,12 @@ class DssFilesGenerator:
             energy_mes = cargas_bt.loc[index]['ENE_' + str(strmes)]
             dblTenSecu_kV = cargas_bt.loc[index]['TEN_LIN_SE']
             dblTen_carga = cargas_bt.loc[index]['TEN']  # tensão da carga
+            if dblTen_carga > 100:
+                dblTen_carga = dblTen_carga/1000
             codi_tipo_trafo = cargas_bt.loc[index]['TIP_TRAFO']
             dblDemMaxTrafo_kW = cargas_bt.loc[index]['POT_NOM'] * 0.92  # kVA
             ano_base = cargas_bt.loc[index]['ANO_BASE']
+
 
             ceg_gd = ''
             # Caso a carga possua geração alterar a curva típica para a curva com final _GD ?
@@ -813,7 +816,7 @@ class DssFilesGenerator:
 
             # casos onde a tensão do secundário vem zerada, então utilizar a tensão da carga
             if dblTenSecu_kV == 0:
-                if strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN':
+                if (strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN') and codi_tipo_trafo != 'MT':
                     dblTenSecu_kV = dblTen_carga * math.sqrt(3)
                 else:
                     dblTenSecu_kV = dblTen_carga
