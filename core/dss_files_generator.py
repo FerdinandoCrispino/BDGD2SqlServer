@@ -271,7 +271,7 @@ class DssFilesGenerator:
             PerdaCobreTrafo_per = ((dblPerdTtl_per - dblPerdVz_per) / (float(PotNom_kVA) * 1000)) * 100
 
             linhas_reguladores_dss.append('New "Transformer.REG_' + strNome + nome_banco(intCodBnc) + '"' +
-                                          " phases=" + str(numero_fases(strCodFasPrim)) +
+                                          " phases=" + str(numero_fases_transformador(strCodFasPrim)) +
                                           " windings=2 buses=[" + '"' + strBus1 + nos(strCodFasPrim) + '"' + ' "' +
                                           strBus2 + nos(strCodFasSecu) + '"' + "] conns=[" +
                                           ligacao_trafo(strCodFasPrim) + " " + ligacao_trafo(strCodFasSecu) +
@@ -819,6 +819,9 @@ class DssFilesGenerator:
                 if (strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN') and codi_tipo_trafo != 'MT':
                     dblTenSecu_kV = dblTen_carga * math.sqrt(3)
                 else:
+                    dblTenSecu_kV = dblTen_carga
+            else:
+                if (strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN') and codi_tipo_trafo == 'MT':
                     dblTenSecu_kV = dblTen_carga
 
             intTipTrafo = get_tipo_trafo(codi_tipo_trafo)

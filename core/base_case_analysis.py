@@ -21,13 +21,13 @@ logging.basicConfig(filename='base_case.log', level=logging.INFO,
 
 # False para rodar o master com todos os circuitos e os transformadores de alta ou
 # True para rodar um circuito de cada vez
-exec_by_circuit = False
+exec_by_circuit = True
 # set run multiprocess
 run_multiprocess = False
 
-database = "40_2022"
+database = "40"
 master_type_day = "DU"
-master_month = "1"
+master_month = "12"
 
 config = load_config(database)
 dist = config['dist']
@@ -256,9 +256,10 @@ class SimuladorOpendss:
         self.dss.dssinterface.clear_all()
         self.dss.text(f"compile [{self.dss_file}]")
 
-        plt_path = os.path.join("C:\\_BDGD2SQL\\BDGD2SqlServer\\ui\\static\\scenarios\\base\\",
-                                self.dist, self.sub, self.dss.circuit.name.upper(),
-                                self.tipo_dia, self.database, self.mes).replace('\\', '/')
+        dirname = os.path.dirname(__file__)
+        plt_path = os.path.abspath(
+            os.path.join(dirname, "../ui/static/scenarios/base", self.dist, self.sub, self.dss.circuit.name.upper(),
+                         self.tipo_dia, self.database, self.mes)).replace('\\', '/')
         os.makedirs(plt_path, exist_ok=True)
 
         if self.dss.solution.converged == 0:
@@ -278,7 +279,8 @@ class SimuladorOpendss:
             noload_losses = self.dss.meters.register_values[18]  # No Load Losses kWh
             line_losses = self.dss.meters.register_values[22]  # Line Losses
             trafo_losses = self.dss.meters.register_values[23]  # Transformer Losses
-            print(f'load_losses:{load_losses}  line_losses:{line_losses}  noload_losses:{noload_losses} trafo_losses:{trafo_losses}')
+            print(
+                f'load_losses:{load_losses}  line_losses:{line_losses}  noload_losses:{noload_losses} trafo_losses:{trafo_losses}')
             print(f'Total: {total_losses}')
             print(f'{line_losses + trafo_losses}')
 
@@ -482,7 +484,7 @@ class SimuladorOpendss:
         vuf_bus_violation_list = []
 
         for number in range(1, total_number + 1):
-            #self.dss.text(f"set number={number}")
+            # self.dss.text(f"set number={number}")
             self.dss.monitors.reset_all()
             self.dss.solution.solve()
             # self.dss.meters.sample()
@@ -538,11 +540,17 @@ class SimuladorOpendss:
                                 self.dss.bus.pu_voltages[i * 2] ** 2 + self.dss.bus.pu_voltages[(i * 2) + 1] ** 2), 5))
                         voltage_bus_dict[f"{bus_name.split('.')[0]}.{i + 1}"] = vln_pu[i]
 
-                    if num_nodes == 3 and vll[0] != 0:
+                    if num_nodes == 3 and vll[0] > 0:
                         beta = (vll[0] ** 4 + vll[1] ** 4 + vll[2] ** 4) / (
                                 vll[0] ** 2 + vll[1] ** 2 + vll[2] ** 2) ** 2
-                        vuf = round(math.sqrt((abs(1 - math.sqrt(3 - 6 * beta))) / (1 + math.sqrt(3 - 6 * beta))) * 100,
-                                    5)
+                        try:
+                            vuf = round(math.sqrt(abs((1 - math.sqrt(abs(3 - 6 * beta))) /
+                                                      (1 + math.sqrt(abs(3 - 6 * beta))))) *
+                                        100, 5)
+                        except Exception as e:
+                            print(f"Erro no calculo do Vuf! {e}")
+                            vuf = 0
+
                         vuf_bus_dict[f"{bus_name.split('.')[0]}"] = vuf
 
                 elif num_nodes == 1:
@@ -628,9 +636,10 @@ class SimuladorOpendss:
             vuf_bus_violation_dict = dict((k, v) for k, v in vuf_bus_dict.items() if float(v) > 3.0)
             vuf_bus_violation_list.append(vuf_bus_violation_dict)
 
-        result_path = os.path.join("C:\\_BDGD2SQL\\BDGD2SqlServer\\ui\\static\\scenarios\\base\\",
-                                   self.dist, self.sub, self.dss.circuit.name.upper(),
-                                   self.tipo_dia, self.database, self.mes).replace('\\', '/')
+        dirname = os.path.dirname(__file__)
+        result_path = os.path.abspath(os.path.join(dirname, "../ui/static/scenarios/base",
+                                                   self.dist, self.sub, self.dss.circuit.name.upper(),
+                                                   self.tipo_dia, self.database, self.mes)).replace('\\', '/')
         os.makedirs(result_path, exist_ok=True)
 
         df_vbus = pd.DataFrame.from_dict(voltage_bus_list)
@@ -692,7 +701,7 @@ if __name__ == '__main__':
                     'UNA', 'URB', 'USS', 'VGA', 'VHE', 'VJS', 'VSL']
         list_sub = ['USS']
         """
-        list_sub = ['TPU']
+        list_sub = ['AAF']
         for nome_sub in list_sub:
             sub = nome_sub
             master_file = f"{master_type_day}_{master_month}_Master_substation_{dist}_{sub}.dss"
@@ -725,7 +734,7 @@ if __name__ == '__main__':
             else:
                 simul.executa_fluxo_potencia()
                 simul.plot_data_monitors()
-    
+
     control_sub_loading = True
     if control_sub_loading:
         substations_losses(dist, 'DO', '2022', master_month)
@@ -735,4 +744,3 @@ if __name__ == '__main__':
         substations_transformer_loading(dist, 'DO', '2022', master_month)
 
     print(f'Substation: process completed in {time.time() - proc_time_ini}.', flush=True)
-

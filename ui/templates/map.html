@@ -1029,8 +1029,20 @@
             });
     }
 
+    //remove as camadas dos elementos de rede
+    function removeLayers(){
+        const layersCollection = map.getLayers().getArray();;
+        console.log(layersCollection);
+        while (layersCollection.length > 1) {
+            map.removeLayer(layersCollection[1]); // Remove the layer
+        }
+    }
+
     // Função para carregar segmentos de reta no mapa com base nos filtros
     function loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes, hora) {
+
+        removeLayers();
+        
         document.body.style.cursor = 'wait';  // Cursor de espera
 
         const url = `/api/segments?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}&scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}&hora=${hora}`
@@ -1163,7 +1175,7 @@
                   }
 
                 map.getLayers().forEach(function(layer, i) {
-                    console.log(layer.get('name'))
+                    //console.log(layer.get('name'))
                     if (layer.get('name') === subestacao) {
                         map.removeLayer(layer);  // Remove camada existente
                     }
@@ -1764,7 +1776,7 @@
 
         if (document.getElementById('trafos').checked  === false) {
             map.getLayers().forEach(function(layer, i) {
-                if (i > 0 && layer.get('name') === 'trasformadores') {
+                if (i > 0 && layer.get('name') === 'transformadores') {
                     map.removeLayer(layer);  // Remove camada
                 }
             });
@@ -1815,7 +1827,7 @@
                 }
 
                 var vectorLayer = new ol.layer.Vector({
-                    name: 'trasformadores',
+                    name: 'transformadores',
                     source: vectorSource,
                     style: estiloTrafos
                 });
