@@ -22,7 +22,8 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
             var txtTitleplot = 'Reverse Power Flow';
             var xmax = 0;               // linha horizontal
             var y_set = 0;              // linha horizontal
-            txtsubtitle = ['FP: 0.8 ind.', 'FP: 0.8 cap.', 'FP: 0.9 ind.', 'FP: 0.9 cap.', 'FP: 1.0', '']
+            //txtsubtitle = ['FP: 0.8 ind.', 'FP: 0.8 cap.', 'FP: 0.9 ind.', 'FP: 0.9 cap.', 'FP: 1.0', '']
+            txtsubtitle = ['FP: 0.9 ind.', 'FP: 0.9 cap.', 'FP: 0.95 ind.', 'FP: 0.95 cap.', 'FP: 1.0', '']
             colorLine = ['red', 'blue', 'green', 'DeepPink', 'black'];
             if (type_case == 'PF_Losses') {
                 columnId = 6;           // coluna de dados das perdas
@@ -208,7 +209,7 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                 chart.style.height = '20vw';
                 if (surf_data.length > 1) {
                     var layout2 = JSON.parse(JSON.stringify(layout));  // clone para evitar conflito
-                    layout2.title.text = txtTitleplot + '<br>' + txtsubtitle[i-1] ;
+                    layout2.title.text = txtTitleplot + '-' + circ + '<br>' + txtsubtitle[i-1] ;
                     if (type_case == 'PF_Losses' || type_case == 'BESS_Losses'){
                         //console.log('Teste valores inicial:');
                         layout2.shapes[0].y0 = surf_data[i-1][0].y[0];

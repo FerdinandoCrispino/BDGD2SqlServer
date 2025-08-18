@@ -54,12 +54,12 @@ class InportDataONS:
 
 
 if __name__ == '__main__':
-    table_name_sql = 'wind_CURTAILMENT'
-    file_name = 'Curtailment_Total_Processed.csv'
+    #table_name_sql = 'wind_CURTAILMENT'
+    #file_name = 'Curtailment_Total_Processed.csv'
     #table_name_sql = 'USINA_CONJUNTO'
     #file_name = 'RELACIONAMENTO_USINA_CONJUNTO.csv'
-    #table_name_sql = 'solar_CURTAILMENT'
-    #file_name = 'Curtailment_Solar_Total.csv'
+    table_name_sql = 'solar_CURTAILMENT'
+    file_name = 'Curtailment_Solar_Total_Processed.csv'
     impdata = InportDataONS(table_name_sql, file_name, ',')
     impdata.run_import_data()
 

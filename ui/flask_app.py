@@ -121,8 +121,7 @@ def read_data_curt():
         if not df_fill.empty:
             df_fill['curt'] = np.where(
                 df_fill.loc[:, 'val_geracaoreferencia'] - df_fill.loc[:, 'val_geracaolimitada'] > 0,
-                (df_fill.loc[:, 'val_geracaoreferencia'] - df_fill.loc[:, 'val_geracaolimitada']),
-                0)
+                (df_fill.loc[:, 'val_geracaoreferencia'] - df_fill.loc[:, 'val_geracaolimitada']), 0)
 
             df_fill = df_fill[['din_instante', 'val_geracao', 'curt', 'val_geracaoreferencia', 'val_disponibilidade',
                                'val_geracaolimitada', 'id_ons', 'cod_razaorestricao', 'cod_origemrestricao']].copy()
@@ -265,10 +264,10 @@ def read_surface_data():
 
     elif type_case in ('PF_Losses', 'PF_RPF'):
         path_dir_base = 'PF Study Scenario'
-        files = [f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_0.8.csv',
-                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_-0.8.csv',
-                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_0.9.csv',
+        files = [f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_0.9.csv',
                  f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_-0.9.csv',
+                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_0.95.csv',
+                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_-0.95.csv',
                  f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_1.0.csv']
 
     elif type_case in ('BESS_Losses', 'BESS_RPF'):
@@ -346,7 +345,7 @@ def get_data():
 
         query = f'''
                 SELECT din_instante, id_estado,  nom_usina, cod_razaorestricao,  val_geracaoreferencia , 
-                val_geracaolimitada
+                val_geracaolimitada, geracaoReal, GeracaoCortada
                     FROM [DBONS].[dbo].[{source}_CURTAILMENT]      
                     WHERE YEAR(din_instante) = {ano} {query_estado} {query_mes}
                     and cod_razaorestricao not in ('nan', '')
@@ -354,10 +353,9 @@ def get_data():
         rows = return_query_as_dataframe(query, engine)
         rows = rows.fillna(0)
         # Create a new column based on a condition (like CASE WHEN)
-        rows['curt'] = np.where(rows['val_geracaoreferencia'] - rows['val_geracaolimitada'] > 0,
-                                (rows['val_geracaoreferencia'] - rows['val_geracaolimitada']) / 2000,
-                                0)
-
+        # rows['curt'] = np.where(rows['val_geracaoreferencia'] - rows['val_geracaolimitada'] > 0,
+        #                        (rows['val_geracaoreferencia'] - rows['val_geracaolimitada']) / 2000, 0)
+        rows['curt'] = rows['GeracaoCortada']
         # Copy columns to a new DataFrame
         coff_usinas = rows[['nom_usina', 'cod_razaorestricao', 'curt']].copy()
         # Group by power plant
