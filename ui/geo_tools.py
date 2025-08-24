@@ -362,6 +362,25 @@ class GeoDataSIN:
         potencia = []
         nome_eol = []
         nome = []
+        cor = []
+
+        # TODO Obter lista de usinas do banco de dados
+        # Lista de usinas da TotalEnergies
+        #select ceg from dbo.USINA_CONJUNTO where id_ons_conjunto in (
+        #'CJU_BABBC', 'CJU_BABBS', 'CJU_RNUMR', 'CJU_BAFLS', 'CJU_RNRDV', 'CJU_RNRVE', 'CJU_RNTSN', 'CJU_RNFIG')
+
+        List_total_ceg = [
+        'EOL.CV.BA.051588-4.01',   'EOL.CV.BA.051589-2.01',   'EOL.CV.BA.051590-6.01',        'EOL.CV.BA.047208-5.01',
+        'EOL.CV.BA.051592-2.01',   'EOL.CV.BA.051593-0.01',   'EOL.CV.BA.051594-9.01',        'EOL.CV.BA.051595-7.01',
+        'EOL.CV.BA.032642-9.01',   'EOL.CV.BA.033547-9.01',   'EOL.CV.BA.033548-7.01',        'EOL.CV.BA.033549-5.01',
+        'EOL.CV.BA.037103-3.01',   'EOL.CV.BA.037104-1.01',   'EOL.CV.RN.033429-4.01',        'EOL.CV.RN.033430-8.01',
+        'EOL.CV.RN.038310-4.01',   'EOL.CV.RN.038318-0.01',   'EOL.CV.RN.038319-8.01',        'EOL.CV.RN.038320-1.01',
+        'EOL.CV.RN.038321-0.01',   'EOL.CV.RN.038322-8.01',   'EOL.CV.RN.038323-6.01',        'EOL.CV.RN.040625-2.01',
+        'EOL.CV.RN.032593-7.01',   'EOL.CV.RN.033681-5.01',   'EOL.CV.RN.034937-2.01',        'EOL.CV.RN.033690-4.01',
+        'EOL.CV.RN.033691-2.01',   'EOL.CV.RN.045010-3.01',   'EOL.CV.RN.045011-1.01',        'EOL.CV.RN.045012-0.01',
+        'EOL.CV.RN.032495-7.01',   'EOL.CV.RN.032501-5.01',   'EOL.CV.RN.051585-0.01',        'EOL.CV.RN.051586-8.01',
+        'EOL.CV.RN.051587-6.01',   'EOL.CV.RN.047205-0.02',   'EOL.CV.BA.037101-7.01',        'EOL.CV.BA.037102-5.01'
+        ]
 
         # Abrir o arquivo GDB com Fiona e GeoPandas
         try:
@@ -384,10 +403,15 @@ class GeoDataSIN:
                 proprietario.append(PROP)
                 nome_eol.append(NOME)
                 nome.append('SIN-EOL')
+                if CEG in List_total_ceg:
+                    cor.append('RED')
+                else:
+                    cor.append('blue')
+
             # Criar um GeoDataFrame com as geometrias e dados extras
             gdf = gpd.GeoDataFrame(
                 {'geometry': coords, 'power': potencia, 'ini_oper': ini_oper, 'prop': proprietario,
-                 'ceg': ceg, 'nome': nome_eol, 'tipo': nome}, crs="EPSG:4326")
+                 'ceg': ceg, 'nome': nome_eol, 'tipo': nome, 'cor': cor}, crs="EPSG:4326")
 
             # Converter o GeoDataFrame para GeoJSON
             geojson = gdf.to_json()

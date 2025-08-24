@@ -8,7 +8,7 @@
 import os
 import pandas as pd
 import numpy as np
-from Tools.tools import create_connection, load_config
+from tools import create_connection, load_config
 
 
 class InportDataONS:
@@ -42,7 +42,14 @@ class InportDataONS:
                         #for col in chunk.select_dtypes(include='object').columns:
                         #    chunk[col] = chunk[col].astype(str)
                         chunk.drop_duplicates(inplace=True)
-                        chunk.replace(np.NAN, 0, inplace=True)
+
+                        # Specify columns to exclude replace
+                        excluded_columns = ['dat_fimrelacionamento']
+                        # Select all columns except the excluded ones
+                        columns_to_replace = [col for col in chunk.columns if col not in excluded_columns]
+                        # Apply replace(np.nan, 0) only to the selected columns
+                        chunk[columns_to_replace] = chunk[columns_to_replace].replace(np.nan, 0)
+
                         chunk.to_sql(table_name_sql, engine, schema=schema, if_exists='append', index=False,
                                      chunksize=1000, method=None)
                         print('Insert 50000 lines...')
@@ -54,12 +61,16 @@ class InportDataONS:
 
 
 if __name__ == '__main__':
-    #table_name_sql = 'wind_CURTAILMENT'
-    #file_name = 'Curtailment_Total_Processed.csv'
+    #separador = ';'
     #table_name_sql = 'USINA_CONJUNTO'
     #file_name = 'RELACIONAMENTO_USINA_CONJUNTO.csv'
+    #separador = ','
+    #table_name_sql = 'wind_CURTAILMENT'
+    #file_name = 'Curtailment_Total_Processed.csv'
+    separador = ','
     table_name_sql = 'solar_CURTAILMENT'
     file_name = 'Curtailment_Solar_Total_Processed.csv'
-    impdata = InportDataONS(table_name_sql, file_name, ',')
+
+    impdata = InportDataONS(table_name_sql, file_name, sep=separador)
     impdata.run_import_data()
 

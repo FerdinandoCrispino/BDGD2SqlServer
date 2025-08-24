@@ -42,7 +42,7 @@ def load_config_list_dist(config_path="../config_database.yml") -> list:
         config = yaml.load(file, Loader=yaml.BaseLoader)
     list_dist = []
     config_bdgd = list(config.get("databases", {}).keys())
-
+    print(config_bdgd)
     if not config_bdgd:
         raise ValueError(f"Erro no arquivo de configurações.")
 
@@ -1001,6 +1001,43 @@ def get_coord_load(dist, load):
         coords = conn.execute(query_coods)
 
     return coords
+
+
+def list_states_curtail(engine):
+    query = f'''SELECT distinct id_estado FROM [dbo].[wind_CURTAILMENT] 
+                union
+                SELECT distinct id_estado FROM [dbo].[solar_CURTAILMENT]
+'''
+    try:
+        with engine.connect() as conn:
+            # result = conn.execute(query)
+            result = pd.read_sql_query(query, conn)
+            result_list = result['id_estado'].values.tolist()
+    except Exception as e:
+        print(f"{e}: \t list_states_curtail error.")
+        return
+
+    return result_list
+
+
+def list_years_curtail(engine):
+    query = f'''SELECT distinct YEAR(din_instante) as ano
+              FROM [dbo].[wind_CURTAILMENT]
+              union
+              SELECT distinct YEAR(din_instante) as ano
+              FROM [dbo].[solar_CURTAILMENT]
+              order by ano
+            '''
+    try:
+        with engine.connect() as conn:
+            # result = conn.execute(query)
+            result = pd.read_sql_query(query, conn)
+            result_list = result['ano'].values.tolist()
+    except Exception as e:
+        print(f"{e}: \t list_years_curtail error.")
+        return
+
+    return result_list
 
 
 def set_coords(engine):

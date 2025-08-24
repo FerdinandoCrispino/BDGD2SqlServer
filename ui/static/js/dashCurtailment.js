@@ -10,7 +10,9 @@ document.addEventListener("DOMContentLoaded", () => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data)
         });
+
         return response.json();
+
     }
 
     function populateSelect(selectEl, values) {
@@ -46,7 +48,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const payload = { source, estado, ano, mes };
         console.log(source);
         const charts = await postJSON("/get_data", payload);
+        if (charts.error) {
+            alert("No Data Found!")
+            document.body.style.cursor = 'default';  // Cursor normal
 
+        }
+        console.log(charts);
         let subtitle = '';
         if (mes != 'All'){
             subtitle += ' - ' + mes;
@@ -118,19 +125,28 @@ document.addEventListener("DOMContentLoaded", () => {
                         x: chart.x,
                         y: chart.y1,
                         name:  group_name[1],
-                        type: 'bar'
+                        type: 'bar',
+                        marker: {
+                            color: '#1f77f0e'
+                        }
                     };
                     var trace2 = {
                       x: chart.x,
                       y: chart.y2,
                       name: group_name[2],
-                      type: 'bar'
+                      type: 'bar',
+                      marker: {
+                            color: '#2ca02c'
+                        }
                     };
                     var trace3 = {
                       x: chart.x,
                       y: chart.y3,
                       name:  group_name[3],
-                      type: 'bar'
+                      type: 'bar',
+                      marker: {
+                            color: '#ff7f0e'
+                        }
                     };
                     var data = [trace1, trace2, trace3];
             };

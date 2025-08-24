@@ -23,7 +23,8 @@ sys.path.append(parent)
 # execução da geração dos arquivos DSS pelo navegador.
 import core.electric_data as run_dss_files_generators
 import Tools.summary as resumo
-from Tools.tools import return_query_as_dataframe, create_connection, load_config, load_config_list_dist
+from Tools.tools import return_query_as_dataframe, create_connection, load_config, \
+    load_config_list_dist, list_states_curtail, list_years_curtail
 
 pd.options.mode.copy_on_write = True
 task_running = False  # Variável para evitar múltiplas execuções simultâneas -- control_bus
@@ -247,8 +248,14 @@ def read_surface_data():
     if not circuito:
         circuito = f'SUB_{subestacao}'
 
-    path_conf = os.path.abspath(
-        f'static/scenarios/{scenario}/{str(distribuidora)}/{subestacao}/{circuito}/{tipo_dia}/{ano}/{mes}')
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto (2 níveis acima do arquivo atual, ajuste se necessário)
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    path_conf = project_root / 'ui' / 'static' / 'scenarios' / scenario / str(distribuidora) / subestacao / circuito / tipo_dia / ano / mes
+
+    #path_conf = os.path.abspath(
+    #    f'static/scenarios/{scenario}/{str(distribuidora)}/{subestacao}/{circuito}/{tipo_dia}/{ano}/{mes}')
 
     if not distribuidora:
         print(f'Selecione uma distribuidora')
@@ -305,9 +312,18 @@ def read_surface_data():
 
 # dados para os filtros do curtailment
 SOURCES = ['WIND', 'SOLAR']
+#TODO selecionar dados de estados do banco de dados
 ESTADOS = ['All', 'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MS', 'MT', 'MG', 'PA', 'PB', 'PR',
            'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
+conf = load_config('curtailment')
+engine = create_connection(conf)
+ESTADOS = list_states_curtail(engine=engine)
+ESTADOS.append('All')
+# ESTADOS.insert(0, 'All')  # primeira posição
+
 ANOS = [2025, 2024]
+ANOS = list_years_curtail(engine=engine)
+
 MESES = list(range(1, 13))
 MESES.insert(0, 'All')
 DIAS = list(range(1, 29))
@@ -351,6 +367,9 @@ def get_data():
                     and cod_razaorestricao not in ('nan', '')
                 '''
         rows = return_query_as_dataframe(query, engine)
+        if rows.empty:
+            raise ValueError("No data found in the specified source.")
+
         rows = rows.fillna(0)
         # Create a new column based on a condition (like CASE WHEN)
         # rows['curt'] = np.where(rows['val_geracaoreferencia'] - rows['val_geracaolimitada'] > 0,
@@ -614,7 +633,14 @@ def render_data_losses():
     mes = request.args.get('mes')
 
     list_data = []
-    path_result = os.path.abspath(f"static/scenarios/base/{conf['dist']}")
+
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto (2 níveis acima do arquivo atual, ajuste se necessário)
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    path_result = project_root / 'ui' / 'static' / 'scenarios' / 'base' / conf['dist']
+
+    #path_result = os.path.abspath(f"static/scenarios/base/{conf['dist']}")
     file_results = [f'{ano}_DO_{mes}_sub_losses.xlsx', f'{ano}_DU_{mes}_sub_losses.xlsx']
 
     """
