@@ -294,11 +294,13 @@
             console.log('Select a Utility!')
             return;
         }
+
         document.body.style.cursor = 'wait';  // Cursor de espera
         var t = document.getElementById("distribuidora");
         var dist_text = t.options[t.selectedIndex].text;
         var ano = dist_text.slice(-4);
         transformer_loading(document.getElementById('distribuidora').selectedOptions[0].getAttribute('info'),
+                            document.getElementById('subestacao').value,
                             ano,
                             document.getElementById('meses').value)
         document.body.style.cursor = 'default';  // Cursor normal

@@ -273,7 +273,7 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
                                 display: true,
                                 text: 'Time of the Day',
                                 font: {
-                                    padding: 4,
+                                    //padding: 1,
                                     size: 14,
                                     weight: 'bold',
                                     family: 'Arial'
@@ -286,7 +286,7 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
                                 display: true,
                                 text: 'Power (kW)',
                                 font: {
-                                    padding: 4,
+                                    padding: 2,
                                     size: 14,
                                     weight: 'bold',
                                     family: 'Arial'
@@ -343,7 +343,7 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
                                 display: true,
                                 text: 'Time of the Day',
                                 font: {
-                                    padding: 4,
+                                    //padding: 4,
                                     size: 14,
                                     weight: 'bold',
                                     family: 'Arial'
@@ -420,14 +420,14 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
             //myChart1.data.datasets[1].data = data[4];
 
             myChart1.options.plugins.legend.align = 'end';
-            myChart1.options.plugins.subtitle.text = 'Workdays - ' + ano + '- ' + mes;
+            myChart1.options.plugins.subtitle.text = (sub + ' Workdays - ' + ano + ' - ' + mes).trim();
             if (num_lines > max_legend) {
                 myChart1.options.plugins.legend.display = false
                 //myChart1.defaults.global.legend.display = false
             }
             myChart1.update();
             myChart2.options.plugins.legend.align = 'end';
-            myChart2.options.plugins.subtitle.text = 'Sundays - '+ ano + ' - ' + mes;
+            myChart2.options.plugins.subtitle.text = (sub + ' Sundays - '+ ano + ' - ' + mes).trim(0);
             if (num_lines > max_legend) {
                 myChart2.options.plugins.legend.display = false
                 //myChart2.defaults.global.legend.display = false
@@ -439,11 +439,11 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
     document.body.style.cursor = 'default';  // Cursor normal
 }
 
-function transformer_loading(dist, ano, mes) {
+function transformer_loading(dist, sub, ano, mes) {
     // Captura o valor do parâmetro 'dist' da URL
     //const dist = "{{ dist }}";
     document.body.style.cursor = 'wait';  // Cursor de espera
-    fetch(`/data?distribuidora=${dist}&ano=${ano}&mes=${mes}`)  // Atenção ao tipo de aspas - backticks
+    fetch(`/data?distribuidora=${dist}&subestacao=${sub}&ano=${ano}&mes=${mes}`)  // Atenção ao tipo de aspas - backticks
         .then(response => {
             //console.log(response);
             if (!response.ok){

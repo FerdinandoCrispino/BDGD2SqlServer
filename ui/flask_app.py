@@ -51,7 +51,13 @@ def read_data_usinas():
     if dia in ['null', '', 'undefined']:
         dia = None
 
-    path_result = os.path.abspath('curtailment')
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto (2 níveis acima do arquivo atual, ajuste se necessário)
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    path_result = project_root / 'ui' / 'curtailment'
+
+    # path_result = os.path.abspath('curtailment')
     path_conf = os.path.join(path_result, "USINAS")
 
     try:
@@ -97,7 +103,13 @@ def read_data_curt():
     if dia in ['null', '']:
         dia = None
 
-    path_result = os.path.abspath('curtailment')
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto (2 níveis acima do arquivo atual, ajuste se necessário)
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    path_result = project_root / 'ui' / 'curtailment'
+
+    #path_result = os.path.abspath('curtailment')
     path_conf = os.path.join(path_result, src)
 
     if src == "UFV":
@@ -174,7 +186,13 @@ def read_data_curt_datail():
     if dia in ['null', '']:
         dia = None
 
-    path_result = os.path.abspath('curtailment')
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto (2 níveis acima do arquivo atual, ajuste se necessário)
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    path_result = project_root / 'ui' / 'curtailment'
+
+    # path_result = os.path.abspath('curtailment')
     path_conf = os.path.join(path_result, src)
 
     if src == "UFV":
@@ -680,6 +698,7 @@ def render_data_losses():
 @server.route('/data', methods=['GET'])
 def render_data():
     # print(f'route data: {distribuidora}')
+    sub = request.args.get('subestacao')
     ano = request.args.get('ano')
     mes = request.args.get('mes')
     list_data = []
@@ -706,6 +725,10 @@ def render_data():
                 xls = pd.ExcelFile(path_all_result)
                 df1 = xls.parse(xls.sheet_names[0])
                 df_data = df1[['nome', 'sub', 'P_max', 'P_min', 'P_time_max', 'P_time_min']].copy()
+                # filtrar por subestação
+                if sub != '':
+                    df_data = df_data[df_data['sub'] == sub]
+
                 df_data['nome'] = df_data['nome'].str[5:-3]
 
                 label_list = df_data['nome'].values.tolist()
