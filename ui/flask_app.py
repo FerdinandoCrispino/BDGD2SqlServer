@@ -287,7 +287,7 @@ def read_surface_data():
     elif type_case == 'case3':
         file = f'{ano}_{tipo_dia}_{mes}_{circuito}_Vmax.csv'
 
-    elif type_case in ('PF_Losses', 'PF_RPF'):
+    elif type_case in ('PF_Losses', 'PF_RPF', 'Power Transformer Loading'):
         path_dir_base = 'PF Study Scenario'
         files = [f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_0.9.csv',
                  f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_-0.9.csv',
@@ -309,7 +309,7 @@ def read_surface_data():
             for file in files:
                 df = pd.read_csv(os.path.join(path_conf, file), na_filter=False)
                 df_medium_data = df.groupby("Pen")[
-                    ["Energy Losses", "Min Fluxo Subestacao", "B VminVmax"]].median().reset_index()
+                    ["Energy Losses", "Min Fluxo Subestacao", "B VminVmax", "Max_Cargamento_Trafo_pct"]].median().reset_index()
                 data_medium = df_medium_data.values.tolist()
                 data = df.values.tolist()
                 all_data.append(data)

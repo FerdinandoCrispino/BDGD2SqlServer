@@ -12,7 +12,7 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
         .then(data => {
             console.log(data)
             if (data.error) {
-                //console.error(data.error);
+                console.error(data.error);
                 return;
             }
             var surf_data = [];
@@ -20,11 +20,19 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
             var columnId = 7;           // coluna de dados para o fluxo reverso
             var columnMediumId = 2;     // coluna de dados das Mediana das perdas
             var txtTitleplot = 'Reverse Power Flow';
+            var txtAxisX = 'Energy Losses (kWh)'
             var xmax = 0;               // linha horizontal
             var y_set = 0;              // linha horizontal
             //txtsubtitle = ['FP: 0.8 ind.', 'FP: 0.8 cap.', 'FP: 0.9 ind.', 'FP: 0.9 cap.', 'FP: 1.0', '']
             txtsubtitle = ['FP: 0.9 ind.', 'FP: 0.9 cap.', 'FP: 0.95 ind.', 'FP: 0.95 cap.', 'FP: 1.0', '']
             colorLine = ['red', 'blue', 'green', 'DeepPink', 'black'];
+
+            if (type_case == 'Power Transformer Loading') {
+                columnId = 8;           // coluna de dados das perdas
+                columnMediumId = 1      // coluna de dados para as medinas do fluxo reverso
+                txtTitleplot = 'Max Power Transformer Loading';
+                txtAxisX = 'Power (kW)'
+            }
             if (type_case == 'PF_Losses') {
                 columnId = 6;           // coluna de dados das perdas
                 columnMediumId = 1      // coluna de dados para as medinas do fluxo reverso
@@ -50,6 +58,7 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                 case 'BESS_RPF':
                 case 'PF_Losses':
                 case 'PF_RPF':
+                case 'Power Transformer Loading':
 
                     let max_data = data.length-1;
                     data.forEach((item, index) => {
@@ -85,8 +94,8 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                             const penetration = item.slice(0).map(row => row[0]);
                             x_max = Math.max(...penetration);
                             const ener_losses = item.slice(0).map(row => row[columnId]); //  coluna (exceto o cabeçalho)
-                            console.log(penetration);
-                            console.log(ener_losses);
+                            //console.log(penetration);
+                            //console.log(ener_losses);
                             var data = [{
                                 type: 'box',
                                 x: penetration,
@@ -98,7 +107,7 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                         }
                     });
 
-                    //console.log(surf_data);
+                    console.log(surf_data);
                     layout = {
                         title: {
                             text: txtTitleplot,
@@ -106,7 +115,7 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                         },
                         yaxis: {
                             title: {
-                                text: 'Energy Losses (kWh)',
+                                text: txtAxisX,
                                 font: { size: 11, color: 'black' }
                             },
                             zeroline: false,
