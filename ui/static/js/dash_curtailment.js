@@ -1,3 +1,4 @@
+/*
 const originalFetch = window.fetch;
 window.fetch = async function (...args) {
     console.log("FETCH interceptado:", args[0]); // mostra URL solicitada
@@ -10,6 +11,7 @@ window.fetch = async function (...args) {
 
     return response;
 };
+*/
 
 function create_area_chart (ceg, dia, mes, ano, source, txt_title, typeChart) {
     const existing = document.getElementById('chart-container');

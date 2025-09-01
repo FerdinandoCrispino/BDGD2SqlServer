@@ -1534,9 +1534,9 @@ def get_list_ceg(dist, engine):
     return list_sub['CEG'].tolist()
 
 
-def update_coords_by_aneel(dist, engine):
+def update_coords_by_aneel(dist, engine) -> dict:
     """
-    Atualiza a base de dados da BDGD com as coordenadas obtidas da base de dados de empreendimentos da ANEEL
+    Atualiza a base de dados da BDGD com as coordenadas obtidas da base de dados de empreendimentos de AT da ANEEL
     :param dist:
     :param engine:
     :return:
@@ -1544,9 +1544,12 @@ def update_coords_by_aneel(dist, engine):
     dist = dist
     list_ceg = get_list_ceg(dist, engine)
 
-    ceg = 'UTE.AI.RN.028605-2'
+    # ceg = 'UTE.AI.RN.028605-2'
     for ceg in list_ceg:
         coord_aneel_dict = get_coods_by_annel(ceg)
+        if coord_aneel_dict is None:
+            return
+
         y = coord_aneel_dict[0].get('NumCoordNEmpreendimento').replace(',', '.')
         x = coord_aneel_dict[0].get('NumCoordEEmpreendimento').replace(',', '.')
         """

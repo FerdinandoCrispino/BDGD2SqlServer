@@ -752,7 +752,7 @@
             nome_layer = 'SIN-UFV';
             meu_estilo = new ol.style.Style({
                     image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
-
+                            crossOrigin: 'anonymous',
                             anchor: [0.6, 0.6],
                             scale: 0.20,
                             src: 'static/icon/ufv.svg'
@@ -856,16 +856,34 @@
                             style: linha_estilo
                         });
                         break;
+                    case 'UFV':
+                         function ufv_estilo(feature) {
+                            return new ol.style.Style({
+                                image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                                    color: feature.get('cor'),
+                                    crossOrigin: 'anonymous',
+                                    anchor: [0.6, 0.6],
+                                    scale: 0.20,
+                                    src: 'static/icon/ufv.svg'
+                                }))
+                            });
+                        }
+                        var vectorLayer = new ol.layer.Vector({
+                            name: nome_layer,
+                            source: vectorSource,
+                            style: ufv_estilo
+                        });
+                        break;
                     case 'EOL':
                         function eol_estilo(feature) {
                             return new ol.style.Style({
                                 image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
-                                color: feature.get('cor'),
-                                anchor: [0.5, 0.5],
-                                anchorXUnits: 'fraction',
-                                anchorYUnits: 'pixels',
-                                scale: 0.04,
-                                src: 'static/icon/eol2.png'
+                                    color: feature.get('cor'),
+                                    anchor: [0.5, 0.5],
+                                    anchorXUnits: 'fraction',
+                                    anchorYUnits: 'pixels',
+                                    scale: 0.04,
+                                    src: 'static/icon/eol2.png'
                                 }))
                             });
                         }

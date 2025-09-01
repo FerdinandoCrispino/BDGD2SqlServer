@@ -1826,7 +1826,9 @@ def segments():
 
     if subestacao == '':
         print(f"Selecione uma subestação!")
-        return None  # retornar erro!
+        mens = {'error': 'Select an Utility!'}
+        print(f"{mens}")
+        return mens, 500, {'Content-Type': 'application/json'}
     line_segments = get_coords_SSDMT_from_db(subestacao, circuito)
     if scenario == "Hosting Capacity":
         # Leitura do arquivo de resultados do hosting capacity

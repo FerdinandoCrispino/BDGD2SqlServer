@@ -54,11 +54,7 @@
         font-size: 14px; /* Ajuste o tamanho do botão */
     }
 
-    canvas {
-        width: 100%;
-        height: 150px;
-        background-color: #f4f4f4;
-    }
+
 
     .sidebar select {
         width: 100%;
@@ -146,8 +142,7 @@
         <select id="meses" name="meses" style="float:right;width:110px">
         </select>
         <hr>
-
-         <span id> Scenario Study List: <i id="study_p" style="text-transform:uppercase"></i></span>
+        <span id> Scenario Study List: <i id="study_p" style="text-transform:uppercase"></i></span>
         <ul id="list_study" style="list-style: none; padding: 0; margin: 5px;">
          <li>
            <a href="#" onclick="power_transformer_loading(); return false;" title="Power Transformer Loading" data-parent="Base-sc_type1">
@@ -219,16 +214,18 @@
              <span class="links_name">Reverse Power Flow</span>
            </a>
          </li>
-
         </ul>
     </div>
 
-    <div id="chart-container" class="chart-container" style = "position: relative; height: 44vh; width:100vw;">
+    <div id="chart-container" class="chart-container" style = "position: relative; height: 43vh; width:100vw;">
         <canvas id="myChart1"></canvas>
         <canvas id="myChart2"></canvas>
         <canvas id="myChart3"></canvas>
         <canvas id="myChart4"></canvas>
+        </br>
+        </br>
     </div>
+
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js" ></script>

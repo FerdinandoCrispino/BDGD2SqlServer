@@ -31,7 +31,7 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                 columnId = 8;           // coluna de dados das perdas
                 columnMediumId = 1      // coluna de dados para as medinas do fluxo reverso
                 txtTitleplot = 'Max Power Transformer Loading';
-                txtAxisX = 'Power (kW)'
+                txtAxisX = 'Power Transformar (%)'
             }
             if (type_case == 'PF_Losses') {
                 columnId = 6;           // coluna de dados das perdas
@@ -513,6 +513,10 @@ function transformer_loading(dist, sub, ano, mes) {
                             labels: groupLabel2,
                         },
                         y: {
+                            title: {
+                                display: true,
+                                text: 'Power (p.u.)'
+                            },
                             beginAtZero: true,
                             type: 'linear',
                             min: 0,
@@ -545,7 +549,7 @@ function transformer_loading(dist, sub, ano, mes) {
                         },
                         subtitle: {
                             display: true,
-                            text: 'DO - 2022 - 12'
+                            text: 'DO - ' + ano + ' - ' + mes
                         }
                     },
                     responsive: true,
@@ -581,6 +585,10 @@ function transformer_loading(dist, sub, ano, mes) {
                             labels: groupLabel1,
                         },
                         y: {
+                            title: {
+                                display: true,
+                                text: 'Power (p.u.)'
+                            },
                             beginAtZero: true
                         },
                     },
@@ -609,7 +617,7 @@ function transformer_loading(dist, sub, ano, mes) {
                         },
                         subtitle: {
                             display: true,
-                            text: 'DU - 2022 - 12'
+                            text: 'DU - ' + ano + ' - ' + mes
                         },
                     }
                 }
@@ -645,6 +653,10 @@ function transformer_loading(dist, sub, ano, mes) {
                             labels: groupLabel1,
                         },
                         y: {
+                            title: {
+                                display: true,
+                                text: 'Time (Hs)'
+                            },
                             beginAtZero: true,
                             type: 'linear',
                             min: 0,
@@ -676,7 +688,7 @@ function transformer_loading(dist, sub, ano, mes) {
                         },
                         subtitle: {
                             display: true,
-                            text: 'DO - 2022 - 12'
+                            text: 'DO - ' + ano + ' - ' + mes
                         },
                     }
                 }
@@ -713,6 +725,10 @@ function transformer_loading(dist, sub, ano, mes) {
                             labels: groupLabel1,
                         },
                         y: {
+                            title: {
+                                display: true,
+                                text: 'Time (Hs)'
+                            },
                             beginAtZero: true,
                             type: 'linear',
                             min: 0,
@@ -744,7 +760,7 @@ function transformer_loading(dist, sub, ano, mes) {
                         },
                         subtitle: {
                             display: true,
-                            text: 'DU - 2022 - 12'
+                            text: 'DU - ' + ano + ' - ' + mes
                         },
                     }
                 }
