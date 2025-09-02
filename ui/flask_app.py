@@ -24,7 +24,7 @@ sys.path.append(parent)
 import core.electric_data as run_dss_files_generators
 import Tools.summary as resumo
 from Tools.tools import return_query_as_dataframe, create_connection, load_config, \
-    load_config_list_dist, list_states_curtail, list_years_curtail
+    load_config_list_dist, list_states_curtail, list_years_curtail, rel_usina_conjunto
 
 pd.options.mode.copy_on_write = True
 task_running = False  # Variável para evitar múltiplas execuções simultâneas -- control_bus
@@ -119,9 +119,10 @@ def read_data_curt():
 
     try:
         # Leitura do arquivo de RELACIONAMENTO_USINA_CONJUNTO
-        file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
-        df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
-        df_rel.sort_values(by='dat_iniciorelacionamento', ascending=False, inplace=True)
+        #file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
+        #df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
+        #df_rel.sort_values(by='dat_iniciorelacionamento', ascending=False, inplace=True)
+        df_rel = rel_usina_conjunto(engine, ceg)
 
         # Leitura do arquivo das restrições das usinas EOL ou UFV
         df = pd.read_parquet(os.path.join(path_conf, file_name))

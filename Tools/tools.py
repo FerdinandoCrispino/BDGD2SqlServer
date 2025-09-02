@@ -65,9 +65,10 @@ def create_connection_pyodbc(config_bdgd):
     conn_str = (
             'DRIVER={ODBC Driver 17 for SQL Server};'
             'SERVER=' + config_bdgd['databases']['server'] + ';'
-            'DATABASE=' + config_bdgd['databases']['database'] + ';'
-            'UID=' + config_bdgd['databases']['username'] + ';'
-            'PWD=' + config_bdgd['databases']['password']
+                                                             'DATABASE=' + config_bdgd['databases']['database'] + ';'
+                                                                                                                  'UID=' +
+            config_bdgd['databases']['username'] + ';'
+                                                   'PWD=' + config_bdgd['databases']['password']
     )
     return pyodbc.connect(conn_str)
 
@@ -1003,11 +1004,25 @@ def get_coord_load(dist, load):
     return coords
 
 
+def rel_usina_conjunto(engine, ceg):
+    filtro = ''
+    if ceg:
+        filtro = f'''where ceg='{ceg}' order by dat_iniciorelacionamento'''
+    query = f'''SELECT * from [DBONS].[dbo].[USINA_CONJUNTO] {filtro} '''
+    try:
+        with engine.connect() as conn:
+            result = pd.read_sql_query(query, conn)
+    except Exception as e:
+        print(f"{e}: \t USINA_CONJUNTO error.")
+        return
+    return result
+
+
 def list_states_curtail(engine):
     query = f'''SELECT distinct id_estado FROM [dbo].[wind_CURTAILMENT] 
                 union
                 SELECT distinct id_estado FROM [dbo].[solar_CURTAILMENT]
-'''
+            '''
     try:
         with engine.connect() as conn:
             # result = conn.execute(query)
