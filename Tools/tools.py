@@ -1292,6 +1292,12 @@ def add_id_banc_to_dataframe(df, df_column_ref):
 
 
 def calc_du_sa_do_mes(ano, mes: int) -> dict:
+    """
+    Calcula o número de dias para um determinado ano e mês e para cada tipo de dia
+    :param ano:
+    :param mes:
+    :return:
+    """
     # Gerar intervalo de datas para o mês especificado
     data_inicial = f'{ano}-{mes:02d}-01'
     data_final = pd.Period(f'{ano}-{mes:02d}').end_time.strftime('%Y-%m-%d')

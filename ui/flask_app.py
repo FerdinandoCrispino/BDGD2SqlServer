@@ -62,8 +62,9 @@ def read_data_usinas():
 
     try:
         # Leitura do arquivo de RELACIONAMENTO_USINA_CONJUNTO
-        file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
-        df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
+        # file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
+        # df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
+        df_rel = rel_usina_conjunto(engine, ceg)
 
         file_name = f'GERACAO_USINA-2_{ano}_{mes}.parquet'
 
@@ -223,8 +224,9 @@ def read_data_curt_datail():
         data = df.values.tolist()
 
         # Leitura do arquivo de RELACIONAMENTO_USINA_CONJUNTO
-        file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
-        df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
+        # file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
+        # df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
+        df_rel = rel_usina_conjunto(engine, ceg)
 
         # Leitura do arquivo do fator de capacidade dos empreendiemntos
         file_name_fc = f'FATOR_CAPACIDADE-2_{ano}_{mes}.parquet'
@@ -1213,7 +1215,7 @@ def create_geojson_from_points_gerador_at(points_ger_at):
 
 
 def get_coords_ssdat_from_db():
-    query = f'''Select  b.cod_id as descr, point_x1 as start_longitude, POINT_y1 as start_latitude, 
+    query = f'''Select  b.cod_id as descr, b.dist, point_x1 as start_longitude, POINT_y1 as start_latitude, 
                     point_x2 as end_longitude, POINT_y2 as end_latitude,
                     PAC_1, PAC_2, CT_COD_OP, COMP,  c.NOME, c.TEN_NOM, t.TEN
                 from sde.SSDAT s
@@ -1241,7 +1243,7 @@ def get_coords_ssdat_from_db():
 
     #
     if ssdat_ini.empty:
-        query = f'''Select  b.cod_id as descr, point_x1 as start_longitude, POINT_y1 as start_latitude, 
+        query = f'''Select  b.cod_id as descr, b.dist, point_x1 as start_longitude, POINT_y1 as start_latitude, 
                         point_x2 as end_longitude, POINT_y2 as end_latitude,
                         PAC_1, PAC_2, CT_COD_OP, COMP,  c.NOME, c.TEN_NOM, t.TEN
                     from sde.SSDAT s
@@ -1262,7 +1264,7 @@ def get_coords_ssdat_from_db():
 
     rows["TIPO"] = "AT_SSD"
     points = [((row["start_longitude"], row["start_latitude"]), (row["end_longitude"], row["end_latitude"]),
-               row["CT_COD_OP"], row["COMP"], row["NOME"], row["TEN"], row["TIPO"], row["descr"])
+               row["CT_COD_OP"], row["COMP"], row["NOME"], row["TEN"], row["TIPO"], row["descr"], row["dist"])
               for index, row in rows.iterrows()]
     return points
 
@@ -1276,7 +1278,7 @@ def create_geojson_from_points_SSDAT(points_ssdat):
     nome_linha = []
     voltage = []
 
-    for start, end, ct_cod, comp, nome, ten_nom, tipo, descr in points_ssdat:
+    for start, end, ct_cod, comp, nome, ten_nom, tipo, descr, dist in points_ssdat:
         lines.append(LineString([start, end]))
         ct_cod_at.append(ct_cod)
         comp_linha.append(comp)
@@ -1285,7 +1287,7 @@ def create_geojson_from_points_SSDAT(points_ssdat):
 
     # Criar um GeoDataFrame com as geometrias e dados extras
     gdf = gpd.GeoDataFrame({'geometry': lines, 'linha': ct_cod_at, 'nome': nome, 'voltage': voltage, 'tipo': tipo,
-                            'dist': descr}, crs="EPSG:4326")
+                            'desc': descr, 'dist': dist}, crs="EPSG:4326")
     # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
 
     # Converter o GeoDataFrame para GeoJSON
