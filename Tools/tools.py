@@ -13,7 +13,6 @@ from sqlalchemy import create_engine
 import urllib.request
 import json
 
-
 pd.set_option('display.max_colwidth', None)
 pd.set_option('display.max_columns', None)
 
@@ -43,7 +42,7 @@ def load_config_list_dist(config_path="../config_database.yml") -> list:
         config = yaml.load(file, Loader=yaml.BaseLoader)
     list_dist = []
     config_bdgd = list(config.get("databases", {}).keys())
-
+    print(config_bdgd)
     if not config_bdgd:
         raise ValueError(f"Erro no arquivo de configurações.")
 
@@ -66,9 +65,10 @@ def create_connection_pyodbc(config_bdgd):
     conn_str = (
             'DRIVER={ODBC Driver 17 for SQL Server};'
             'SERVER=' + config_bdgd['databases']['server'] + ';'
-            'DATABASE=' + config_bdgd['databases']['database'] + ';'
-            'UID=' + config_bdgd['databases']['username'] + ';'
-            'PWD=' + config_bdgd['databases']['password']
+                                                             'DATABASE=' + config_bdgd['databases']['database'] + ';'
+                                                                                                                  'UID=' +
+            config_bdgd['databases']['username'] + ';'
+                                                   'PWD=' + config_bdgd['databases']['password']
     )
     return pyodbc.connect(conn_str)
 
@@ -329,7 +329,6 @@ def run_multi_process_gdb_file(table_name, gdb_file, bdgd, schema, data_base, da
         if df.empty:
             logging.info(f"{table_name}: da BDGD sem dados.")
             print(f"{table_name}: da BDGD sem dados..")
-
 
 
 def process_gdb_files(gdb_file, engine, schema, data_base, data_carga, column_renames):
@@ -805,6 +804,8 @@ def tensao_enrolamento(strCodFas, dblTensao_kV):
 
 
 def kvs_trafo(intTipTrafo, strCodFas1, strCodFas2, strCodFas3, dblTensaoPrimTrafo_kV, dblTensaoSecuTrafo_kV) -> str:
+    if dblTensaoPrimTrafo_kV < dblTensaoSecuTrafo_kV > 100:  # Valor em volts... deve ser em kV
+        dblTensaoSecuTrafo_kV = dblTensaoSecuTrafo_kV / 1000
     if intTipTrafo == 4:
         return str(dblTensaoPrimTrafo_kV) + " " + str(dblTensaoSecuTrafo_kV)
     elif strCodFas3 == "BN" or strCodFas3 == "CN" or strCodFas3 == "AN" or strCodFas2 == "ABN":
@@ -1003,9 +1004,60 @@ def get_coord_load(dist, load):
     return coords
 
 
+def rel_usina_conjunto(engine, ceg):
+    filtro = ''
+    if ceg:
+        filtro = f'''where ceg='{ceg}' order by dat_iniciorelacionamento'''
+    query = f'''SELECT * from [DBONS].[dbo].[USINA_CONJUNTO] {filtro} '''
+    try:
+        with engine.connect() as conn:
+            result = pd.read_sql_query(query, conn)
+    except Exception as e:
+        print(f"{e}: \t USINA_CONJUNTO error.")
+        return
+    return result
+
+
+def list_states_curtail(engine):
+    query = f'''SELECT distinct id_estado FROM [dbo].[wind_CURTAILMENT] 
+                union
+                SELECT distinct id_estado FROM [dbo].[solar_CURTAILMENT]
+            '''
+    try:
+        with engine.connect() as conn:
+            # result = conn.execute(query)
+            result = pd.read_sql_query(query, conn)
+            result_list = result['id_estado'].values.tolist()
+    except Exception as e:
+        print(f"{e}: \t list_states_curtail error.")
+        return
+
+    return result_list
+
+
+def list_years_curtail(engine):
+    query = f'''SELECT distinct YEAR(din_instante) as ano
+              FROM [dbo].[wind_CURTAILMENT]
+              union
+              SELECT distinct YEAR(din_instante) as ano
+              FROM [dbo].[solar_CURTAILMENT]
+              order by ano
+            '''
+    try:
+        with engine.connect() as conn:
+            # result = conn.execute(query)
+            result = pd.read_sql_query(query, conn)
+            result_list = result['ano'].values.tolist()
+    except Exception as e:
+        print(f"{e}: \t list_years_curtail error.")
+        return
+
+    return result_list
+
+
 def set_coords(engine):
-    #config = load_config(dist)
-    #engine = create_connection(config)
+    # config = load_config(dist)
+    # engine = create_connection(config)
     proc_time_ini = time.time()
 
     # Atualiza coordenadas UCAT
@@ -1240,6 +1292,12 @@ def add_id_banc_to_dataframe(df, df_column_ref):
 
 
 def calc_du_sa_do_mes(ano, mes: int) -> dict:
+    """
+    Calcula o número de dias para um determinado ano e mês e para cada tipo de dia
+    :param ano:
+    :param mes:
+    :return:
+    """
     # Gerar intervalo de datas para o mês especificado
     data_inicial = f'{ano}-{mes:02d}-01'
     data_final = pd.Period(f'{ano}-{mes:02d}').end_time.strftime('%Y-%m-%d')
@@ -1272,8 +1330,8 @@ def calc_du_sa_do_mes(ano, mes: int) -> dict:
     }
 
 
-def circuit_by_bus(pac: str, dist):
-    config = load_config(dist)
+def circuit_by_bus(pac: str, database):
+    config = load_config(database)
     engine = create_connection(config)
     pac = pac.upper()
     query = f'''
@@ -1288,12 +1346,12 @@ def circuit_by_bus(pac: str, dist):
     return ctmt
 
 
-def municipio_from_load(load, dist):
+def municipio_from_load(load, database):
     """
     Obtem o cod do munício onde está instalada uma carga.
     :return:
     """
-    config = load_config(dist)
+    config = load_config(database)
     engine = create_connection(config)
     # load = load.upper()
     tabelas = ["UCBT", "UCMT"]
@@ -1311,8 +1369,8 @@ def municipio_from_load(load, dist):
     return False
 
 
-def irrad_by_municipio(cod_municipio, mes,  dist):
-    config = load_config(dist)
+def irrad_by_municipio(cod_municipio, mes, database):
+    config = load_config(database)
     engine = create_connection(config)
     query = f'''
                 SELECT avg([GT(I)_MEAN]) as irrad, avg([GT(I)_STD]) as irrad_std, hora
@@ -1325,13 +1383,13 @@ def irrad_by_municipio(cod_municipio, mes,  dist):
     irrad = return_query_as_dataframe(query, engine)
     if irrad.empty:
         irrad_list = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.213170, 0.493614, 0.767539, 0.930065, 1.000000,
-                0.908147, 0.682011, 0.461154, 0.024685, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+                      0.908147, 0.682011, 0.461154, 0.024685, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         return irrad_list
     return irrad['irrad'].tolist()
 
 
-def temp_amb_by_municipio(cod_municipio, mes,  dist):
-    config = load_config(dist)
+def temp_amb_by_municipio(cod_municipio, mes, database):
+    config = load_config(database)
     engine = create_connection(config)
     query = f'''
             SELECT avg(T2M_MEAN) as temperatura, avg(T2M_STD) as temp_std, hora
@@ -1391,22 +1449,23 @@ def fator_autoconsumo(classe):
     """
     fator_auto = None
     if classe == 1:  # residencial
-        fator_auto =  0.4
+        fator_auto = 0.4
     elif classe == 2:  # comercial bt
-        fator_auto =  0.5
+        fator_auto = 0.5
     elif classe == 3:  # comercial mt
-        fator_auto =  0.8
+        fator_auto = 0.8
     return fator_auto
 
 
-def list_substation(dist):
+def list_substation(database):
     """
     Busca a lista de códigos de subestações próprias de uma distribuidora.
     :param dist:
     :return:
     """
-    config = load_config(dist)
+    config = load_config(database)
     engine = create_connection(config)
+    dist = config['dist']
     query = f'''
                 SELECT COD_ID 
                 FROM SDE.SUB 
@@ -1462,8 +1521,8 @@ def get_coods_by_annel(ceg):
     https://dadosabertos.aneel.gov.br/dataset/siga-sistema-de-informacoes-de-geracao-da-aneel/resource/11ec447d-698d-4ab8-977f-b424d5deee6a
     :return:
     """
-    '4318d38a-0bcd-421d-afb1-fb88b0c92a87' # código da api para acesso a UCAT_PJ.csv
-    'f6671cba-f269-42ef-8eb3-62cb3bfa0b98' # código da api para acesso a UCMT_PJ.csv
+    '4318d38a-0bcd-421d-afb1-fb88b0c92a87'  # código da api para acesso a UCAT_PJ.csv
+    'f6671cba-f269-42ef-8eb3-62cb3bfa0b98'  # código da api para acesso a UCMT_PJ.csv
 
     # url = 'https://dadosabertos.aneel.gov.br/api/3/action/datastore_search_sql?sql=SELECT%20*%20FROM%20%22fcf2906c-7c32-4b9b-a637-054e7a5234f4%22%20WHERE%20%22SigAgente%22%20%3D%20%27Equatorial%20AL%27%20AND%20%22DscSubGrupo%22%20%3D%20%27B3%27%20AND%20%22DscClasse%22%20%3D%20%27N%C3%A3o%20se%20aplica%27%20AND%20%22SigAgenteAcessante%22%20IN%20(%27NA%27,%20%27N%C3%A3o%20se%20aplica%27)%20AND%20%22DscBaseTarifaria%22%20%3D%20%27Tarifa%20de%20Aplica%C3%A7%C3%A3o%27%20AND%20%22DscSubClasse%22%20%3D%20%27N%C3%A3o%20se%20aplica%27%20AND%20%22DscModalidadeTarifaria%22%20%3D%20%27Convencional%27%20AND%20%22NomPostoTarifario%22%20%3D%20%27N%C3%A3o%20se%20aplica%27%20ORDER%20BY%20%22DatInicioVigencia%22%20DESC%20LIMIT%201'
     # url = 'https://dadosabertos.aneel.gov.br/api/3/action/datastore_search?resource_id=2f65a1b0-19b8-4360-8238-b34ab4693d55&limit=5&'
@@ -1496,9 +1555,9 @@ def get_list_ceg(dist, engine):
     return list_sub['CEG'].tolist()
 
 
-def update_coords_by_aneel(dist, engine):
+def update_coords_by_aneel(dist, engine) -> dict:
     """
-    Atualiza a base de dados da BDGD com as coordenadas obtidas da base de dados de empreendimentos da ANEEL
+    Atualiza a base de dados da BDGD com as coordenadas obtidas da base de dados de empreendimentos de AT da ANEEL
     :param dist:
     :param engine:
     :return:
@@ -1506,9 +1565,12 @@ def update_coords_by_aneel(dist, engine):
     dist = dist
     list_ceg = get_list_ceg(dist, engine)
 
-    ceg = 'UTE.AI.RN.028605-2'
+    # ceg = 'UTE.AI.RN.028605-2'
     for ceg in list_ceg:
         coord_aneel_dict = get_coods_by_annel(ceg)
+        if coord_aneel_dict is None:
+            return
+
         y = coord_aneel_dict[0].get('NumCoordNEmpreendimento').replace(',', '.')
         x = coord_aneel_dict[0].get('NumCoordEEmpreendimento').replace(',', '.')
         """
@@ -1533,9 +1595,8 @@ def update_coords_by_aneel(dist, engine):
 
 
 if __name__ == "__main__":
-
     database = '404'
-    #database = '6600_2022'
+    # database = '6600_2022'
     config = load_config(database)
     dist = config['dist']
 
@@ -1564,5 +1625,3 @@ if __name__ == "__main__":
     plt.plot(test['crv_t_pv_2'])
     plt.show()
     """
-
-

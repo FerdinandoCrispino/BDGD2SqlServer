@@ -54,11 +54,7 @@
         font-size: 14px; /* Ajuste o tamanho do botão */
     }
 
-    canvas {
-        width: 100%;
-        height: 150px;
-        background-color: #f4f4f4;
-    }
+
 
     .sidebar select {
         width: 100%;
@@ -67,6 +63,18 @@
         border: none;
         border-radius: 5px;
     }
+
+    .isDisabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+    .isDisabled > a {
+      color: currentColor;
+      display: inline-block;  /* IE11/ MS Edge bug */
+      pointer-events: none;
+      text-decoration: none;
+    }
+
 </style>
 
 <!-- Navbar Bootstrap dashboard
@@ -134,17 +142,11 @@
         <select id="meses" name="meses" style="float:right;width:110px">
         </select>
         <hr>
-
-         <span id> Scenario Study List: <i id="study_p" style="text-transform:uppercase"></i></span>
+        <span id> Scenario Study List: <i id="study_p" style="text-transform:uppercase"></i></span>
         <ul id="list_study" style="list-style: none; padding: 0; margin: 5px;">
          <li>
            <a href="#" onclick="power_transformer_loading(); return false;" title="Power Transformer Loading" data-parent="Base-sc_type1">
              <span class="links_name">Power Transformer Loading</span>
-           </a>
-         </li>
-         <li>
-           <a href="#" title="Voltage Analysys" data-parent="Base-sc_type1">
-             <span class="links_name">Voltage Analysys</span>
            </a>
          </li>
          <li>
@@ -153,13 +155,18 @@
            </a>
          </li>
          <li>
-           <a href="#" title="Reverse Power Flow" data-parent="Base-sc_type1">
-             <span class="links_name">Reverse Power Flow</span>
+           <a href="#" title="Voltage Analysys" aria-disabled="true" data-parent="Base-sc_type1">
+             <span class="isDisabled">Voltage Analysys</span>
            </a>
          </li>
          <li>
-           <a href="#" title="Voltage Unbalance" data-parent="Base-sc_type1">
-             <span class="links_name">Voltage Unbalance</span>
+           <a href="#" title="Reverse Power Flow" role="link" aria-disabled="true" data-parent="Base-sc_type1">
+             <span class="isDisabled">Reverse Power Flow</span>
+           </a>
+         </li>
+         <li>
+           <a href="#" title="Voltage Unbalance" aria-disabled="true" data-parent="Base-sc_type1">
+             <span class="isDisabled">Voltage Unbalance</span>
            </a>
          </li>
          <li>
@@ -183,6 +190,11 @@
            </a>
          </li>
          <li>
+           <a href="#" onclick="load_gd_insertion('Power Transformer Loading','PF Study Scenario'); return false;" title="Power Transformer Loading" data-parent="Power Factor">
+             <span class="links_name">Power Transformer Loading</span>
+           </a>
+         </li>
+         <li>
            <a href="#" onclick="load_gd_insertion('PF_Losses','PF Study Scenario'); return false;" title="GD Penetration Analysis" data-parent="Power Factor">
              <span class="links_name">Energy Losses</span>
            </a>
@@ -202,19 +214,38 @@
              <span class="links_name">Reverse Power Flow</span>
            </a>
          </li>
-
         </ul>
     </div>
 
-    <div id="chart-container" class="chart-container" style = "position: relative; height: 44vh; width:100vw;">
+    <div id="chart-container" class="chart-container" style = "position: relative; height: 43vh; width:100vw;">
         <canvas id="myChart1"></canvas>
         <canvas id="myChart2"></canvas>
         <canvas id="myChart3"></canvas>
         <canvas id="myChart4"></canvas>
+        </br>
+        </br>
     </div>
+
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js" ></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js" ></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/1.1.1/chartjs-plugin-zoom.min.js"></script>
+
+<!-- Load plotly.js into the DOM -->
+<script src='https://cdn.plot.ly/plotly-3.0.1.min.js'></script>
+<!--<script src='https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.17/d3.min.js'></script>-->
+
+<!--<script src="{{url_for('static', filename='js/dash_plotly.js') }}"></script> -->
+<script src="{{url_for('static', filename='js/sidebar_base.js') }}"></script>
 <script>
+
+    // Garante rodar só depois do DOM estar pronto - preenche List Combobox scenarios
+    // document.addEventListener('DOMContentLoaded', () => {
+    const allItemsScenarios = ['ALL'];
+    populateScenarios(allItemsScenarios);
+
+
     function filter_list(scenario) {
         let input, filter, ul, li, a, i, txtValue;
         input = scenario
@@ -222,13 +253,13 @@
         filter = input.toUpperCase();
         console.log(filter)
         ul = document.getElementById("list_study");
-        console.log(ul)
+        //console.log(ul)
         li = ul.getElementsByTagName("li");
         for (i = 0; i < li.length; i++) {
             a = li[i].getElementsByTagName("a")[0];
             //txtValue = a.textContent || a.innerText;
             txtValue = a.getAttribute("data-parent");
-             console.log(txtValue)
+            //console.log(txtValue)
             if (txtValue.toUpperCase().indexOf(filter) > -1) {
                 li[i].style.display = "";
             } else {
@@ -265,11 +296,13 @@
             console.log('Select a Utility!')
             return;
         }
+
         document.body.style.cursor = 'wait';  // Cursor de espera
         var t = document.getElementById("distribuidora");
         var dist_text = t.options[t.selectedIndex].text;
         var ano = dist_text.slice(-4);
         transformer_loading(document.getElementById('distribuidora').selectedOptions[0].getAttribute('info'),
+                            document.getElementById('subestacao').value,
                             ano,
                             document.getElementById('meses').value)
         document.body.style.cursor = 'default';  // Cursor normal
@@ -335,27 +368,27 @@
         }
     });
 
-    window.addEventListener('load', function() {
-        document.getElementById('study_p').innerHTML = document.getElementById('scenarios').value;
-        //console.log(document.getElementById('scenarios').value)
+    window.addEventListener('scenariosLoaded', function(e) {
+        console.log('Combo carregado. Valor inicial:', e.detail.value);
+        // Aqui você pode chamar o que precisa depois que o combo estiver pronto
+        filter_list(e.detail.value);
+        document.getElementById('study_p').innerHTML = e.detail.value;
+    });
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const comboboxScenarios = document.getElementById('scenarios');
+        document.getElementById('study_p').innerHTML =comboboxScenarios.options[1];
+        console.log('aqui');
+        console.log(comboboxScenarios.selectedIndex);
+        console.log(comboboxScenarios);
         filter_list(document.getElementById('scenarios').value);
     });
 
     document.getElementById('scenarios').addEventListener('change', function() {
         document.getElementById('study_p').innerHTML = document.getElementById('scenarios').value;
-        console.log(document.getElementById('scenarios').value)
+        console.log(document.getElementById('scenarios'))
         filter_list(document.getElementById('scenarios').value);
     });
 
 </script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js" ></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js" ></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-zoom/1.1.1/chartjs-plugin-zoom.min.js"></script>
 
-<script src="{{url_for('static', filename='js/sidebar_base.js') }}"></script>
-
-<!-- Load plotly.js into the DOM -->
-<script src='https://cdn.plot.ly/plotly-3.0.1.min.js'></script>
-<!--<script src='https://cdnjs.cloudflare.com/ajax/libs/d3/3.5.17/d3.min.js'></script>-->
-
-<!--<script src="{{url_for('static', filename='js/dash_plotly.js') }}"></script> -->

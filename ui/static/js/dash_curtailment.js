@@ -1,3 +1,18 @@
+/*
+const originalFetch = window.fetch;
+window.fetch = async function (...args) {
+    console.log("FETCH interceptado:", args[0]); // mostra URL solicitada
+
+    // Executa o fetch original
+    const response = await originalFetch(...args);
+
+    console.log("URL final após redirecionamentos:", response.url);
+    console.log("Status:", response.status);
+
+    return response;
+};
+*/
+
 function create_area_chart (ceg, dia, mes, ano, source, txt_title, typeChart) {
     const existing = document.getElementById('chart-container');
     if (existing) {
@@ -312,7 +327,7 @@ function load_curtailment_area(ceg, mes, ano, source, txt_title, dia) {
                 type: 'scatter',
                 x: x_fc,
                 y: y_fc,
-                name: 'Fator de Capacidade',
+                name: 'Capacity Factor',
             };
 
 
@@ -322,7 +337,7 @@ function load_curtailment_area(ceg, mes, ano, source, txt_title, dia) {
                 type: 'scatter',
                 x: x,
                 y: y1,
-                name: 'Generated Energy',
+                name: 'Generated',
 
                 marker: {
                     color: 'rgba(170, 150, 30, 0.7)',
@@ -350,7 +365,7 @@ function load_curtailment_area(ceg, mes, ano, source, txt_title, dia) {
                 line: {color: 'red'},  //line: {color: 'red', width: 1, shape: 'spline'},
                 x: x,
                 y: y3,
-                name: 'Energy Reference',
+                name: 'Reference',
             };
 
             const trace4 = {
@@ -359,7 +374,7 @@ function load_curtailment_area(ceg, mes, ano, source, txt_title, dia) {
                 line: {color: 'black', width: 1},
                 x: x,
                 y: y4,
-                name: 'Energy Availability',
+                name: 'Availability',
             };
 
             const trace5 = {
@@ -368,7 +383,7 @@ function load_curtailment_area(ceg, mes, ano, source, txt_title, dia) {
                 line: {color: 'black', width: 1, dash: 'dash',},
                 x: x,
                 y: y5,
-                name: 'Energy Limited',
+                name: 'Limited',
             };
 
             var layout = {
@@ -382,6 +397,7 @@ function load_curtailment_area(ceg, mes, ano, source, txt_title, dia) {
                     y: 1.25,
                     xanchor: 'center',
                     yanchor: 'top',
+                    font: { size: 10, color: 'black' }
                 },
                 xaxis: {
                     title: {

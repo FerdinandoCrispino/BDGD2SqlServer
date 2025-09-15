@@ -58,15 +58,14 @@ if __name__ == "__main__":
     logging.info(f"Processo concluído em {time.time() - proc_time_ini} ")
     print(f"Processo concluído em {time.time() - proc_time_ini}")
 
+    # Executa a stored procedure de atualização da versão 10
+    print(f"Executando stored procedure de atualização da versão 1.0 da base de dados da BDGD: {config_bdgd['dist']}")
+    exec_sp_atualiza_v10(config_bdgd['dist'], data_base, engine)
+    print(f"Processo concluído!")
+
     # preenche as coordenadas para UGMT, UCMT, UGBT, UCBT
     print(f"Preenchendo coordenadas para UGMT, UCMT, UGBT, UCBT")
     set_coords(engine)
     print(f"Processo concluído!")
     print(f"Preenchendo coordenadas a partir da api ANEEL")
     update_coords_by_aneel(config_bdgd['dist'], engine)
-
-    # Executa a stored procedure de atualização da versão 10
-    print(f"Executando stored procedure de atualização da versão 1.0 da base de dados da BDGD: {config_bdgd['dist']}")
-    exec_sp_atualiza_v10(config_bdgd['dist'], data_base, engine)
-    print(f"Processo concluído!")
-

@@ -102,7 +102,7 @@
     </div>
 
     <!-- Mapa -->
-    <div id="map" style="width: 100%; height: 620px;"></div>
+    <div id="map" style="width: 100%; height: 88vh;"></div>
 
 </div>
 
@@ -147,6 +147,10 @@
 <script src="{{url_for('static', filename='js/dash_curtailment.js') }}"></script>
 
 <script>
+    <!--Filter scenarios combobox -->
+    const allItemsScenarios = ['BASE', 'HOSTING CAPACITY'];
+    populateScenarios(allItemsScenarios);
+
     const mapaDiv = document.getElementById('map');
     var slider = document.getElementById("myRange");
     var hour = document.getElementById("hour");
@@ -391,7 +395,7 @@
                     const gmt5 = selected.get("demanda");
                     //console.log ('----++++++---------' + selected.length )
                     popup1.setInfo('CTMT:' + gmt1 + '<br> CEG: ' + gmt2 + '<br> Power: ' + gmt3 +
-                                   ' kW <br> Voltage: ' + gmt4 + ' V <br> Demand: ' + gmt5 + ' kW');
+                                   ' kW <br> Voltage: ' + gmt4 + ' V <br> Max Demand: ' + gmt5 + ' kW');
                     break;
                 case 'UGBT':
                     const gbt1 = selected.get("ctmt");
@@ -419,7 +423,7 @@
                     const cr2 = selected.get("banc");
                     const cr3 = selected.get("pot");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo('CTMT:' + cr1 + '<br> Power: ' + cr3 + ' kW <br> Bank: ' + cr2  );
+                    popup1.setInfo('CTMT:' + cr1 + '<br> Power: ' + cr3 + ' kVAr <br> Bank: ' + cr2  );
                     break;
                 case 'UNREMT':
                     const re1 = selected.get("ctmt");
@@ -439,7 +443,7 @@
                     const ucm5 = selected.get("fas_con");
                     const ucm6 = selected.get("ceg");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo('CTMT:' + ucm1 + '<br> Power: ' + ucm2 + ' kW<br> Type: ' + ucm3 + '<br> Livre: ' +
+                    popup1.setInfo('CTMT:' + ucm1 + '<br> Power: ' + ucm2 + ' kW<br> Type: ' + ucm3 + '<br> Free Consumers: ' +
                                    ucm4 + '<br> Phases: ' + ucm5 + '<br> CEG: ' + ucm6);
                     break;
                 case 'SIN-Lines':
@@ -538,8 +542,9 @@
                     const at_s2 = selected.get("nome");
                     const at_s3 = selected.get("voltage");
                     const at_s4 = selected.get("dist");
+                    const at_s5 = selected.get("desc");
 
-                    popup1.setInfo('Linha: '+ at_s1 + '<br>Dist: '+ at_s4 + '<br>V: '+ at_s3 + ' kV');
+                    popup1.setInfo('Linha: '+ at_s1 + '<br>Dist: '+ at_s4 + '<br>Cod: '+ at_s5 + '<br>V: '+ at_s3 + ' kV');
                     break;
                 case 'GERADOR_AT':
                     const at_g1 = selected.get("sub");
@@ -748,7 +753,7 @@
             nome_layer = 'SIN-UFV';
             meu_estilo = new ol.style.Style({
                     image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
-
+                            crossOrigin: 'anonymous',
                             anchor: [0.6, 0.6],
                             scale: 0.20,
                             src: 'static/icon/ufv.svg'
@@ -850,6 +855,43 @@
                             name: nome_layer,
                             source: vectorSource,
                             style: linha_estilo
+                        });
+                        break;
+                    case 'UFV':
+                         function ufv_estilo(feature) {
+                            return new ol.style.Style({
+                                image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                                    color: feature.get('cor'),
+                                    crossOrigin: 'anonymous',
+                                    anchor: [0.6, 0.6],
+                                    scale: 0.20,
+                                    src: 'static/icon/ufv.svg'
+                                }))
+                            });
+                        }
+                        var vectorLayer = new ol.layer.Vector({
+                            name: nome_layer,
+                            source: vectorSource,
+                            style: ufv_estilo
+                        });
+                        break;
+                    case 'EOL':
+                        function eol_estilo(feature) {
+                            return new ol.style.Style({
+                                image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
+                                    color: feature.get('cor'),
+                                    anchor: [0.5, 0.5],
+                                    anchorXUnits: 'fraction',
+                                    anchorYUnits: 'pixels',
+                                    scale: 0.04,
+                                    src: 'static/icon/eol2.png'
+                                }))
+                            });
+                        }
+                        var vectorLayer = new ol.layer.Vector({
+                            name: nome_layer,
+                            source: vectorSource,
+                            style: eol_estilo
                         });
                         break;
                     case 'SIN-Subsystems':
@@ -1025,8 +1067,20 @@
             });
     }
 
+    //remove as camadas dos elementos de rede
+    function removeLayers(){
+        const layersCollection = map.getLayers().getArray();;
+        console.log(layersCollection);
+        while (layersCollection.length > 1) {
+            map.removeLayer(layersCollection[1]); // Remove the layer
+        }
+    }
+
     // Função para carregar segmentos de reta no mapa com base nos filtros
     function loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes, hora) {
+
+        removeLayers();
+
         document.body.style.cursor = 'wait';  // Cursor de espera
 
         const url = `/api/segments?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}&scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}&hora=${hora}`
@@ -1159,7 +1213,7 @@
                   }
 
                 map.getLayers().forEach(function(layer, i) {
-                    console.log(layer.get('name'))
+                    //console.log(layer.get('name'))
                     if (layer.get('name') === subestacao) {
                         map.removeLayer(layer);  // Remove camada existente
                     }
@@ -1575,6 +1629,7 @@
         fetch(`/api/UGMT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}`)
             .then(response => {
                 if (response.status === 404) {
+                    document.body.style.cursor = 'default';  // Cursor normal
                     console.error("Erro 404: Recurso não encontrado.");
                     return;
                 }
@@ -1759,7 +1814,7 @@
 
         if (document.getElementById('trafos').checked  === false) {
             map.getLayers().forEach(function(layer, i) {
-                if (i > 0 && layer.get('name') === 'trasformadores') {
+                if (i > 0 && layer.get('name') === 'transformadores') {
                     map.removeLayer(layer);  // Remove camada
                 }
             });
@@ -1810,7 +1865,7 @@
                 }
 
                 var vectorLayer = new ol.layer.Vector({
-                    name: 'trasformadores',
+                    name: 'transformadores',
                     source: vectorSource,
                     style: estiloTrafos
                 });

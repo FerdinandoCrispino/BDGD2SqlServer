@@ -12,7 +12,7 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
         .then(data => {
             console.log(data)
             if (data.error) {
-                //console.error(data.error);
+                console.error(data.error);
                 return;
             }
             var surf_data = [];
@@ -20,10 +20,19 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
             var columnId = 7;           // coluna de dados para o fluxo reverso
             var columnMediumId = 2;     // coluna de dados das Mediana das perdas
             var txtTitleplot = 'Reverse Power Flow';
+            var txtAxisX = 'Energy Losses (kWh)'
             var xmax = 0;               // linha horizontal
             var y_set = 0;              // linha horizontal
-            txtsubtitle = ['FP: 0.8 ind.', 'FP: 0.8 cap.', 'FP: 0.9 ind.', 'FP: 0.9 cap.', 'FP: 1.0', '']
+            //txtsubtitle = ['FP: 0.8 ind.', 'FP: 0.8 cap.', 'FP: 0.9 ind.', 'FP: 0.9 cap.', 'FP: 1.0', '']
+            txtsubtitle = ['FP: 0.9 ind.', 'FP: 0.9 cap.', 'FP: 0.95 ind.', 'FP: 0.95 cap.', 'FP: 1.0', '']
             colorLine = ['red', 'blue', 'green', 'DeepPink', 'black'];
+
+            if (type_case == 'Power Transformer Loading') {
+                columnId = 8;           // coluna de dados das perdas
+                columnMediumId = 1      // coluna de dados para as medinas do fluxo reverso
+                txtTitleplot = 'Max Power Transformer Loading';
+                txtAxisX = 'Power Transformar (%)'
+            }
             if (type_case == 'PF_Losses') {
                 columnId = 6;           // coluna de dados das perdas
                 columnMediumId = 1      // coluna de dados para as medinas do fluxo reverso
@@ -49,6 +58,7 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                 case 'BESS_RPF':
                 case 'PF_Losses':
                 case 'PF_RPF':
+                case 'Power Transformer Loading':
 
                     let max_data = data.length-1;
                     data.forEach((item, index) => {
@@ -84,8 +94,8 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                             const penetration = item.slice(0).map(row => row[0]);
                             x_max = Math.max(...penetration);
                             const ener_losses = item.slice(0).map(row => row[columnId]); //  coluna (exceto o cabeçalho)
-                            console.log(penetration);
-                            console.log(ener_losses);
+                            //console.log(penetration);
+                            //console.log(ener_losses);
                             var data = [{
                                 type: 'box',
                                 x: penetration,
@@ -97,7 +107,7 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                         }
                     });
 
-                    //console.log(surf_data);
+                    console.log(surf_data);
                     layout = {
                         title: {
                             text: txtTitleplot,
@@ -105,7 +115,7 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                         },
                         yaxis: {
                             title: {
-                                text: 'Energy Losses (kWh)',
+                                text: txtAxisX,
                                 font: { size: 11, color: 'black' }
                             },
                             zeroline: false,
@@ -208,7 +218,7 @@ function load_gd_penetrion_analysis(dist, sub, scenario, circ, tipo_dia, mes, an
                 chart.style.height = '20vw';
                 if (surf_data.length > 1) {
                     var layout2 = JSON.parse(JSON.stringify(layout));  // clone para evitar conflito
-                    layout2.title.text = txtTitleplot + '<br>' + txtsubtitle[i-1] ;
+                    layout2.title.text = txtTitleplot + '-' + circ + '<br>' + txtsubtitle[i-1] ;
                     if (type_case == 'PF_Losses' || type_case == 'BESS_Losses'){
                         //console.log('Teste valores inicial:');
                         layout2.shapes[0].y0 = surf_data[i-1][0].y[0];
@@ -272,7 +282,7 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
                                 display: true,
                                 text: 'Time of the Day',
                                 font: {
-                                    padding: 4,
+                                    //padding: 1,
                                     size: 14,
                                     weight: 'bold',
                                     family: 'Arial'
@@ -285,7 +295,7 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
                                 display: true,
                                 text: 'Power (kW)',
                                 font: {
-                                    padding: 4,
+                                    padding: 2,
                                     size: 14,
                                     weight: 'bold',
                                     family: 'Arial'
@@ -342,7 +352,7 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
                                 display: true,
                                 text: 'Time of the Day',
                                 font: {
-                                    padding: 4,
+                                    //padding: 4,
                                     size: 14,
                                     weight: 'bold',
                                     family: 'Arial'
@@ -419,14 +429,14 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
             //myChart1.data.datasets[1].data = data[4];
 
             myChart1.options.plugins.legend.align = 'end';
-            myChart1.options.plugins.subtitle.text = 'Workdays - ' + ano + '- ' + mes;
+            myChart1.options.plugins.subtitle.text = (sub + ' Workdays - ' + ano + ' - ' + mes).trim();
             if (num_lines > max_legend) {
                 myChart1.options.plugins.legend.display = false
                 //myChart1.defaults.global.legend.display = false
             }
             myChart1.update();
             myChart2.options.plugins.legend.align = 'end';
-            myChart2.options.plugins.subtitle.text = 'Sundays - '+ ano + ' - ' + mes;
+            myChart2.options.plugins.subtitle.text = (sub + ' Sundays - '+ ano + ' - ' + mes).trim(0);
             if (num_lines > max_legend) {
                 myChart2.options.plugins.legend.display = false
                 //myChart2.defaults.global.legend.display = false
@@ -438,12 +448,13 @@ function daily_load(dist, sub, circ, scenario, tipo_dia,  ano, mes ) {
     document.body.style.cursor = 'default';  // Cursor normal
 }
 
-function transformer_loading(dist, ano, mes) {
+function transformer_loading(dist, sub, ano, mes) {
     // Captura o valor do parâmetro 'dist' da URL
     //const dist = "{{ dist }}";
     document.body.style.cursor = 'wait';  // Cursor de espera
-    fetch(`/data?distribuidora=${dist}&ano=${ano}&mes=${mes}`)  // Atenção ao tipo de aspas - backticks
+    fetch(`/data?distribuidora=${dist}&subestacao=${sub}&ano=${ano}&mes=${mes}`)  // Atenção ao tipo de aspas - backticks
         .then(response => {
+            //console.log(response);
             if (!response.ok){
                 alert("No Data Found!")
                 throw new Error ("No Data Found!")
@@ -460,8 +471,11 @@ function transformer_loading(dist, ano, mes) {
             for (const [key] of Object.entries(data[0])) {
                 groupLabel1.push(key)
             }
-            console.log(groupLabel1)
-            console.log(groupLabel2)
+            //console.log(groupLabel1)
+            //console.log(groupLabel2)
+            // verifica se existe e cria os elementos necessaris para colocar os graficos
+            createCanvas(4);
+            removedivChart(6);
             const ctx1 = document.getElementById('myChart1').getContext('2d', { willReadFrequently: true });
             const ctx2 = document.getElementById('myChart2').getContext('2d', { willReadFrequently: true });
             const ctx3 = document.getElementById('myChart3').getContext('2d', { willReadFrequently: true });
@@ -499,6 +513,10 @@ function transformer_loading(dist, ano, mes) {
                             labels: groupLabel2,
                         },
                         y: {
+                            title: {
+                                display: true,
+                                text: 'Power (p.u.)'
+                            },
                             beginAtZero: true,
                             type: 'linear',
                             min: 0,
@@ -531,7 +549,7 @@ function transformer_loading(dist, ano, mes) {
                         },
                         subtitle: {
                             display: true,
-                            text: 'DO - 2022 - 12'
+                            text: 'DO - ' + ano + ' - ' + mes
                         }
                     },
                     responsive: true,
@@ -567,6 +585,10 @@ function transformer_loading(dist, ano, mes) {
                             labels: groupLabel1,
                         },
                         y: {
+                            title: {
+                                display: true,
+                                text: 'Power (p.u.)'
+                            },
                             beginAtZero: true
                         },
                     },
@@ -595,7 +617,7 @@ function transformer_loading(dist, ano, mes) {
                         },
                         subtitle: {
                             display: true,
-                            text: 'DU - 2022 - 12'
+                            text: 'DU - ' + ano + ' - ' + mes
                         },
                     }
                 }
@@ -631,6 +653,10 @@ function transformer_loading(dist, ano, mes) {
                             labels: groupLabel1,
                         },
                         y: {
+                            title: {
+                                display: true,
+                                text: 'Time (Hs)'
+                            },
                             beginAtZero: true,
                             type: 'linear',
                             min: 0,
@@ -662,7 +688,7 @@ function transformer_loading(dist, ano, mes) {
                         },
                         subtitle: {
                             display: true,
-                            text: 'DO - 2022 - 12'
+                            text: 'DO - ' + ano + ' - ' + mes
                         },
                     }
                 }
@@ -699,6 +725,10 @@ function transformer_loading(dist, ano, mes) {
                             labels: groupLabel1,
                         },
                         y: {
+                            title: {
+                                display: true,
+                                text: 'Time (Hs)'
+                            },
                             beginAtZero: true,
                             type: 'linear',
                             min: 0,
@@ -730,7 +760,7 @@ function transformer_loading(dist, ano, mes) {
                         },
                         subtitle: {
                             display: true,
-                            text: 'DU - 2022 - 12'
+                            text: 'DU - ' + ano + ' - ' + mes
                         },
                     }
                 }
@@ -763,6 +793,9 @@ function losses(dist, subestacao, circuito, scenario, tipo_dia, ano, mes) {
             }
             //console.log(groupLabel1)
             //console.log(groupLabel2)
+            // verifica se existe e cria os elementos necessaris para colocar os graficos
+            createCanvas(4);
+            removedivChart(6);
             const ctx1 = document.getElementById('myChart1').getContext('2d', { willReadFrequently: true });
             const ctx2 = document.getElementById('myChart2').getContext('2d', { willReadFrequently: true });
 

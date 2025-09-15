@@ -1,22 +1,47 @@
 
-
-
-    // preenche combo com a lista de tipos de scenarios ============================================================
+// preenche combo com a lista de tipos de scenarios ============================================================
 const scenariosSelect = document.getElementById("scenarios");
-function populateScenarios(){
+function populateScenarios(listScenarios = ['ALL']){
     fetch('/list_scenarios')
-        .then(response => response.json())
+        .then(resp => {
+            if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+            return resp.json();
+        })
         .then(list_scenarios => {
-            console.log(list_scenarios)
-            for(let i = 0; i < list_scenarios.length; i++){
-                const option = document.createElement('option');
-                option.textContent = list_scenarios[i].toUpperCase();
-                option.value = list_scenarios[i];
-                scenariosSelect.appendChild(option);
+            //console.log(list_scenarios);
+            //console.log(listScenarios);
+            if (listScenarios == 'undefined') {
+                listScenarios = ['ALL'];
             }
+            //console.log(listScenarios);
+            for(let i = 0; i < list_scenarios.length; i++){
+                if (listScenarios.includes(list_scenarios[i].toUpperCase()) || listScenarios.includes('ALL')){
+                    const option = document.createElement('option');
+                    option.textContent = list_scenarios[i].toUpperCase();
+                    option.value = list_scenarios[i];
+                    scenariosSelect.appendChild(option);
+                    if (i === 0) option.selected = true; // <-- seleciona primeira opção
+                }
+            }
+            // 🚀 Dispara o evento customizado
+            const event = new CustomEvent('scenariosLoaded', {
+                detail: { value: scenariosSelect.value }
+            });
+            window.dispatchEvent(event);
+        })
+        .catch(err => {
+            console.error('Erro ao carregar /list_scenarios:', err);
+            // opcional: mostrar uma opção de erro no select
+            scenariosSelect.innerHTML = '';
+            const opt = document.createElement('option');
+            option.textContent = 'Erro ao carregar';
+            option.value = '';
+            option.disabled = true;
+            option.selected = true;
+            scenariosSelect.appendChild(option);
         });
 }
-populateScenarios();
+//populateScenarios();
 
 // Preenche o Select com as distribuidoras do arquivo de configuração yml
 
@@ -31,6 +56,9 @@ function getDistribuidorasConfig(){
                 distSelect.innerHTML += `<option info="${list_dist[3]}" value="${list_dist[0]}">${list_dist[2]}</option>`;
             });
 
+        })
+        .catch(err => {
+            console.error('Erro ao carregar distribuidoras:', err);
         });
 }
 getDistribuidorasConfig();
@@ -56,6 +84,9 @@ document.getElementById('distribuidora').addEventListener('change', function() {
                 subestacaoSelect.innerHTML += `<option value="${subestacao[0]}">${subestacao[2]}</option>`;
             });
             circuitoSelect.innerHTML = '<option value="">Select</option>';
+        })
+        .catch(err => {
+            console.error('Erro ao carregar subestações:', err);
         });
 });
 
@@ -75,6 +106,9 @@ document.getElementById('subestacao').addEventListener('change', function() {
                 circuitos.forEach(function (circuito) {
                     circuitoSelect.innerHTML += `<option value="${circuito[1]}">${circuito[0]}</option>`;
                 });
+            })
+            .catch(err => {
+                console.error('Erro ao carregar circuitos:', err);
             });
     }
 });

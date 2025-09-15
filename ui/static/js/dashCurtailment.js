@@ -1,8 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
+    const sourceEl = document.getElementById("source");
     const estadoEl = document.getElementById("estado");
     const anoEl = document.getElementById("ano");
     const mesEl = document.getElementById("mes");
-    const diaEl = document.getElementById("dia");
 
     async function postJSON(url, data) {
         const response = await fetch(url, {
@@ -10,7 +10,9 @@ document.addEventListener("DOMContentLoaded", () => {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(data)
         });
+
         return response.json();
+
     }
 
     function populateSelect(selectEl, values) {
@@ -32,28 +34,26 @@ document.addEventListener("DOMContentLoaded", () => {
         const ano = parseInt(anoEl.value) || new Date().getFullYear();
         const data = await postJSON("/get_date_options", { ano: ano });
         populateSelect(mesEl, data.meses);
-        await updateDayOptions(); // encadeia dias depois de meses
-    }
-
-    async function updateDayOptions() {
-        const ano = parseInt(anoEl.value) || new Date().getFullYear();
-        const mes = parseInt(mesEl.value) || 1;
-        const data = await postJSON("/get_date_options", { ano: ano, mes: mes });
-        populateSelect(diaEl, data.dias);
         await loadCharts(); // encadeia carregamento de gráficos
     }
 
+
     async function loadCharts() {
         document.body.style.cursor = 'wait';  // Cursor de espera
+        const source = sourceEl.value;
         const estado = estadoEl.value;
         const ano = parseInt(anoEl.value) || new Date().getFullYear();
         const mes = parseInt(mesEl.value) || 'All';
-        const dia = parseInt(diaEl.value) || 'All';
 
-        const payload = { estado, ano, mes, dia };
-
+        const payload = { source, estado, ano, mes };
+        console.log(source);
         const charts = await postJSON("/get_data", payload);
+        if (charts.error) {
+            alert("No Data Found!")
+            document.body.style.cursor = 'default';  // Cursor normal
 
+        }
+        console.log(charts);
         let subtitle = '';
         if (mes != 'All'){
             subtitle += ' - ' + mes;
@@ -70,13 +70,16 @@ document.addEventListener("DOMContentLoaded", () => {
         const xaxis_title = ['Power Plant', 'Power Plant', 'State', 'Month', 'Day of Week', 'Hour of the Day', '', '', ''];
         const yaxis_title = ['Energy (MWh)', 'Curtailment Ratio %', 'Energy (MWh)', 'Energy (MWh)', 'Energy (MWh)', 'Energy (MWh)', '', '', ''];
 
+        if (charts === undefined ) {
+
+            document.body.style.cursor = 'default';  // Cursor normal
+            return;
+        }
+        console.log(charts);
         charts.forEach((chart, i) => {
-            if (chart.x === undefined || chart.x.length == 0 ) {
-                return;
-            }
             var layout = {
                 barmode: 'stack',
-                title: { text: title_chart[i] +'<br><span style="font-size: 12px;">' + ano + subtitle + '</span>',
+                title: { text: source + ' ' + title_chart[i] +'<br><span style="font-size: 12px;">' + ano + subtitle + '</span>',
                          font: { size: 14, color: 'black' }
                 },
                 xaxis: {
@@ -122,19 +125,28 @@ document.addEventListener("DOMContentLoaded", () => {
                         x: chart.x,
                         y: chart.y1,
                         name:  group_name[1],
-                        type: 'bar'
+                        type: 'bar',
+                        marker: {
+                            color: '#1f77f0e'
+                        }
                     };
                     var trace2 = {
                       x: chart.x,
                       y: chart.y2,
                       name: group_name[2],
-                      type: 'bar'
+                      type: 'bar',
+                      marker: {
+                            color: '#2ca02c'
+                        }
                     };
                     var trace3 = {
                       x: chart.x,
                       y: chart.y3,
                       name:  group_name[3],
-                      type: 'bar'
+                      type: 'bar',
+                      marker: {
+                            color: '#ff7f0e'
+                        }
                     };
                     var data = [trace1, trace2, trace3];
             };
@@ -145,10 +157,10 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Eventos
+    sourceEl.addEventListener("change", loadCharts);
     estadoEl.addEventListener("change", updateDateOptions);
     anoEl.addEventListener("change", updateDateOptions);
-    mesEl.addEventListener("change", updateDayOptions);
-    diaEl.addEventListener("change", loadCharts);
+    mesEl.addEventListener("change", loadCharts);
 
     // Inicialização com valores seguros
     updateDateOptions();

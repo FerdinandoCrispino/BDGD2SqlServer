@@ -3,7 +3,6 @@ import sys
 
 import geopandas as gpd
 import pandas as pd
-
 import numpy as np
 
 from colour import Color
@@ -14,22 +13,20 @@ from shapely.geometry import LineString, Point
 import geo_tools
 import io
 import threading
-
-import random
+from pathlib import Path
 from datetime import datetime
-
-# execução da geração dos arquivos DSS pelo navegador.
-import core.electric_data as run_dss_files_generators
 
 current = os.path.dirname(os.path.realpath(__file__))
 parent = os.path.dirname(current)
 sys.path.append(parent)
 
+# execução da geração dos arquivos DSS pelo navegador.
+import core.electric_data as run_dss_files_generators
 import Tools.summary as resumo
-from Tools.tools import return_query_as_dataframe, create_connection, load_config, load_config_list_dist
+from Tools.tools import return_query_as_dataframe, create_connection, load_config, \
+    load_config_list_dist, list_states_curtail, list_years_curtail, rel_usina_conjunto
 
 pd.options.mode.copy_on_write = True
-
 task_running = False  # Variável para evitar múltiplas execuções simultâneas -- control_bus
 
 sys.path.append('../')
@@ -54,13 +51,20 @@ def read_data_usinas():
     if dia in ['null', '', 'undefined']:
         dia = None
 
-    path_result = os.path.abspath('curtailment')
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto (2 níveis acima do arquivo atual, ajuste se necessário)
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    path_result = project_root / 'ui' / 'curtailment'
+
+    # path_result = os.path.abspath('curtailment')
     path_conf = os.path.join(path_result, "USINAS")
 
     try:
         # Leitura do arquivo de RELACIONAMENTO_USINA_CONJUNTO
-        file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
-        df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
+        # file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
+        # df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
+        df_rel = rel_usina_conjunto(engine, ceg)
 
         file_name = f'GERACAO_USINA-2_{ano}_{mes}.parquet'
 
@@ -89,7 +93,7 @@ def read_data_usinas():
 
 
 # request data for curtailment and capacity factor to UFV and EOL
-@server.route('/curt_data/')
+@server.route('/curt_data')
 def read_data_curt():
     ceg = request.args.get('ceg')
     src = request.args.get('source')
@@ -100,7 +104,13 @@ def read_data_curt():
     if dia in ['null', '']:
         dia = None
 
-    path_result = os.path.abspath('curtailment')
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto (2 níveis acima do arquivo atual, ajuste se necessário)
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    path_result = project_root / 'ui' / 'curtailment'
+
+    #path_result = os.path.abspath('curtailment')
     path_conf = os.path.join(path_result, src)
 
     if src == "UFV":
@@ -110,9 +120,10 @@ def read_data_curt():
 
     try:
         # Leitura do arquivo de RELACIONAMENTO_USINA_CONJUNTO
-        file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
-        df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
-        df_rel.sort_values(by='dat_iniciorelacionamento', ascending=False, inplace=True)
+        #file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
+        #df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
+        #df_rel.sort_values(by='dat_iniciorelacionamento', ascending=False, inplace=True)
+        df_rel = rel_usina_conjunto(engine, ceg)
 
         # Leitura do arquivo das restrições das usinas EOL ou UFV
         df = pd.read_parquet(os.path.join(path_conf, file_name))
@@ -125,8 +136,7 @@ def read_data_curt():
         if not df_fill.empty:
             df_fill['curt'] = np.where(
                 df_fill.loc[:, 'val_geracaoreferencia'] - df_fill.loc[:, 'val_geracaolimitada'] > 0,
-                (df_fill.loc[:, 'val_geracaoreferencia'] - df_fill.loc[:, 'val_geracaolimitada']),
-                0)
+                (df_fill.loc[:, 'val_geracaoreferencia'] - df_fill.loc[:, 'val_geracaolimitada']), 0)
 
             df_fill = df_fill[['din_instante', 'val_geracao', 'curt', 'val_geracaoreferencia', 'val_disponibilidade',
                                'val_geracaolimitada', 'id_ons', 'cod_razaorestricao', 'cod_origemrestricao']].copy()
@@ -167,7 +177,7 @@ def read_data_curt():
 
 
 # request data for curtailment e capacity factor to UFV and EOL
-@server.route('/curt_data_detail/')
+@server.route('/curt_data_detail')
 def read_data_curt_datail():
     ceg = request.args.get('ceg')
     src = request.args.get('source')
@@ -178,7 +188,13 @@ def read_data_curt_datail():
     if dia in ['null', '']:
         dia = None
 
-    path_result = os.path.abspath('curtailment')
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto (2 níveis acima do arquivo atual, ajuste se necessário)
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    path_result = project_root / 'ui' / 'curtailment'
+
+    # path_result = os.path.abspath('curtailment')
     path_conf = os.path.join(path_result, src)
 
     if src == "UFV":
@@ -208,8 +224,9 @@ def read_data_curt_datail():
         data = df.values.tolist()
 
         # Leitura do arquivo de RELACIONAMENTO_USINA_CONJUNTO
-        file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
-        df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
+        # file_name_rel = f'RELACIONAMENTO_USINA_CONJUNTO.parquet'
+        # df_rel = pd.read_parquet(os.path.join(path_result, file_name_rel), filters=[('ceg', '==', f'{ceg}')])
+        df_rel = rel_usina_conjunto(engine, ceg)
 
         # Leitura do arquivo do fator de capacidade dos empreendiemntos
         file_name_fc = f'FATOR_CAPACIDADE-2_{ano}_{mes}.parquet'
@@ -238,7 +255,7 @@ def read_data_curt_datail():
         return jsonify({"error": str(e)}), 500
 
 
-@server.route('/z_data/')
+@server.route('/z_data')
 def read_surface_data():
     distribuidora = request.args.get('distribuidora')
     subestacao = request.args.get('subestacao')
@@ -252,8 +269,15 @@ def read_surface_data():
     if not circuito:
         circuito = f'SUB_{subestacao}'
 
-    path_result = os.path.abspath('static/scenarios')
-    path_conf = os.path.join(path_result, scenario, str(distribuidora), subestacao, circuito, tipo_dia, ano, mes)
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto (2 níveis acima do arquivo atual, ajuste se necessário)
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    path_conf = project_root / 'ui' / 'static' / 'scenarios' / scenario / str(distribuidora) / subestacao / circuito / tipo_dia / ano / mes
+
+    #path_conf = os.path.abspath(
+    #    f'static/scenarios/{scenario}/{str(distribuidora)}/{subestacao}/{circuito}/{tipo_dia}/{ano}/{mes}')
+
     if not distribuidora:
         print(f'Selecione uma distribuidora')
         return jsonify("error Selecione uma distribuidora"), 404
@@ -266,12 +290,12 @@ def read_surface_data():
     elif type_case == 'case3':
         file = f'{ano}_{tipo_dia}_{mes}_{circuito}_Vmax.csv'
 
-    elif type_case in ('PF_Losses', 'PF_RPF'):
+    elif type_case in ('PF_Losses', 'PF_RPF', 'Power Transformer Loading'):
         path_dir_base = 'PF Study Scenario'
-        files = [f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_0.8.csv',
-                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_-0.8.csv',
-                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_0.9.csv',
+        files = [f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_0.9.csv',
                  f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_-0.9.csv',
+                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_0.95.csv',
+                 f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_-0.95.csv',
                  f'{path_dir_base}/{ano}_{tipo_dia}_{mes}_{circuito}_1.0.csv']
 
     elif type_case in ('BESS_Losses', 'BESS_RPF'):
@@ -288,7 +312,7 @@ def read_surface_data():
             for file in files:
                 df = pd.read_csv(os.path.join(path_conf, file), na_filter=False)
                 df_medium_data = df.groupby("Pen")[
-                    ["Energy Losses", "Min Fluxo Subestacao", "B VminVmax"]].median().reset_index()
+                    ["Energy Losses", "Min Fluxo Subestacao", "B VminVmax", "Max_Cargamento_Trafo_pct"]].median().reset_index()
                 data_medium = df_medium_data.values.tolist()
                 data = df.values.tolist()
                 all_data.append(data)
@@ -307,10 +331,20 @@ def read_surface_data():
         return jsonify({"error": str(e)}), 500
 
 
-# Simula dados
+# dados para os filtros do curtailment
+SOURCES = ['WIND', 'SOLAR']
+#TODO selecionar dados de estados do banco de dados
 ESTADOS = ['All', 'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MS', 'MT', 'MG', 'PA', 'PB', 'PR',
            'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
-ANOS = [2025, 2024, 2023, 2022]
+conf = load_config('curtailment')
+engine = create_connection(conf)
+ESTADOS = list_states_curtail(engine=engine)
+ESTADOS.append('All')
+# ESTADOS.insert(0, 'All')  # primeira posição
+
+ANOS = [2025, 2024]
+ANOS = list_years_curtail(engine=engine)
+
 MESES = list(range(1, 13))
 MESES.insert(0, 'All')
 DIAS = list(range(1, 29))
@@ -319,21 +353,21 @@ DIAS.insert(0, 'All')
 
 @server.route('/dashcurtailment')
 def render_dashcurtailment():
-    return render_template('dashcurtailment.html', estados=ESTADOS, anos=ANOS)
+    return render_template('dashcurtailment.html', estados=ESTADOS, anos=ANOS, sources=SOURCES)
 
 
 @server.route("/get_date_options", methods=["POST"])
 def get_date_options():
     ano = int(request.json.get("ano", datetime.now().year))
-    return jsonify({"meses": MESES, "dias": DIAS})
+    return jsonify({"meses": MESES, "dias": DIAS, "sources": SOURCES})
 
 
 @server.route("/get_data", methods=["POST"])
 def get_data():
+    source = request.json.get("source", "wind")
     estado = request.json.get("estado")
     ano = request.json.get("ano")
     mes = request.json.get("mes")
-    dia = request.json.get("dia")
 
     query_estado = ''
     if estado != 'All':
@@ -348,18 +382,20 @@ def get_data():
 
         query = f'''
                 SELECT din_instante, id_estado,  nom_usina, cod_razaorestricao,  val_geracaoreferencia , 
-                val_geracaolimitada
-                    FROM [DBONS].[dbo].[CURTAILMENT]      
+                val_geracaolimitada, geracaoReal, GeracaoCortada
+                    FROM [DBONS].[dbo].[{source}_CURTAILMENT]      
                     WHERE YEAR(din_instante) = {ano} {query_estado} {query_mes}
                     and cod_razaorestricao not in ('nan', '')
                 '''
         rows = return_query_as_dataframe(query, engine)
+        if rows.empty:
+            raise ValueError("No data found in the specified source.")
+
         rows = rows.fillna(0)
         # Create a new column based on a condition (like CASE WHEN)
-        rows['curt'] = np.where(rows['val_geracaoreferencia'] - rows['val_geracaolimitada'] > 0,
-                                (rows['val_geracaoreferencia'] - rows['val_geracaolimitada']) / 2000,
-                                0)
-
+        # rows['curt'] = np.where(rows['val_geracaoreferencia'] - rows['val_geracaolimitada'] > 0,
+        #                        (rows['val_geracaoreferencia'] - rows['val_geracaolimitada']) / 2000, 0)
+        rows['curt'] = rows['GeracaoCortada']
         # Copy columns to a new DataFrame
         coff_usinas = rows[['nom_usina', 'cod_razaorestricao', 'curt']].copy()
         # Group by power plant
@@ -526,7 +562,7 @@ def get_data():
         return jsonify({"error": str(e)}), 500
 
 
-@server.route('/dashboard/')
+@server.route('/dashboard')
 def render_dashboard():
     dist = request.args.get('codigoDistribuidora')
     print(dist)
@@ -547,12 +583,20 @@ def daily_power_circuit():
     list_data = []
     list_data_dict = dict()
     tipo_dia = ''
-    path_result = os.path.abspath('static/scenarios')
-    path_conf = os.path.join(path_result, scenario, conf['dist'], subestacao)
+
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    # Caminho fixo para static/scenarios
+    path_conf_teste = project_root / 'ui' / 'static' / 'scenarios' / scenario / conf['dist'] / subestacao
+
+    path_conf = os.path.join(os.path.dirname(__file__), 'static/scenarios', scenario, conf['dist'], subestacao).replace(
+        '\\', '/')
 
     if not distribuidora:
-        print(f'Selecione uma distribuidora')
-        return jsonify("error Selecione uma distribuidora"), 404
+        print(f'Select a utility!')
+        return jsonify("Error: Select a utility"), 404
 
     if circuito:
         path_conf = os.path.join(path_conf, circuito)
@@ -610,7 +654,14 @@ def render_data_losses():
     mes = request.args.get('mes')
 
     list_data = []
-    path_result = os.path.abspath(f"static/scenarios/base/{conf['dist']}")
+
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto (2 níveis acima do arquivo atual, ajuste se necessário)
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    path_result = project_root / 'ui' / 'static' / 'scenarios' / 'base' / conf['dist']
+
+    #path_result = os.path.abspath(f"static/scenarios/base/{conf['dist']}")
     file_results = [f'{ano}_DO_{mes}_sub_losses.xlsx', f'{ano}_DU_{mes}_sub_losses.xlsx']
 
     """
@@ -647,14 +698,21 @@ def render_data_losses():
         return jsonify({"error": str(e)}), 500
 
 
-@server.route('/data/', methods=['GET'])
+@server.route('/data', methods=['GET'])
 def render_data():
     # print(f'route data: {distribuidora}')
+    sub = request.args.get('subestacao')
     ano = request.args.get('ano')
     mes = request.args.get('mes')
     list_data = []
-    path_result = 'static/scenarios/base'
+    # path_result = 'static/scenarios/base'
     tipo_dias = ['DO', 'DU']
+
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto (2 níveis acima do arquivo atual, ajuste se necessário)
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    path_result = project_root / 'ui' / 'static' / 'scenarios' / 'base'
 
     for tipo_dia in tipo_dias:
         file_result = f'{ano}_{tipo_dia}_{mes}_sub_analysis.xlsx'
@@ -664,11 +722,16 @@ def render_data():
         # Verifique se o caminho está correto
         if not os.path.exists(path_all_result):
             print(f"Erro: O arquivo '{path_all_result}' não existe. Verifique o caminho e tente novamente.")
+            return jsonify("error Dados inexistentes"), 404
         else:
             try:
                 xls = pd.ExcelFile(path_all_result)
                 df1 = xls.parse(xls.sheet_names[0])
                 df_data = df1[['nome', 'sub', 'P_max', 'P_min', 'P_time_max', 'P_time_min']].copy()
+                # filtrar por subestação
+                if sub != '':
+                    df_data = df_data[df_data['sub'] == sub]
+
                 df_data['nome'] = df_data['nome'].str[5:-3]
 
                 label_list = df_data['nome'].values.tolist()
@@ -693,6 +756,7 @@ def render_data():
                 list_data.append(data_time_min)
             except Exception as e:
                 print(f"Erro ao carregar o arquivo Excel: {e}")
+                return jsonify({"error": str(e)}), 404
 
     return jsonify(list_data)
 
@@ -1151,7 +1215,7 @@ def create_geojson_from_points_gerador_at(points_ger_at):
 
 
 def get_coords_ssdat_from_db():
-    query = f'''Select  b.cod_id as descr, point_x1 as start_longitude, POINT_y1 as start_latitude, 
+    query = f'''Select  b.cod_id as descr, b.dist, point_x1 as start_longitude, POINT_y1 as start_latitude, 
                     point_x2 as end_longitude, POINT_y2 as end_latitude,
                     PAC_1, PAC_2, CT_COD_OP, COMP,  c.NOME, c.TEN_NOM, t.TEN
                 from sde.SSDAT s
@@ -1179,7 +1243,7 @@ def get_coords_ssdat_from_db():
 
     #
     if ssdat_ini.empty:
-        query = f'''Select  b.cod_id as descr, point_x1 as start_longitude, POINT_y1 as start_latitude, 
+        query = f'''Select  b.cod_id as descr, b.dist, point_x1 as start_longitude, POINT_y1 as start_latitude, 
                         point_x2 as end_longitude, POINT_y2 as end_latitude,
                         PAC_1, PAC_2, CT_COD_OP, COMP,  c.NOME, c.TEN_NOM, t.TEN
                     from sde.SSDAT s
@@ -1200,7 +1264,7 @@ def get_coords_ssdat_from_db():
 
     rows["TIPO"] = "AT_SSD"
     points = [((row["start_longitude"], row["start_latitude"]), (row["end_longitude"], row["end_latitude"]),
-               row["CT_COD_OP"], row["COMP"], row["NOME"], row["TEN"], row["TIPO"], row["descr"])
+               row["CT_COD_OP"], row["COMP"], row["NOME"], row["TEN"], row["TIPO"], row["descr"], row["dist"])
               for index, row in rows.iterrows()]
     return points
 
@@ -1214,7 +1278,7 @@ def create_geojson_from_points_SSDAT(points_ssdat):
     nome_linha = []
     voltage = []
 
-    for start, end, ct_cod, comp, nome, ten_nom, tipo, descr in points_ssdat:
+    for start, end, ct_cod, comp, nome, ten_nom, tipo, descr, dist in points_ssdat:
         lines.append(LineString([start, end]))
         ct_cod_at.append(ct_cod)
         comp_linha.append(comp)
@@ -1223,7 +1287,7 @@ def create_geojson_from_points_SSDAT(points_ssdat):
 
     # Criar um GeoDataFrame com as geometrias e dados extras
     gdf = gpd.GeoDataFrame({'geometry': lines, 'linha': ct_cod_at, 'nome': nome, 'voltage': voltage, 'tipo': tipo,
-                            'dist': descr}, crs="EPSG:4326")
+                            'desc': descr, 'dist': dist}, crs="EPSG:4326")
     # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
 
     # Converter o GeoDataFrame para GeoJSON
@@ -1765,7 +1829,9 @@ def segments():
 
     if subestacao == '':
         print(f"Selecione uma subestação!")
-        return None  # retornar erro!
+        mens = {'error': 'Select an Utility!'}
+        print(f"{mens}")
+        return mens, 500, {'Content-Type': 'application/json'}
     line_segments = get_coords_SSDMT_from_db(subestacao, circuito)
     if scenario == "Hosting Capacity":
         # Leitura do arquivo de resultados do hosting capacity
@@ -1975,9 +2041,15 @@ def control_bus():
 
 @server.route('/list_scenarios')
 def list_scenarios():
-    root = 'static/scenarios'
-    current = os.path.dirname(os.path.realpath(__file__))
-    scenarios_path = os.path.join(current, root).replace('\\', '/')
+    # Caminho absoluto do arquivo atual
+    current_file = Path(__file__).resolve()
+    # Caminho da raiz do projeto (2 níveis acima do arquivo atual, ajuste se necessário)
+    project_root = current_file.parents[1]  # se __file__ está em ui/, volta para BDGD2SqlServer
+    # Caminho fixo para static/scenarios
+    scenarios_path = project_root / 'ui' / 'static' / 'scenarios'
+    # root = 'static/scenarios'
+    # current = os.path.dirname(os.path.realpath(__file__))
+    # scenarios_path = os.path.join(current, root).replace('\\', '/')
     print(scenarios_path)
     dir_list = os.listdir(scenarios_path)
     print(dir_list)

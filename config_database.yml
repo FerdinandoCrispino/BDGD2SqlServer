@@ -1,30 +1,32 @@
 # arquivo de configurações
 databases:
     '391':
-        server: 'localhost'
-        database: 'GEO_SIGR_PERDAS_EDP_SP'
+        server: 'DaimonEng'
+        database: 'GEO_SIGR_PERDAS_EDP_SP_2022'
         username: 'usr_GeoPerdas'
         password: '123456'
         schema: 'SDE'
         dbf_directory: ''
-        gdb_directory: 'D:\Doutorado\PD\dados\BDGD\EDP_SP_391_2022-12-31_V11_20231030-1400.gdb'
+        gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\EDP_SP_391_2022-12-31_V11_20231030-1400.gdb'
         gdb_file: 'EDP_SP_391_2022-12-31_V11_20231030-1400.gdb'
         data_base: "2022-12-31"
         cod_BDGD: '1400'
         dist: '391'
+        dist_name: 'EDP_SP_2022'
         dss_files_folder: '~\dss'
     '404':
         server: 'localhost'
-        database: 'GEO_SIGR_PERDAS'
+        database: 'GEO_SIGR_PERDAS_ENERGISA_MS_2022'
         username: 'usr_GeoPerdas'
         password: '123456'
         schema: 'SDE'
-        dbf_directory: 'D:\\Doutorado\\PD\dados\\BDGD\\Energisa\\Shapefile'
-        gdb_directory: 'D:\\Doutorado\\PD\dados\\BDGD\\Energisa'
+        dbf_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\Energisa\Shapefile'
+        gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\Energisa'
         gdb_file: 'Energisa_MS_404_2022-12-31_V11_20231219-1342.gdb'
         data_base: "2022-12-31"
         cod_BDGD: '1342'
         dist: '404'
+        dist_name: 'Energisa_MS_2022'
         dss_files_folder: '~\dss'
     '40':
         server: 'localhost'
@@ -33,11 +35,54 @@ databases:
         password: '123456'
         schema: 'SDE'
         dbf_directory: ''
-        gdb_directory: 'D:\Doutorado\PD\dados\BDGD\Neoenergia_Cosern_40_2023-12-31_V11_20240614-1651.gdb'
+        gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\Neoenergia_Cosern_40_2023-12-31_V11_20240614-1651.gdb'
         gdb_file: 'Neoenergia_Cosern_40_2023-12-31_V11_20240614-1651.gdb'
         data_base: "2023-12-31"
         cod_BDGD: '1651'
         dist: '40'
+        dist_name: 'Cosern_2023'
+        dss_files_folder: '~\dss' # diretório dos arquivos do openDSS (user folder)
+    '40_2022':
+        server: 'localhost'
+        database: 'GEO_SIGR_PERDAS_COSERN_2022'
+        username: 'usr_GeoPerdas'
+        password: '123456'
+        schema: 'SDE'
+        dbf_directory: ''
+        gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD'
+        gdb_file: 'Neoenergia_Cosern_40_2022-12-31_V11_20230829-1449.gdb'
+        data_base: "2022-12-31"
+        cod_BDGD: '1651'
+        dist: '40'
+        dist_name: 'Cosern_2022'
+        dss_files_folder: '~\dss' # diretório dos arquivos do openDSS (user folder)
+    '6600_2022':
+        server: 'localhost'
+        database: 'GEO_SIGR_PERDAS_ENERGISA_PB_2022'
+        username: 'usr_GeoPerdas'
+        password: '123456'
+        schema: 'SDE'
+        dbf_directory: ''
+        gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\Energisa_PB_6600_2022-12-31_V11_20230919-0837.gdb'
+        gdb_file: 'Energisa_PB_6600_2022-12-31_V11_20230919-0837.gdb'
+        data_base: "2022-12-31"
+        cod_BDGD: '53'
+        dist: '6600'
+        dist_name: 'Energisa_PB_2022'
+        dss_files_folder: '~\dss' # diretório dos arquivos do openDSS (user folder)
+    '39_2022':
+        server: 'localhost'
+        database: 'GEO_SIGR_PERDAS_ENEL_CE_2022'
+        username: 'usr_GeoPerdas'
+        password: '123456'
+        schema: 'SDE'
+        dbf_directory: ''
+        gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\Enel_CE_39_2022-12-31_V11_20231211-1348.gdb'
+        gdb_file: 'Enel_CE_39_2022-12-31_V11_20231211-1348.gdb'
+        data_base: "2022-12-31"
+        cod_BDGD: '29'
+        dist: '39'
+        dist_name: 'ENEL_CE_2022'
         dss_files_folder: '~\dss' # diretório dos arquivos do openDSS (user folder)
     'Irradiance':
         server: 'localhost'
@@ -46,3 +91,10 @@ databases:
         password: '123456'
         schema: 'SDE'
         irrad_directory: 'C:\BDGD2SqlServer\Irradiance_SP'
+    'curtailment':
+        server: 'localhost'
+        database: 'DBONS'
+        username: 'usr_GeoPerdas'
+        password: '123456'
+        schema: 'DBO'
+        curt_directory: '..\ui\curtailment'
