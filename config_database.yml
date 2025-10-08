@@ -1,100 +1,205 @@
 # arquivo de configurações
 databases:
-    '391':
-        server: 'DaimonEng'
-        database: 'GEO_SIGR_PERDAS_EDP_SP_2022'
-        username: 'usr_GeoPerdas'
-        password: '123456'
-        schema: 'SDE'
-        dbf_directory: ''
-        gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\EDP_SP_391_2022-12-31_V11_20231030-1400.gdb'
-        gdb_file: 'EDP_SP_391_2022-12-31_V11_20231030-1400.gdb'
+    "2937_2022":
+        #> em andamento: electric_data.py - base_case_analysis.py
+        #* Prioridade
+        server: "WIN-C7ROMTFTIU3"
+        database: "GEO_SIGR_2937_2022"
+        username: "usr_GeoPerdas"
+        password: "123456"
+        schema: "SDE"
+        dbf_directory: ""
+        gdb_directory: 'D:\BDGDs\gdbs'
+        gdb_file: "CPFL_Piratininga_2937_2022-12-31_V11_20231211-1128.gdb"
         data_base: "2022-12-31"
-        cod_BDGD: '1400'
-        dist: '391'
-        dist_name: 'EDP_SP_2022'
-        dss_files_folder: '~\dss'
-    '404':
-        server: 'localhost'
-        database: 'GEO_SIGR_PERDAS_ENERGISA_MS_2022'
-        username: 'usr_GeoPerdas'
-        password: '123456'
-        schema: 'SDE'
-        dbf_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\Energisa\Shapefile'
-        gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\Energisa'
-        gdb_file: 'Energisa_MS_404_2022-12-31_V11_20231219-1342.gdb'
+        cod_BDGD: "1128"
+        dist: "2937"
+        dist_name: "CPFL_Piratininga_2022"
+        dss_files_folder: 'D:\BDGDs\dss'
+    "385_2022":
+        #> em andamento: electric_data.py
+        #* Prioridade
+        server: "WIN-C7ROMTFTIU3"
+        database: "GEO_SIGR_385_2022"
+        username: "usr_GeoPerdas"
+        password: "123456"
+        schema: "SDE"
+        dbf_directory: ""
+        gdb_directory: 'D:\BDGDs\gdbs'
+        gdb_file: "Neoenergia_Elektro_385_2022-12-31_V11_20231110-1655.gdb"
         data_base: "2022-12-31"
-        cod_BDGD: '1342'
-        dist: '404'
-        dist_name: 'Energisa_MS_2022'
-        dss_files_folder: '~\dss'
-    '40':
-        server: 'localhost'
-        database: 'GEO_SIGR_PERDAS_COSERN_2023'
-        username: 'usr_GeoPerdas'
-        password: '123456'
-        schema: 'SDE'
-        dbf_directory: ''
-        gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\Neoenergia_Cosern_40_2023-12-31_V11_20240614-1651.gdb'
-        gdb_file: 'Neoenergia_Cosern_40_2023-12-31_V11_20240614-1651.gdb'
-        data_base: "2023-12-31"
-        cod_BDGD: '1651'
-        dist: '40'
-        dist_name: 'Cosern_2023'
-        dss_files_folder: '~\dss' # diretório dos arquivos do openDSS (user folder)
-    '40_2022':
-        server: 'localhost'
-        database: 'GEO_SIGR_PERDAS_COSERN_2022'
-        username: 'usr_GeoPerdas'
-        password: '123456'
-        schema: 'SDE'
-        dbf_directory: ''
-        gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD'
-        gdb_file: 'Neoenergia_Cosern_40_2022-12-31_V11_20230829-1449.gdb'
+        cod_BDGD: "1655"
+        dist: "385"
+        dist_name: "Elektro_2022"
+        dss_files_folder: 'D:\BDGDs\dss'
+    "390_2022":
+        #> em andamento: BDGD2SQL_v2.py
+        #* Prioridade
+        server: "WIN-C7ROMTFTIU3"
+        database: "GEO_SIGR_390_2022"
+        username: "usr_GeoPerdas"
+        password: "123456"
+        schema: "SDE"
+        dbf_directory: ""
+        gdb_directory: 'D:\BDGDs\gdbs'
+        gdb_file: "Enel_SP_390_2022-12-31_V11_20231024-1657.gdb"
         data_base: "2022-12-31"
-        cod_BDGD: '1651'
-        dist: '40'
-        dist_name: 'Cosern_2022'
-        dss_files_folder: '~\dss' # diretório dos arquivos do openDSS (user folder)
-    '6600_2022':
-        server: 'localhost'
-        database: 'GEO_SIGR_PERDAS_ENERGISA_PB_2022'
-        username: 'usr_GeoPerdas'
-        password: '123456'
-        schema: 'SDE'
-        dbf_directory: ''
-        gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\Energisa_PB_6600_2022-12-31_V11_20230919-0837.gdb'
-        gdb_file: 'Energisa_PB_6600_2022-12-31_V11_20230919-0837.gdb'
+        cod_BDGD: "1657"
+        dist: "390"
+        dist_name: "Enel_SP_2022"
+        dss_files_folder: 'D:\BDGDs\dss' # diretório dos arquivos do openDSS (user folder)
+    "391_2022":
+        #> em andamento: BDGD2SQL_v2.py
+        #* Prioridade
+        server: "WIN-C7ROMTFTIU3"
+        database: "GEO_SIGR_391_2022"
+        username: "usr_GeoPerdas"
+        password: "123456"
+        schema: "SDE"
+        dbf_directory: ""
+        gdb_directory: 'D:\BDGDs\gdbs'
+        gdb_file: "EDP_SP_391_2022-12-31_V11_20231030-1400.gdb"
         data_base: "2022-12-31"
-        cod_BDGD: '53'
-        dist: '6600'
-        dist_name: 'Energisa_PB_2022'
-        dss_files_folder: '~\dss' # diretório dos arquivos do openDSS (user folder)
-    '39_2022':
-        server: 'localhost'
-        database: 'GEO_SIGR_PERDAS_ENEL_CE_2022'
-        username: 'usr_GeoPerdas'
-        password: '123456'
-        schema: 'SDE'
-        dbf_directory: ''
-        gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\Enel_CE_39_2022-12-31_V11_20231211-1348.gdb'
-        gdb_file: 'Enel_CE_39_2022-12-31_V11_20231211-1348.gdb'
+        cod_BDGD: "1400"
+        dist: "391"
+        dist_name: "EDP_SP_391_2022"
+        dss_files_folder: 'D:\BDGDs\dss'
+    "40_2022":
+        #> em andamento: BDGD2SQL_v2.py
+        #* Prioridade
+        server: "WIN-C7ROMTFTIU3"
+        database: "GEO_SIGR_40_2022"
+        username: "usr_GeoPerdas"
+        password: "123456"
+        schema: "SDE"
+        dbf_directory: ""
+        gdb_directory: 'D:\BDGDs\gdbs'
+        gdb_file: "Neoenergia_Cosern_40_2022-12-31_V11_20230829-1449.gdb"
         data_base: "2022-12-31"
-        cod_BDGD: '29'
-        dist: '39'
-        dist_name: 'ENEL_CE_2022'
-        dss_files_folder: '~\dss' # diretório dos arquivos do openDSS (user folder)
-    'Irradiance':
-        server: 'localhost'
-        database: 'IRRADIANCIA'
-        username: 'usr_GeoPerdas'
-        password: '123456'
-        schema: 'SDE'
-        irrad_directory: 'C:\BDGD2SqlServer\Irradiance_SP'
-    'curtailment':
-        server: 'localhost'
-        database: 'DBONS'
-        username: 'usr_GeoPerdas'
-        password: '123456'
-        schema: 'DBO'
+        cod_BDGD: "1449"
+        dist: "40"
+        dist_name: "Cosern_2022"
+        dss_files_folder: 'D:\BDGDs\dss'
+    "405_2022":
+        # TODO
+        server: "WIN-C7ROMTFTIU3"
+        database: "GEO_SIGR_405_2022"
+        username: "usr_GeoPerdas"
+        password: "123456"
+        schema: "SDE"
+        dbf_directory: ""
+        gdb_directory: 'D:\BDGDs\gdbs'
+        gdb_file: "Energisa_MT_405_2022-12-31_V11_20230820-1800.gdb"
+        data_base: "2022-12-31"
+        cod_BDGD: "1800"
+        dist: "405"
+        dist_name: "Energisa_MT_2022"
+        dss_files_folder: 'D:\BDGDs\dss'
+    "4950_2022":
+        # TODO
+        server: "WIN-C7ROMTFTIU3"
+        database: "GEO_SIGR_4950_2022"
+        username: "usr_GeoPerdas"
+        password: "123456"
+        schema: "SDE"
+        dbf_directory: ""
+        gdb_directory: 'D:\BDGDs\gdbs'
+        gdb_file: "Cemig-D_4950_2022-12-31_V11_20230920-1643.gdb"
+        data_base: "2022-12-31"
+        cod_BDGD: "1643"
+        dist: "4950"
+        dist_name: "Cemig-D_2022"
+        dss_files_folder: 'D:\BDGDs\dss'
+    "5216_2022":
+        #> em andamento: electric_data.py
+        #* Prioridade
+        server: "WIN-C7ROMTFTIU3"
+        database: "GEO_SIGR_5216_2022"
+        username: "usr_GeoPerdas"
+        password: "123456"
+        schema: "SDE"
+        dbf_directory: ""
+        gdb_directory: 'D:\BDGDs\gdbs'
+        gdb_file: "Energisa_Sul-Sudeste_5216_2022-12-31_V11_20240403-2132.gdb"
+        data_base: "2022-12-31"
+        cod_BDGD: "2132"
+        dist: "5216"
+        dist_name: "Energisa_Sul-Sudeste_2022"
+        dss_files_folder: 'D:\BDGDs\dss'
+    "63_2022":
+        #> em andamento: BDGD2SQL_v2.py
+        #* Prioridade
+        server: "WIN-C7ROMTFTIU3"
+        database: "GEO_SIGR_63_2022"
+        username: "usr_GeoPerdas"
+        password: "123456"
+        schema: "SDE"
+        dbf_directory: ""
+        gdb_directory: 'D:\BDGDs\gdbs'
+        gdb_file: "CPFL_Paulista_63_2022-12-31_V11_20231103-1308.gdb"
+        data_base: "2022-12-31"
+        cod_BDGD: "1308"
+        dist: "63"
+        dist_name: "CPFL_Paulista_2022"
+        dss_files_folder: 'D:\BDGDs\dss'
+    "6600_2022":
+        #> em andamento: BDGD2SQL_v2.py
+        #* Prioridade
+        server: "WIN-C7ROMTFTIU3"
+        database: "GEO_SIGR_6600_2022"
+        username: "usr_GeoPerdas"
+        password: "123456"
+        schema: "SDE"
+        dbf_directory: ""
+        gdb_directory: 'D:\BDGDs\gdbs'
+        gdb_file: "Energisa_PB_6600_2022-12-31_V11_20230919-0837.gdb"
+        data_base: "2022-12-31"
+        cod_BDGD: "0837"
+        dist: "6600"
+        dist_name: "Energisa_PB_2022"
+        dss_files_folder: 'D:\BDGDs\dss'
+    "39_2022":
+        server: "WIN-C7ROMTFTIU3"
+        database: "GEO_SIGR_39_2022"
+        username: "usr_GeoPerdas"
+        password: "123456"
+        schema: "SDE"
+        dbf_directory: ""
+        gdb_directory: 'D:\BDGDs\gdbs'
+        gdb_file: "Enel_CE_39_2022-12-31_V11_20231211-1348.gdb"
+        data_base: "2022-12-31"
+        cod_BDGD: "29"
+        dist: "39"
+        dist_name: "ENEL_CE_2022"
+        dss_files_folder: 'D:\BDGDs\dss'
+    "69_2022":
+        #> em andamento: electric_data.py não pôde ser concluído. UNTRMT tem 12 trafos com TIP_TRAFO=' ' (QGIS)
+        #* Prioridade
+        server: "WIN-C7ROMTFTIU3"
+        database: "GEO_SIGR_69_2022"
+        username: "usr_GeoPerdas"
+        password: "123456"
+        schema: "SDE"
+        dbf_directory: ""
+        gdb_directory: 'D:\BDGDs\gdbs'
+        gdb_file: "CPFL_Santa_Cruz_69_2022-12-31_V11_20240404-1031.gdb"
+        data_base: "2022-12-31"
+        cod_BDGD: "1031"
+        dist: "69"
+        dist_name: "CPFL_Santa_Cruz_2022"
+        dss_files_folder: 'D:\BDGDs\dss'
+    "Irradiance":
+        server: "WIN-C7ROMTFTIU3"
+        database: "IRRADIANCIA"
+        username: "usr_GeoPerdas"
+        password: "123456"
+        schema: "SDE"
+        #irrad_directory: 'D:\BDGDs\Irradiance'
+        irrad_directory: 'D:\BDGDs\Irradiance_new'
+    "curtailment":
+        server: "WIN-C7ROMTFTIU3"
+        database: "DBONS"
+        username: "usr_GeoPerdas"
+        password: "123456"
+        schema: "DBO"
         curt_directory: '..\ui\curtailment'
