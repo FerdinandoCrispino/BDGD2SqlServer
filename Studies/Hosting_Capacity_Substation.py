@@ -1,21 +1,20 @@
 # -*- coding: utf-8 -*-
 # @Author  : Guilherme Broslavschi
 # @Email   : guibroslavschi@usp.br
-# @File    : Hosting_Capacity.py
+# @File    : Hosting_Capacity_antigo.py
 # @Software: PyCharm
 
 import py_dss_interface
 import pandas as pd
-import numpy as np
 import pathlib
+import numpy as np
 import os
-import sys
+import string
 import yaml
 import json
 import multiprocessing
-from dataclasses import dataclass
-from typing import List, Dict, Tuple
-
+import itertools
+import sys
 
 # TODO - EXPLICAR O FUNCIONAMENTO HORÁRIO DO ESTUDO
 """ 
@@ -25,9 +24,7 @@ cada barra dos alimentadores do sistema de distribuição, utilizando o software
 rede sem ultrapassar o limite de sobretensão definido, e os resultados são armazenados em arquivos .csv e .json.
 """
 
-# ==========================
-# Núcleo do cálculo de HC
-# ==========================
+
 class HCSteps:
     def __init__(self, dss: py_dss_interface.DSS(), dss_file, max_kw: float, step_kw: float, ov_threshold: float, loadmult: float):
         self._dss = dss
@@ -60,7 +57,7 @@ class HCSteps:
 
         for _ in range(self._dss.lines.count):
             self._dss.circuit.set_active_element(f"line[{self._dss.lines.name}]")
-            # line = self._dss.lines.name # TODO PARA TESTE
+            line = self._dss.lines.name
 
             bus1 = self._dss.cktelement.bus_names[0].split(".")[0]
             #if bus1 == 'mt3821739439859544cs02': # TODO PARA TESTE
@@ -69,8 +66,8 @@ class HCSteps:
 
             if kv_base_bus1 >= 1000 and bus1 not in buses_selected:
                 buses_selected.append(bus1)
-            # if kv_base_bus1 <= 1000: # TODO PARA TESTE
-            #     print(f"{line} no bus1: {bus1}; {kv_base_bus1}V")
+            if kv_base_bus1 <= 1000:
+                print(f"{line} no bus1: {bus1}; {kv_base_bus1}V")
 
             bus2 = self._dss.cktelement.bus_names[1].split(".")[0]
             #if bus2 == 'mt3821739439859544cs02':  # TODO PARA TESTE
@@ -79,16 +76,16 @@ class HCSteps:
 
             if kv_base_bus2 >= 1000 and bus2 not in buses_selected:
                 buses_selected.append(bus2)
-            # if kv_base_bus2 <= 1000: # TODO PARA TESTE
-            #     print(f"{line} no bus2: {bus2}; {kv_base_bus2}V")
+            if kv_base_bus2 <= 1000:
+                print(f"{line} no bus2: {bus2}; {kv_base_bus2}V")
 
             self._dss.lines.next()
 
-        print(f"Quantidade de barras: {len(buses_selected)}; Processador: {multiprocessing.current_process().name}.")
-        bus_number = 0
+        print(f"Quantidade de barras: {len(buses_selected)}; Processador: {multiprocessing.current_process().name}.") # TODO PARA TESTE
+        bus_number = 0 # TODO PARA TESTE
         for bus in buses_selected:
-            bus_number += 1
-            print(f"Analisando barra de número: {bus_number} de {len(buses_selected)}; Processador: {multiprocessing.current_process().name}.")
+            bus_number += 1 # TODO PARA TESTE
+            print(f"Analisando barra de número: {bus_number} de {len(buses_selected)}; Processador: {multiprocessing.current_process().name}.")  # TODO PARA TESTE
 
             with open(self._dss_file, 'r') as file:
                 for line_dss in file:
@@ -115,7 +112,6 @@ class HCSteps:
 
             self.__add_gen(gen_bus, gen_kv, gen_phases, gen_node)
 
-            hc_value = 0
             i_kw = 0
             while i_kw < self._max_kw:
                 if i_kw < 10:
@@ -159,9 +155,7 @@ class HCSteps:
                 gen_kw = {"gen": i_kw}
 
                 self.__increase_gen(gen_kw)
-                self.__set_maxcontroliter()
                 converged = self.__solve_powerflow()
-                # Control_Iterations = self._dss.solution.control_iterations # TODO PARA TESTE
 
                 if converged == 0 and i_kw == self._max_kw:
                     data_hc.append({
@@ -186,8 +180,8 @@ class HCSteps:
                 if not violation:
                     hc_value = i_kw
 
-                # if violation and i_kw == 1:
-                #     hc_value = 0
+                if violation and i_kw == 1:
+                    hc_value = 0
 
                 if violation:
                     hosting_capacity_value = hc_value
@@ -260,12 +254,6 @@ class HCSteps:
         self._dss.text("solve")
         return self._dss.solution.converged
 
-    def __set_maxcontroliter(self):
-        """
-        Determina o controle máximo de iterações
-        """
-        self._dss.text("set maxcontroliter=100")
-
     def __check_overvoltage_violation(self) -> bool:
         """
         Realiza a checagem de sobretensão.
@@ -324,6 +312,9 @@ class HCSteps:
 
     @staticmethod
     def _find_project_root(marker_folder="ui"):
+        """
+        Retorna o nome da raiz do projeto para mesclar com o caminho correto de gravação dos arquivos.
+        """
         path = pathlib.Path(__file__).resolve()
         for parent in path.parents:
             if (parent / marker_folder).exists():
@@ -331,175 +322,219 @@ class HCSteps:
         raise FileNotFoundError(f"Raiz do projeto não encontrada contendo a pasta '{marker_folder}'.")
 
     @staticmethod
+    def list_drives():
+        # """
+        # Retorna todas as unidades disponíveis no sistema (ex: C:\\, D:\\, etc).
+        # """
+        # return [f"{d}:\\" for d in string.ascii_uppercase if pathlib.Path(f"{d}:\\").exists()]
+
+        """
+        Retorna apenas a unidade escolhida.
+        """
+        return ["D:\\"]
+
+    @staticmethod
     def find_file(filename: str, search_path: str) -> pathlib.Path | None:
+        """
+        Procura por um arquivo com nome exato a partir de `search_path`.
+        Retorna o primeiro caminho encontrado ou None.
+        """
         for root, dirs, files in os.walk(search_path):
             if filename in files:
                 return pathlib.Path(root) / filename
         return None
 
     @staticmethod
-    def discover_feeders_for_substation(utility_path: pathlib.Path, substation: str) -> List[str]:
+    def discover_feeders_for_substation(project_root: pathlib.Path, utility: str, substation: str) -> list:
+        """
+        Espera que os feeders sejam subpastas dentro de:
+        <project_root>/dss/<utility>/<substation>/
+        Cada subpasta encontrada é considerada um feeder (ex: RAPA1301).
+        """
+        # base = project_root / f"dss/{utility}/{substation}"
+        base = pathlib.Path(f"D:/BDGDs/dss/{utility}/{substation}")
         feeders = []
-        substation_path = utility_path / substation
-        if substation_path.exists():
-            for entry in substation_path.iterdir():
+        if base.exists():
+            for entry in base.iterdir():
                 if entry.is_dir():
                     feeders.append(entry.name)
         return feeders
 
-# ==========================
-# Infra de execução
-# ==========================
-@dataclass
-class Task:
-    feeder: str
-    substation: str
-    month: int
-    type_day: str
-    config: Dict
+def run_multiprocess(args):
+    # TODO - USAR PARA O CONFIG_HC EM SUBESTAÇÕES
+    feeder, substation, month, type_day, config = args
+    filename = f"{type_day}_{month}_Master_{config['utility']}_{substation}_{feeder}.dss"
+    print(f"🚀 Processando o Alimentador: {filename} | {multiprocessing.current_process().name}")
 
-def _make_output_paths(task: Task) -> Tuple[pathlib.Path, pathlib.Path, pathlib.Path]:
-    project_root = HCSteps._find_project_root()
-    relative_path = pathlib.Path(
-        f"ui/static/scenarios/Hosting Capacity/{task.config['utility']}/{task.substation}/{task.feeder}/{task.type_day}/{task.config['year']}/{task.month}"
-    )
-    base_path = project_root / relative_path
-    base_path.mkdir(parents=True, exist_ok=True)
-    csv_path = base_path / f"HC_{task.feeder}_{task.month}_{task.type_day}.csv"
-    json_path = base_path / f"{task.feeder}.json"
-    return base_path, csv_path, json_path
 
-def run_feeder_mode(utility, substation, feeder, year, months, type_days, config):
-    # Verifica se já existe resultado
-    temp_task = Task(feeder, substation, months[0], type_days[0], config)
-    _, _, json_path = _make_output_paths(temp_task)
-    if json_path.exists():
-        #print(f"⏩ Resultado já existe para {feeder}/{type_days[0]}/{year}/{months[0]}. Pulando...")
-        return
+    # TODO - USAR PARA O CONFIG_HC PARA ALIMENTADORES
+    # feeder, config = args
+    # print(f"🚀 Iniciando processamento do alimentador: {feeder}; Processador: {multiprocessing.current_process().name}.\n")
+    # filename = f"{config['type_day']}_{config['month']}_Master_{config['utility']}_{config['substation']}_{feeder}.dss"
 
-    # Localiza o Master.dss
-    master_filename = f"{type_days[0]}_{months[0]}_Master_{utility}_{substation}_{feeder}.dss"
-    utility_path = pathlib.Path(config['utility_path']).resolve()
-    master_path = HCSteps.find_file(master_filename, search_path=utility_path)
-    if master_path is None:
-        print(f"❌ Master file não encontrado: {master_filename}")
-        return
-
-    # Cria interface DSS
     dss = py_dss_interface.DSS()
-    hc = HCSteps(
-        dss=dss,
-        dss_file=str(master_path),
-        max_kw=config["max_kw"],
-        step_kw=config["step_kw"],
-        ov_threshold=config["ov_threshold"],
-        loadmult=config["loadmult"]
-    )
 
-    print(f"🚀 Processando o Master: {master_filename} | {multiprocessing.current_process().name}")
-    data_hc, error_log = hc.hosting_capacity()
+    all_errors = list()
+    try:
+        # Directory path to Master.dss script
+        available_drives = HCSteps.list_drives()
+        dss_file = None
+        for drive in available_drives:
+            result = HCSteps.find_file(filename, search_path=drive)
+            if result:
+                dss_file = result
+                break
+        if dss_file is None:
+            raise FileNotFoundError
 
-    # Salva resultados .json e .csv
-    base_path, csv_path, json_path = _make_output_paths(Task(feeder, substation, months[0], type_days[0], config))
-    pd.DataFrame(data_hc).to_csv(csv_path, index=False)
-    hc_dict = {item["Bus"]: item["HC"] for item in data_hc}
-    with open(json_path, "w", encoding="utf-8") as f:
-        json.dump([hc_dict], f, ensure_ascii=False, indent=4)
+        # Directory to save the .csv file
+        project_root = HCSteps._find_project_root()
+        relative_path = pathlib.Path(
+            f"ui/static/scenarios/Hosting Capacity/{config['utility']}/{substation}/{feeder}/{type_day}/{config['year']}/{month}")
+        base_path = project_root / relative_path
+        base_path.mkdir(parents=True, exist_ok=True)
+        csv_path = base_path / f"HC_{feeder}_{month}_{type_day}.csv"
 
-    # Salva erros (se houver)
-    if error_log:
-        all_errors = []
-        all_errors.extend(error_log)
-        df_errors = pd.DataFrame(all_errors)
-        errors_path = base_path / f"errors_convergence_{feeder}_{months[0]}_{type_days[0]}.csv"
-        df_errors.to_csv(errors_path, index=False)
+        # Execute Hosting Capacity
+        data_hc, error_log = HCSteps(dss, dss_file, config["max_kw"], config["step_kw"], config["ov_threshold"], config["loadmult"]).hosting_capacity()
 
-    print(f"✅ Alimentador {master_filename} processado com sucesso.")
+        if error_log:
+            all_errors.extend(error_log)
+            df_errors = pd.DataFrame(all_errors)
+            errors_path = base_path / f"errors_convergence_{feeder}_{month}_{type_day}.csv"
+            df_errors.to_csv(errors_path, index=False)
+            #print(f"⛔ ERRO: De convergência no alimentador {feeder}. E salvos em: {errors_path}.")
 
-def process_task(task: Task):
-    utility = task.config.get("utility")
-    substations = task.substation
-    feeders = task.feeder
-    year = str(task.config.get("year"))
-    months = task.month
-    type_days = task.type_day
+        # To save the dataframe in .csv file
+        df = pd.DataFrame(data_hc)
+        df = df[["Bus", "HC", "HC_violation", "Bus_violation", "V_a", "V_b", "V_c"]]
+        df.to_csv(csv_path, index=False)
 
-    # Normalização para listas
-    if isinstance(substations, str):
-        substations = [substations]
-    if isinstance(feeders, str):
-        feeders = [feeders]
-    if isinstance(months, (str, int)):
-        months = [months]
-    if isinstance(type_days, str):
-        type_days = [type_days]
+        # Directory to save the .json file
+        hc_summary = df[["Bus", "HC"]].drop_duplicates(subset="Bus")
+        hc_dict = {row["Bus"]: row["HC"] for _, row in hc_summary.iterrows()}
+        json_path = base_path / f"{feeder}.json"
 
-    # Loop principal
-    for sub in substations:
-        if feeders:
-            for feeder in feeders:
-                run_feeder_mode(
-                    utility=utility,
-                    substation=sub,
-                    feeder=feeder,
-                    year=year,
-                    months=months,
-                    type_days=type_days,
-                    config=task.config
-                )
+        with open(json_path, "w", encoding="utf-8") as f:
+            json.dump([hc_dict], f, indent=4)
 
-def _to_list(x):
-    if x is None:
-        return []
-    if isinstance(x, list):
-        return x
-    return [x]
+        print(f"✅ Alimentador {filename} processado com sucesso.")
 
-def build_tasks_from_config(config: Dict) -> List[Task]:
-    utility_path = pathlib.Path(config['utility_path'])
-    subs = _to_list(config.get("substation", []))
-    feeders = _to_list(config.get("feeder", []))
-    months = _to_list(config.get("month", []))
-    type_days = _to_list(config.get("type_day", []))
-
-    tasks: List[Task] = []
-
-    # Descoberta de feeders por subestação
-    for sub in subs:
-        feeders_found = HCSteps.discover_feeders_for_substation(utility_path, sub)
-
-        if feeders:
-            feeders_to_process = [f for f in feeders_found if f in feeders]
-        else:
-            feeders_to_process = feeders_found
-
-        if not feeders_found:
-            print(f"⚠️ Nenhum feeder encontrado para subestação {sub}.")
-            continue
-
-        for feeder in feeders_to_process:
-            for m in months:
-                for td in type_days:
-                    tasks.append(Task(feeder=feeder, substation=sub, month=int(m), type_day=str(td), config=config))
-    return tasks
+    except FileNotFoundError:
+        print(f"❌ Alimentador '{feeder}'; Arquivo '{filename}' não encontrado.")
 
 
 if __name__ == '__main__':
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(base_dir, "config_hc.yml")
 
-    with open(config_path, "r", encoding="utf-8") as file:
+    # Absolute path to config_hc_antigo.yml
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(base_dir, "config_hc_antigo.yml")
+
+    with open(config_path, "r") as file:
         config = yaml.safe_load(file)["data_HC"]
 
-    tasks = build_tasks_from_config(config)
-    if not tasks:
-        print("Nenhuma tarefa criada. Verifique o config_hc.yml e pastas de feeders.")
+    # TODO - USAR PARA O CONFIG_HC EM SUBESTAÇÕES
+    substations = config["substation"] if isinstance(config["substation"], list) else [config["substation"]]
+    months = config["month"] if isinstance(config["month"], list) else [config["month"]]
+    type_days = config["type_day"] if isinstance(config["type_day"], list) else [config["type_day"]]
+
+    project_root = HCSteps._find_project_root()
+
+    all_tasks = []
+    for sub in substations:
+        # Discover feeders in the expected folder structure
+        feeders = HCSteps.discover_feeders_for_substation(project_root, config['utility'], sub)
+
+        # Optional fallback: if no feeders discovered, try config key "feeder"
+        if not feeders and "feeder" in config:
+            feeders = config["feeder"] if isinstance(config["feeder"], list) else [config["feeder"]]
+
+        if not feeders:
+            print(f"⚠️  Nenhum feeder encontrado para subestação '{sub}'.")
+            continue
+
+        for feeder in feeders:
+            for month in months:
+                for td in type_days:
+                    all_tasks.append((feeder, sub, month, td, config))
+
+    if not all_tasks:
+        print("Nenhuma tarefa criada. Verifique o config_hc_antigo.yml e a existência de pastas de feeders.")
         sys.exit(1)
 
-    cpu_cores = max(multiprocessing.cpu_count() - 5, 1)
-    print(f"⚡ Utilizando {cpu_cores} processadores.")
+    # TODO - USAR PARA O CONFIG_HC PARA ALIMENTADORES
+    # feeders = config["feeder"] if isinstance(config["feeder"], list) else [config["feeder"]]
 
-    with multiprocessing.Pool(processes=cpu_cores) as pool:
-        pool.map(process_task, tasks)
+    # To use multiprocess write TRUE
+    multiprocess = True
 
-    print("\n✅ Execution completed")
+    if multiprocess:
+        cpu_cores = multiprocessing.cpu_count() - 5
+        print(f"⚡ Utilizando {cpu_cores} processadores.")
+
+        # TODO - USAR PARA O CONFIG_HC EM SUBESTAÇÕES
+        with multiprocessing.Pool(processes=cpu_cores) as pool:
+            pool.map(run_multiprocess, all_tasks)
+
+        # TODO - USAR APENAS PARA O CONFIG_HC PARA ALIMENTADORES
+        # with multiprocessing.Pool(processes=cpu_cores) as pool:
+        #     pool.map(run_multiprocess, [(feeder, config) for feeder in feeders])
+
+    # TODO - USAR APENAS PARA O CONFIG_HC PARA ALIMENTADORES E MULTIPROCESS FALSE
+    else:
+        for feeder in feeders:
+            print(f"🚀 Iniciando processamento do alimentador: {feeder}; Processador: {multiprocessing.current_process().name}.\n")
+            filename = f"{config['type_day']}_{config['month']}_Master_{config['utility']}_{config['substation']}_{feeder}.dss"
+            dss = py_dss_interface.DSS()
+
+            all_errors = list()
+            try:
+                # Directory path to Master.dss script
+                available_drives = HCSteps.list_drives()
+                dss_file = None
+                for drive in available_drives:
+                    result = HCSteps.find_file(filename, search_path=drive)
+                    if result:
+                        dss_file = result
+                        break
+                if dss_file is None:
+                    raise FileNotFoundError
+
+                # Directory to save the .csv file
+                project_root = HCSteps._find_project_root()
+                relative_path = pathlib.Path(
+                    f"ui/static/scenarios/Hosting Capacity/{config['utility']}/{config['substation']}/{feeder}/{config['type_day']}/{config['year']}/{config['month']}")
+                base_path = project_root / relative_path
+                base_path.mkdir(parents=True, exist_ok=True)
+                csv_path = base_path / f"HC_{feeder}_{config['month']}_{config['type_day']}.csv"
+
+                # Execute Hosting Capacity
+                data_hc, error_log = HCSteps(dss, dss_file, config["max_kw"], config["step_kw"], config["ov_threshold"], config["loadmult"]).hosting_capacity()
+
+                if error_log:
+                    all_errors.extend(error_log)
+                    df_errors = pd.DataFrame(all_errors)
+                    errors_path = base_path / f"errors_convergence_{feeder}_{config['month']}_{config['type_day']}.csv"
+                    df_errors.to_csv(errors_path, index=False)
+                    #print(f"⛔ ERRO: De convergência no alimentador {feeder}. E salvos em: {errors_path}.")
+
+                # To save the dataframe in .csv file
+                df = pd.DataFrame(data_hc)
+                df = df[["Bus", "HC", "HC_violation", "Bus_violation", "V_a", "V_b", "V_c"]]
+                df.to_csv(csv_path, index=False)
+
+                # Directory to save the .json file
+                hc_summary = df[["Bus", "HC"]].drop_duplicates(subset="Bus")
+                hc_dict = {row["Bus"]: row["HC"] for _, row in hc_summary.iterrows()}
+                json_path = base_path / f"{feeder}.json"
+
+                with open(json_path, "w", encoding="utf-8") as f:
+                    json.dump([hc_dict], f, indent=4)
+
+                print(f"✅ Alimentador {feeder} processado com sucesso.")
+
+            except FileNotFoundError:
+                print(f"❌ Alimentador '{feeder}'; Arquivo '{filename}' não encontrado.")
+                continue
+
+    print(f"here")
