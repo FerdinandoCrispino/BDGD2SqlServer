@@ -2,7 +2,7 @@
 
 import pandas as pd
 import connected_segments as cs
-from Tools.tools import create_connection
+from Tools.tools import create_connection, load_config
 
 """
 # @Date    : 20/062024
@@ -20,7 +20,7 @@ def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
     :return:
     """
     with engine.connect() as conn:
-        ctmt_pac_ini = pd.read_sql_query(f"SELECT PAC, SUB, cod_id FROM SDE.CTMT Where SUB='{sub}'", conn)
+        ctmt_pac_ini = pd.read_sql_query(f"SELECT PAC_INI, SUB, cod_id FROM SDE.CTMT Where SUB='{sub}'", conn)
         for i in range(len(ctmt_pac_ini)):
             pac_ini = ctmt_pac_ini.iloc[i, 0]
             ctmt = ctmt_pac_ini.iloc[i, 2]
@@ -28,15 +28,15 @@ def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
             sql = f"SELECT PAC_1, PAC_2, PN_CON_1, PN_CON_2, ctmt FROM SDE.SSDMT Where sub='{sub}' and PAC_1='{pac_ini}'"
             ssdmt_ini = pd.read_sql_query(sql, conn)
 
-            if len(ssdmt_ini) == 1:
-                if type_connected.upper() == 'PN_CON':
-                    pn_ini = ssdmt_ini.iloc[0, 2]
-                    start = 'PN_CON_1'
-                    end = 'PN_CON_2'
-                else:
-                    pn_ini = ssdmt_ini.iloc[0, 0]
-                    start = 'PAC_1'
-                    end = 'PAC_2'
+            # if len(ssdmt_ini) == 1:
+            if type_connected.upper() == 'PN_CON':
+                pn_ini = ssdmt_ini.iloc[0, 2]
+                start = 'PN_CON_1'
+                end = 'PN_CON_2'
+            else:
+                pn_ini = ssdmt_ini.iloc[0, 0]
+                start = 'PAC_1'
+                end = 'PAC_2'
 
             # Trechos MT
             sql = f"SELECT PAC_1, PAC_2, PN_CON_1, PN_CON_2, COD_ID, ctmt FROM SDE.SSDMT Where ctmt='{ctmt}' "
@@ -50,9 +50,15 @@ def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
             sql = f"SELECT PAC_1, PAC_2, COD_ID, ctmt FROM SDE.UNTRMT Where ctmt='{ctmt}' and SIT_ATIV='AT' "
             untrmt_pacs = pd.read_sql_query(sql, conn)
 
-            print(f"Total Trechos: {len(ssdmt_pacs)}, Chaves: {len(unsemt_pacs)}, Trafos: {len(untrmt_pacs)}")
+            # Reguladores MT
+            sql = f"SELECT PAC_1, PAC_2, COD_ID, ctmt FROM SDE.UNREMT Where ctmt='{ctmt}' and SIT_ATIV='AT' "
+            unremt_pacs = pd.read_sql_query(sql, conn)
 
-            total_seg = pd.concat([ssdmt_pacs, unsemt_pacs, untrmt_pacs], sort=False)
+
+            print(f"Total Trechos: {len(ssdmt_pacs)}, Chaves: {len(unsemt_pacs)}, "
+                  f"Trafos: {len(untrmt_pacs)} Reguladores: {len(untrmt_pacs)}")
+
+            total_seg = pd.concat([ssdmt_pacs, unsemt_pacs, untrmt_pacs, unremt_pacs], sort=False)
             # Construir o grafo
             graph = cs.build_graph(total_seg, start, end)
             # Encontrar e ordenar segmentos conectados usando DFS
@@ -65,17 +71,19 @@ def check_connect_ssdmt(engine, sub: str, type_connected="PN_CON"):
             print(f"Não conectados: {len(unconnected_segments)}")
             print(unconnected_segments)
 
-            print(ctmt + '\n')
+            print(f'CTMT: {ctmt} \n')
 
     print('Fim')
 
 
 if __name__ == "__main__":
+    database = '391'
+    config = load_config(database)
     # Conectando ao banco de dados sqlserver using sqlalchemy
     try:
-        engine = create_connection()
+        engine = create_connection(config)
     except Exception as e:
         print(f"Erro ao conectar ao banco de dados: {e}")
         exit(1)
 
-    check_connect_ssdmt(engine, '58', 'PAC')  # PAC or PN_CON
+    check_connect_ssdmt(engine, 'CSO', 'PAC')  # PAC or PN_CON

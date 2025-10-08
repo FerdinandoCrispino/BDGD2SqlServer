@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% set hide_navbar_dash = true %}
+{% block title %}DER Analysis Map{% endblock %}
+
+{% block content %}
+
+{% include 'nav_dash.html' %}
+
+<script src="{{url_for('static', filename='js/dash.js') }}"></script>
+
+{% endblock %}
