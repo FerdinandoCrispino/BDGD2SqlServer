@@ -1,10 +1,10 @@
 # Arquivo de configurações para o script Hosting_Capacity_antigo.py
 data_HC:
-  utility_path: "C:/BDGD2SqlServer/dss/391"
+  utility_path: 'C:/BDGD2SqlServer/dss/'
   utility: '391'
   substation:
 #    - 'APA'
-#    - 'ARA'
+    - 'ARA'
 #    - 'ASP'
 #    - 'AVP'
 #    - 'BCU'
@@ -18,7 +18,7 @@ data_HC:
 #    - 'CMB'
 #    - 'COL'
 #    - 'CPA'
-    - 'CRU'
+#    - 'CRU'
 #    - 'CSO'
 #    - 'DBE'
 #    - 'DUT'
@@ -75,7 +75,7 @@ data_HC:
   year: '2023'
   month: 1 #[1, 7]
   type_day: 'DU' #['DU', 'DO']
-  max_kw: 5000
+  max_kw: 1000
   step_kw: 100
   ov_threshold: 1.05
   loadmult: 0.2

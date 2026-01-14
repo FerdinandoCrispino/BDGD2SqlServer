@@ -611,8 +611,7 @@ class HCSteps:
 
         return violation, data_ov
 
-    @staticmethod
-    def _find_project_root(marker_folder="ui"):
+    def find_project_root(marker_folder="ui"):
         """
         Retorna o nome da raiz do projeto para mesclar com o caminho correto de gravação dos arquivos.
         """
@@ -622,25 +621,14 @@ class HCSteps:
                 return parent
         raise FileNotFoundError(f"Raiz do projeto não encontrada contendo a pasta '{marker_folder}'.")
 
-    @staticmethod
-    def find_file(filename: str, search_path: str) -> pathlib.Path | None:
-        """
-        Procura por um arquivo com nome exato a partir de `search_path`.
-        Retorna o primeiro caminho encontrado ou None.
-        """
-        for root, dirs, files in os.walk(search_path):
-            if filename in files:
-                return pathlib.Path(root) / filename
-        return None
-
-    @staticmethod
-    def discover_feeders_for_substation(utility_path: pathlib.Path, substation: str) -> List[str]:
+    def discover_feeders_for_substation(utility_path: str, substation: str) -> List[str]:
         """
         Espera que os feeders sejam subpastas dentro de:
         <project_root>/dss/<utility>/<substation>/
         Cada subpasta encontrada é considerada um feeder (ex: RAPA1301).
         """
         feeders = []
+        utility_path = pathlib.Path(utility_path)
         substation_path = utility_path / substation
         if substation_path.exists():
             for entry in substation_path.iterdir():
@@ -659,8 +647,18 @@ class Task:
     type_day: str
     config: Dict
 
-def _make_output_paths(task: Task) -> Tuple[pathlib.Path, pathlib.Path, pathlib.Path]:
-    project_root = HCSteps._find_project_root()
+def find_file(filename: str, search_path: str):
+    """
+    Procura por um arquivo com nome exato a partir de `search_path`.
+    Retorna o primeiro caminho encontrado ou None.
+    """
+    for root, dirs, files in os.walk(search_path):
+        if filename in files:
+            return pathlib.Path(root) / filename
+    return None
+
+def make_output_paths(task: Task) -> Tuple[pathlib.Path, pathlib.Path, pathlib.Path]:
+    project_root = HCSteps.find_project_root()
     relative_path = pathlib.Path(
         f"ui/static/scenarios/Hosting Capacity/{task.config['utility']}/{task.substation}/{task.feeder}/{task.type_day}/{task.config['year']}/{task.month}"
     )
@@ -673,7 +671,7 @@ def _make_output_paths(task: Task) -> Tuple[pathlib.Path, pathlib.Path, pathlib.
 def run_feeder_mode(utility, substation, feeder, year, months, type_days, config):
     # Verifica se já existe resultado
     temp_task = Task(feeder, substation, months[0], type_days[0], config)
-    _, _, json_path = _make_output_paths(temp_task)
+    _, _, json_path = make_output_paths(temp_task)
     if json_path.exists():
         print(f"⏩ Resultado já existe para {feeder}/{type_days[0]}/{year}/{months[0]}. Pulando...")
         return
@@ -681,7 +679,7 @@ def run_feeder_mode(utility, substation, feeder, year, months, type_days, config
     # Localiza o Master.dss
     master_filename = f"{type_days[0]}_{months[0]}_Master_{utility}_{substation}_{feeder}.dss"
     utility_path = pathlib.Path(config['utility_path']).resolve()
-    master_path = HCSteps.find_file(master_filename, search_path=utility_path)
+    master_path = find_file(master_filename, search_path=utility_path)
     if master_path is None:
         print(f"❌ Master file não encontrado: {master_filename}")
         return
@@ -707,7 +705,7 @@ def run_feeder_mode(utility, substation, feeder, year, months, type_days, config
         data_hc, error_log = hc.hosting_capacity_completed()
 
     # Salva resultados .json e .csv
-    base_path, csv_path, json_path = _make_output_paths(Task(feeder, substation, months[0], type_days[0], config))
+    base_path, csv_path, json_path = make_output_paths(Task(feeder, substation, months[0], type_days[0], config))
     pd.DataFrame(data_hc).to_csv(csv_path, index=False)
     hc_dict = {item["Bus"]: item["HC"] for item in data_hc}
     with open(json_path, "w", encoding="utf-8") as f:
@@ -755,7 +753,7 @@ def process_task(task: Task):
                     config=task.config
                 )
 
-def _to_list(x):
+def to_list(x):
     if x is None:
         return []
     if isinstance(x, list):
@@ -763,11 +761,12 @@ def _to_list(x):
     return [x]
 
 def build_tasks_from_config(config: Dict) -> List[Task]:
-    utility_path = pathlib.Path(config['utility_path'])
-    subs = _to_list(config.get("substation", []))
-    feeders = _to_list(config.get("feeder", []))
-    months = _to_list(config.get("month", []))
-    type_days = _to_list(config.get("type_day", []))
+    utility = config["utility"]
+    utility_path = os.path.join(config["utility_path"], utility)
+    subs = to_list(config.get("substation", []))
+    feeders = to_list(config.get("feeder", []))
+    months = to_list(config.get("month", []))
+    type_days = to_list(config.get("type_day", []))
 
     tasks: List[Task] = []
 
