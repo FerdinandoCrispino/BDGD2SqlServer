@@ -18,7 +18,7 @@ class All:
         """
         from Hosting_Capacity import HCSteps
 
-        project_root = HCSteps._find_project_root(marker_folder="ui")
+        project_root = HCSteps.find_project_root(marker_folder="ui")
         base_root = project_root / "ui" / "static" / "scenarios" / "Hosting Capacity" / utility
 
         substation = group["substation"]
@@ -79,7 +79,7 @@ class All:
         """
         from Hosting_Capacity import HCSteps
 
-        project_root = HCSteps._find_project_root(marker_folder="ui")
+        project_root = HCSteps.find_project_root(marker_folder="ui")
         root_path = project_root / "ui" / "static" / "scenarios" / "Hosting Capacity" / utility
         groups_map = defaultdict(lambda: {"json_files": [], "feeders": set()})
 
