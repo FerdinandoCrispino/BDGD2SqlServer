@@ -26,8 +26,8 @@ def run_multi(subs, config, mes_ini, tipo_de_dias, control_mes, control_tipo_dia
     engine = create_connection(config)
     dss_files_folder = config['dss_files_folder']
 
-    #print(f'Ajusting CodBNC....')
-    #ajust_eqre_codbanc(dist, engine)
+    # print(f'Ajusting CodBNC....')
+    # ajust_eqre_codbanc(dist, engine)
 
     # controles de execução para apenas um primeiro mes e um primeiro tipo de dia da lista 'tipo_de_dias'
     for tipo_dia in tipo_de_dias:
@@ -893,7 +893,7 @@ def write_sub_dss(cod_sub, cod_dist, mes, tipo_dia, engine, dss_files_folder):
         print(f"{sub} - Subestação inexistente!!!")
         return
 
-    # Leitura de dados de Trasformadores AT
+    # Leitura de dados de Transformadores AT
     trafo_at_ok = bdgd_read.query_trafos_at(engine)
     if trafo_at_ok:
         bdgd_read.query_voltagebases_trafos_mt(engine)
@@ -973,7 +973,6 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
                                          0.4, 0.1, 0, 0, 0, 0, 0]])
     # obtem curva de irradiação solar na base de dados de irradiação
 
-
     # inicializa classes de manipulação dos dados da bdgd
     dss_adapter = dss_g.DssFilesGenerator(dist, sub)
     # bdgd_read = ElectricDataPort(dist, sub, mes, tipo_dia)
@@ -1024,7 +1023,7 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
         bdgd_read.query_trafo_mt_mt(engine, cod_circuito)
         bdgd_read.trafo_mtmt_find_segmentos(engine, cod_circuito)
         dss_adapter.get_lines_reguladores(bdgd_read.reatores, bdgd_read.trafo_mtmt,
-                                       bdgd_read.trafo_mtmt_connected_segments, linhas_reatores_mt_dss)
+                                          bdgd_read.trafo_mtmt_connected_segments, linhas_reatores_mt_dss)
         write_to_dss(dist, sub, cod_circuito, linhas_reatores_mt_dss, nome_arquivo_re_mt, dss_files_folder)
 
         # Grava arquivo DSS para o Transformadores MT
@@ -1056,8 +1055,8 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
 
         # Grava arquivo DSS para capacitors
         bdgd_read.query_capacitor(cod_circuito, engine=engine)
-        #bdgd_read.query_trafo_mt_mt(engine, cod_circuito)
-        #bdgd_read.trafo_mtmt_find_segmentos(engine, cod_circuito)
+        # bdgd_read.query_trafo_mt_mt(engine, cod_circuito)
+        # bdgd_read.trafo_mtmt_find_segmentos(engine, cod_circuito)
         dss_adapter.get_line_capacitor(bdgd_read.capacitors, bdgd_read.trafo_mtmt,
                                        bdgd_read.trafo_mtmt_connected_segments, linhas_capacitors_dss)
         write_to_dss(dist, sub, cod_circuito, linhas_capacitors_dss, nome_arquivo_capacitors, dss_files_folder)
@@ -1093,10 +1092,10 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
 
 def main():
     proc_time_ini = time.time()
-    config = load_config('40')
+    config = load_config('391_2024')
     # controles de execução para apenas um primeiro mes e um primeiro tipo de dia da lista 'tipo_de_dias'
     control_mes = True
-    control_tipo_dia = True
+    control_tipo_dia = False
 
     ano = config['data_base'].split('-')[0]
     dist = config['dist']
@@ -1110,7 +1109,7 @@ def main():
     # set multiprocessing
     run_multiprocess = False
 
-    mes_ini = 12  # [1 12] mes do ano de referência para os dados de cargas e geração
+    mes_ini = 7  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
     tipo_de_dias = ['DU', 'DO']  # tipo de dia para referência para as curvas típicas de carga e geração
 
@@ -1143,7 +1142,7 @@ def main():
         """
 
         # utilizando apply_async (multi-args=yes order result=no)
-        p = Pool(processes=(cpu_count() ))
+        p = Pool(processes=(cpu_count()))
         for sub in list_sub:
             print(sub)
             print(p.apply_async(run_multi, args=(sub, config, mes_ini, tipo_de_dias, control_mes, control_tipo_dia)))
@@ -1176,7 +1175,10 @@ def main():
         # list_sub = [ 'SBN', 'STO', 'MSU', 'NCR', 'JCT', 'CPG', 'AAF' ]
         # list_sub = ['MSU']
 
-        list_sub = ['CRU']
+        # list_sub = ['ACR', 'CCO', 'CRU', 'ICC', 'JPR', 'JSR', 'PLH']
+        list_sub = ['BRR', 'AVP', 'MTQ', 'GER', 'CAC']
+        #list_sub = ['MTQ']
+
 
         print(f'Ajusting CodBNC....')
         ajust_eqre_codbanc(dist, engine)

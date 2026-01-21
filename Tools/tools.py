@@ -19,14 +19,14 @@ pd.set_option('display.max_columns', None)
 list_names_tables = ['EQTRAT', 'EQTRMT', 'UNTRAT', 'UNTRMT']
 
 
-def load_config(dist, config_path="../config_database.yml"):
+def load_config(database, config_path="../config_database.yml"):
     application_path = os.path.dirname(os.path.abspath(__file__))
     with open(os.path.join(application_path, config_path), 'r') as file:
         config = yaml.load(file, Loader=yaml.BaseLoader)
 
-    config_bdgd = config.get("databases", {}).get(dist)
+    config_bdgd = config.get("databases", {}).get(database)
     if not config_bdgd:
-        raise ValueError(f"Configurações para o banco de dados '{dist}' não foram encontradas.")
+        raise ValueError(f"Configurações para o banco de dados '{database}' não foram encontradas.")
 
     return config_bdgd
 
@@ -531,6 +531,7 @@ def write_to_dss(dist, sub, circuito, linhas_arquivos_list: list, nome_arquivo: 
             os.mkdir(path_dss_files)
 
         # Verifica se existe diretório dist
+        # TODO - Para o caso da mesma distribuidora de anos diferentes os arquivos são sobreescritos. Acrescentar o ano no caminho!
         dist_path = os.path.join(path_dss_files, dist)
         if not os.path.isdir(dist_path):
             os.mkdir(dist_path)
@@ -1023,6 +1024,7 @@ def list_states_curtail(engine):
                 union
                 SELECT distinct id_estado FROM [dbo].[solar_CURTAILMENT]
             '''
+    result_list = [None]
     try:
         with engine.connect() as conn:
             # result = conn.execute(query)
@@ -1030,7 +1032,7 @@ def list_states_curtail(engine):
             result_list = result['id_estado'].values.tolist()
     except Exception as e:
         print(f"{e}: \t list_states_curtail error.")
-        return
+        return result_list
 
     return result_list
 

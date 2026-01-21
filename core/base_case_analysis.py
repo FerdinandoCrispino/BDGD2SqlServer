@@ -25,13 +25,13 @@ exec_by_circuit = True
 # set run multiprocess
 run_multiprocess = False
 
-database = "40"
-master_type_day = "DU"
-master_month = "12"
+database = "391_2024"
+master_type_day = "DO"
+master_month = "1"
 
 config = load_config(database)
 dist = config['dist']
-master_data_base = config['data_base'].split('-')[0]
+master_data_base = config['data_base'].split('-')[0]   # ano
 engine = create_connection(config)
 
 master_folder = os.path.expanduser(config['dss_files_folder'])
@@ -52,7 +52,8 @@ def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
     subs_losses = pd.DataFrame()
     file_result = f'{tipo_dia}_{ano}_{mes}_losses.xlsx'
 
-    for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base', str(dist))):
+    for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base',
+                                                  str(dist), ano,)):
         for file in files:
             if file.endswith(file_result) and 'SUB' not in file.upper():
                 print(file)
@@ -97,7 +98,7 @@ def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
     ax.legend(loc='upper left', ncols=3)
 
     plt.grid(axis='y')
-    plt.savefig(f'{plt_path}/{tipo_dia}_{mes}_sub_losses_analysis.png', dpi=fig.dpi)
+    plt.savefig(f'{plt_path}/{ano}_{tipo_dia}_{mes}_sub_losses_analysis.png', dpi=fig.dpi)
     plt.close()
 
 
@@ -115,7 +116,7 @@ def substations_transformer_loading(dist, tipo_dia, ano, mes):
     :return:
     """
     subs_power = pd.DataFrame()
-    for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base')):
+    for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), f'../ui/static/scenarios/base/{dist}')):
         for file in files:
             if file.endswith(f'{dist}_{tipo_dia}_{ano}_{mes}_power.csv'):
                 print(file)
@@ -232,7 +233,7 @@ class SimuladorOpendss:
         :return:
         """
         dirname = os.path.dirname(__file__)
-        json_path = os.path.abspath(os.path.join(dirname, "../ui/static/scenarios/base", self.dist, self.sub,
+        json_path = os.path.abspath(os.path.join(dirname, "../ui/static/scenarios/base", self.dist,  self.sub,
                                                  self.dss.circuit.name.upper(), self.tipo_dia, self.database, self.mes))
         os.makedirs(json_path, exist_ok=True)
 
@@ -258,8 +259,8 @@ class SimuladorOpendss:
 
         dirname = os.path.dirname(__file__)
         plt_path = os.path.abspath(
-            os.path.join(dirname, "../ui/static/scenarios/base", self.dist, self.sub, self.dss.circuit.name.upper(),
-                         self.tipo_dia, self.database, self.mes)).replace('\\', '/')
+            os.path.join(dirname, "../ui/static/scenarios/base", self.dist, self.sub,
+                         self.dss.circuit.name.upper(), self.tipo_dia, self.database, self.mes)).replace('\\', '/')
         os.makedirs(plt_path, exist_ok=True)
 
         if self.dss.solution.converged == 0:
@@ -414,7 +415,7 @@ class SimuladorOpendss:
                               'Q1': ypoints_ang2, 'Q2': ypoints_ang4, 'Q3': ypoints_ang6}
 
             # descarta se os valores estão próximos de zero
-            if sum(ypoints1) > 1:
+            if abs(sum(ypoints1)) > 1:
                 all_power = pd.concat([all_power, pd.DataFrame.from_dict(all_power_dict)], ignore_index=True,
                                       sort=False)
 
@@ -701,7 +702,7 @@ if __name__ == '__main__':
                     'UNA', 'URB', 'USS', 'VGA', 'VHE', 'VJS', 'VSL']
         list_sub = ['USS']
         """
-        list_sub = ['AAF']
+        list_sub = ['BRR', 'AVP', 'MTQ', 'GER', 'CAC']
         for nome_sub in list_sub:
             sub = nome_sub
             master_file = f"{master_type_day}_{master_month}_Master_substation_{dist}_{sub}.dss"
@@ -737,10 +738,10 @@ if __name__ == '__main__':
 
     control_sub_loading = True
     if control_sub_loading:
-        substations_losses(dist, 'DO', '2022', master_month)
-        substations_losses(dist, 'DU', '2022', master_month)
+        substations_losses(dist, 'DO', master_data_base, master_month)
+        substations_losses(dist, 'DU', master_data_base, master_month)
         # teste: análise de carregamento das subestações
-        substations_transformer_loading(dist, 'DU', '2022', master_month)
-        substations_transformer_loading(dist, 'DO', '2022', master_month)
+        substations_transformer_loading(dist, 'DU', master_data_base, master_month)
+        substations_transformer_loading(dist, 'DO', master_data_base, master_month)
 
     print(f'Substation: process completed in {time.time() - proc_time_ini}.', flush=True)

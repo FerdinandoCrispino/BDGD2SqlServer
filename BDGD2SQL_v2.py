@@ -19,7 +19,7 @@ columns_rename = {'Shape_Leng': 'Shape_STLength__',
 
 
 if __name__ == "__main__":
-    conf_bdgd = '39_2022'
+    conf_bdgd = '391_2024'
     proc_time_ini = time.time()
     config_bdgd = load_config(conf_bdgd)
     schema = config_bdgd['schema']
@@ -59,7 +59,8 @@ if __name__ == "__main__":
     print(f"Processo concluído em {time.time() - proc_time_ini}")
 
     # Executa a stored procedure de atualização da versão 10
-    print(f"Executando stored procedure de atualização da versão 1.0 da base de dados da BDGD: {config_bdgd['dist']}")
+    print(f"Executando stored procedure de atualização da versão 1.0 da base de dados da BDGD: "
+          f"{config_bdgd['dist']}-{data_base}")
     exec_sp_atualiza_v10(config_bdgd['dist'], data_base, engine)
     print(f"Processo concluído!")
 

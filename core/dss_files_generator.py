@@ -12,9 +12,10 @@ Implementa funcionalidades de preparação dos dados para escrita dos arquivos d
 
 
 class DssFilesGenerator:
-    def __init__(self, dist=None, substation=None):
+    def __init__(self, dist=None, substation=None, database=None):
         self.dist = dist
         self.sub = substation
+        self.database = database
 
     def get_lines_substation(self, transfomers, circuits, linhas_substation_dss, mes, tipo_dia, voltagebases):
         mes = mes
@@ -1060,10 +1061,10 @@ class DssFilesGenerator:
             pmpp = dblDemMax_kW * rel_cc_ca
 
             # obtem a curva de temperatura ambiente da base de dados de irradiação
-            temp_amb = temp_amb_by_municipio(cod_mun, mes, self.dist)
+            temp_amb = temp_amb_by_municipio(cod_mun, mes, database="Irradiance")
 
             # obtem curva de irradiação solar na base de dados de irradiação
-            irradiacao = irrad_by_municipio(cod_mun, mes, self.dist)
+            irradiacao = irrad_by_municipio(cod_mun, mes, database="Irradiance")
 
             # converte temperatura ambiente e irradiação solar em temperatura do painel solar
             pv_temp_data = temp_amb_to_temp_pv(irradiacao, temp_amb)
@@ -1177,10 +1178,10 @@ class DssFilesGenerator:
                 pmpp = dblDemMax_kW * rel_cc_ca
 
                 # obtem a curva de temperatura ambiente da base de dados de irradiação
-                temp_amb = temp_amb_by_municipio(cod_mun, mes, self.dist)
+                temp_amb = temp_amb_by_municipio(cod_mun, mes, database="Irradiance")
 
                 # obtem curva de irradiação solar na base de dados de irradiação
-                irradiacao = irrad_by_municipio(cod_mun, mes, self.dist)
+                irradiacao = irrad_by_municipio(cod_mun, mes, database="Irradiance")
 
                 # converte temperatura ambiente e irradiação solar em temperatura do painel solar
                 pv_temp_data = temp_amb_to_temp_pv(irradiacao, temp_amb)
