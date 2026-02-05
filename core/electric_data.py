@@ -18,7 +18,7 @@ Implementa funcionalidades de leitua dos dados da BDGD para escrita dos arquivos
 
 
 # rum multiprocessing for substations
-def run_multi(subs, config, mes_ini, tipo_de_dias, control_mes, control_tipo_dia):
+def run_multi(subs, config, mes_ini, tipo_de_dias, control_mes, control_tipo_dia, control_connBT2Trafo):
     proc_time_ini = time.time()
 
     ano = config['data_base'].split('-')[0]
@@ -38,7 +38,7 @@ def run_multi(subs, config, mes_ini, tipo_de_dias, control_mes, control_tipo_dia
                 write_sub_dss(sub, dist, mes, tipo_dia, engine, dss_files_folder)
                 # Gera arquivos do openDSS para cada circuito de uma subestação
                 write_files_dss(sub, dist, ano, mes, tipo_dia, dss_files_folder, model_type=1,
-                                engine=engine)  # model_type=1 PVSystem else Generator
+                                engine=engine, connBT2Trafo=control_connBT2Trafo)  # model_type=1 PVSystem else Generator
             if control_mes:
                 break
         if control_tipo_dia:
@@ -89,6 +89,83 @@ class ElectricDataPort:
         self.monitors = []
         self.voltage_tr_sec = []
         self.propor = 0
+
+        self.trechos_bt = []
+        self.ramal_bt = []
+        self.chaves_bt = []
+
+    def query_trechos_bt(self, ctmt, engine):
+        if ctmt is None:
+            query = f'''
+                    SELECT COD_ID, CTMT, PAC_1, PAC_2, POS, FAS_CON, TRIM(TIP_CND) as TIP_CND, COMP
+                    FROM sde.SSDBT
+                    WHERE dist='{self.dist}' and sub='{self.sub}'
+                    ;
+            '''
+        else:
+            query = f'''
+                    SELECT COD_ID, CTMT, PAC_1, PAC_2, POS, FAS_CON, TRIM(TIP_CND) as TIP_CND, COMP
+                    FROM sde.SSDBT
+                    WHERE dist='{self.dist}' and sub='{self.sub}' and CTMT='{ctmt}'
+                    ;
+            '''
+        self.trechos_bt = return_query_as_dataframe(query, engine)
+        if self.trechos_bt.empty:
+            return False
+        return True
+
+    def query_ramal_bt(self, ctmt, engine):
+        if ctmt is None:
+            query = f'''
+                    SELECT COD_ID, CTMT, PAC_1, PAC_2, POS, FAS_CON, TRIM(TIP_CND) as TIP_CND , COMP
+                    FROM sde.RAMLIG
+                    WHERE dist='{self.dist}' and sub='{self.sub}'
+                    ;
+            '''
+        else:
+            query = f'''
+                    SELECT COD_ID, CTMT, PAC_1, PAC_2, POS, FAS_CON, TRIM(TIP_CND) as TIP_CND, COMP
+                    FROM sde.RAMLIG
+                    WHERE dist='{self.dist}' and sub='{self.sub}' and CTMT='{ctmt}'
+                    ;
+            '''
+        self.ramal_bt = return_query_as_dataframe(query, engine)
+
+        df_pac_null = self.ramal_bt[self.ramal_bt['PAC_1'] == '']
+        for index, row in df_pac_null.iterrows():
+            print(f"Ramal de ligação com PAC_1 vazio. COD_ID: {row['COD_ID']}, CTMT: {row['CTMT']}")
+            # encontrar o pac do transformador da carga ligada no ramal
+            query = f'''SELECT c.UNI_TR_MT, t.pac_2 from sde.UCBT c
+                            INNER JOIN sde.untrmt t on c.UNI_TR_MT = t.COD_ID  
+                        Where c.sub='{self.sub}' and c.PAC='{row['PAC_2']}' ; 
+                    '''
+
+            pac_tr = return_query_as_dataframe(query, engine)
+            self.ramal_bt.loc[index, 'PAC_TR'] = pac_tr['pac_2'].values[0]
+
+        if self.ramal_bt.empty:
+            return False
+        return True
+
+    def query_chaves_bt(self, ctmt,  engine):
+        if ctmt is None:
+            query = f'''
+                    SELECT COD_ID, CTMT, PAC_1, PAC_2, FAS_CON, P_N_OPE                    
+                    FROM sde.UNSEBT
+                    WHERE dist='{self.dist}' and sub='{self.sub}' and SIT_ATIV='AT'
+                    ;
+            '''
+        else:
+            query = f'''
+                    SELECT COD_ID, CTMT, PAC_1, PAC_2, FAS_CON, P_N_OPE    
+                    FROM sde.UNSEBT
+                    WHERE dist='{self.dist}' and sub='{self.sub}' and CTMT='{ctmt}' and SIT_ATIV='AT'
+                    ;
+            '''
+        self.chaves_bt = return_query_as_dataframe(query, engine)
+        if self.chaves_bt.empty:
+            return False
+        return True
 
     def query_trafo_mt_mt(self, engine, ctmt=None):
         """
@@ -403,145 +480,207 @@ class ElectricDataPort:
         self.cargas_mt = return_query_as_dataframe(query, engine)
         return True
 
-    def query_cargas_bt(self, ctmt, engine) -> bool:
+    def query_cargas_bt(self, ctmt, engine, conn2trafo=True) -> bool:
         """
         Busca dados das Cargas de Baixa Tensão para a escrever dos arquivos DSS
-        As cargas são conectadas no transformador de média Tensão
+        As cargas são podem ser conectadas no transformador de média tensão ou no ramal de ligação de baixa tensão.
+        conforme parametro conn2trafo
         Busca dados de Cargas BT
         Podem existir cargas duplicadas onde o valor da energia para um determinado mes pode estar em
             diferentes registros.
             Assim remover a condição de selecionar somente carga Ativa e realizar o tratamento dos valores
-            diplicados e a escolha do registro da energia a posteriore
+            duplicados e a escolha do registro da energia a posteriore
 
         :return:
         """
-        if ctmt is None:
-            query = f'''
-                SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD
-                    , u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06
-                    , u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12 
-                    , t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
-                    , m.FAS_CON as M_FAS_CON, v.TEN
-                FROM sde.UCBT u    
-                INNER JOIN sde.UNTRMT T
-                    on  t.COD_ID = u.UNI_TR_MT 
-                inner join [GEO_SIGR_DDAD_M10].sde.tten as v on u.TEN_FORN = v.COD_ID 
-                left join sde.eqme M
-                    on u.COD_ID = m.UC_UG and u.PAC = m.PAC
-                where u.dist='{self.dist}' and u.sub = '{self.sub}' and 
-                    u.pn_con != '0'
-                order by cod_id
-                ;
-            '''
-
-            """
-            WITH UCBT_CTE AS (
-            SELECT COD_ID, CTMT, PAC, FAS_CON, TIP_CC, TEN_FORN, CEG_GD,
-                   ENE_01, ENE_02, ENE_03, ENE_04, ENE_05, ENE_06, 
-                   ENE_07, ENE_08, ENE_09, ENE_10, ENE_11, ENE_12,
-                   UNI_TR_MT, DIST, SUB, SIT_ATIV, PN_CON
-            FROM sde.UCBT
-            WHERE DIST = '391' AND SUB = 'ITQ' AND SIT_ATIV = 'AT' AND PN_CON != '0'
-            ),
-            UNTRMT_CTE AS (
-                SELECT COD_ID, TIP_TRAFO, TEN_LIN_SE, POT_NOM, PAC_2, DATA_BASE
-                FROM sde.UNTRMT
-            ),
-            EQME_CTE AS (
-                SELECT DISTINCT UC_UG, FAS_CON AS M_FAS_CON, PAC 
-                FROM sde.EQME
-            )
-            
-            SELECT DISTINCT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, m.M_FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
-                            u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
-                            u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12, 
-                            t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, YEAR(t.DATA_BASE) AS ANO_BASE
-            FROM UCBT_CTE u
-            INNER JOIN UNTRMT_CTE t ON t.COD_ID = u.UNI_TR_MT
-            LEFT JOIN EQME_CTE m ON u.COD_ID = m.UC_UG and u.PAC = m.PAC
-            ORDER BY u.COD_ID;
-            """
-        else:
-            query = f'''                    
-                    SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD
-                        , u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06 
+        if conn2trafo:
+            if ctmt is None:
+                query = f'''
+                    SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD
+                        , u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06
                         , u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12 
                         , t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
                         , m.FAS_CON as M_FAS_CON, v.TEN
                     FROM sde.UCBT u    
-                    INNER JOIN sde.UNTRMT T on  t.COD_ID = u.UNI_TR_MT 
-                    inner join [GEO_SIGR_DDAD_M10].sde.tten as v on u.TEN_FORN = v.COD_ID
+                    INNER JOIN sde.UNTRMT T
+                        on  t.COD_ID = u.UNI_TR_MT 
+                    inner join [GEO_SIGR_DDAD_M10].sde.tten as v on u.TEN_FORN = v.COD_ID 
                     left join sde.eqme M
                         on u.COD_ID = m.UC_UG and u.PAC = m.PAC
-                    where u.dist='{self.dist}' and u.sub = '{self.sub}' and u.ctmt = '{ctmt}' and 
+                    where u.dist='{self.dist}' and u.sub = '{self.sub}' and 
                         u.pn_con != '0'
+                    order by cod_id
                     ;
                 '''
 
-            """            
-            query = f'''
-                select * from (      
-                    SELECT  u.COD_ID, ROW_NUMBER() OVER(PARTITION BY u.COD_ID ORDER BY u.objectid DESC) rn
-                        , u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD
-                        , u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06 
-                        , u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12 
-                        , t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                """
+                WITH UCBT_CTE AS (
+                SELECT COD_ID, CTMT, PAC, FAS_CON, TIP_CC, TEN_FORN, CEG_GD,
+                       ENE_01, ENE_02, ENE_03, ENE_04, ENE_05, ENE_06, 
+                       ENE_07, ENE_08, ENE_09, ENE_10, ENE_11, ENE_12,
+                       UNI_TR_MT, DIST, SUB, SIT_ATIV, PN_CON
+                FROM sde.UCBT
+                WHERE DIST = '391' AND SUB = 'ITQ' AND SIT_ATIV = 'AT' AND PN_CON != '0'
+                ),
+                UNTRMT_CTE AS (
+                    SELECT COD_ID, TIP_TRAFO, TEN_LIN_SE, POT_NOM, PAC_2, DATA_BASE
+                    FROM sde.UNTRMT
+                ),
+                EQME_CTE AS (
+                    SELECT DISTINCT UC_UG, FAS_CON AS M_FAS_CON, PAC 
+                    FROM sde.EQME
+                )
+                
+                SELECT DISTINCT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, m.M_FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD,
+                                u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06, 
+                                u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12, 
+                                t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, YEAR(t.DATA_BASE) AS ANO_BASE
+                FROM UCBT_CTE u
+                INNER JOIN UNTRMT_CTE t ON t.COD_ID = u.UNI_TR_MT
+                LEFT JOIN EQME_CTE m ON u.COD_ID = m.UC_UG and u.PAC = m.PAC
+                ORDER BY u.COD_ID;
+                """
+            else:
+                query = f'''                    
+                        SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD
+                            , u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06 
+                            , u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12 
+                            , t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                            , m.FAS_CON as M_FAS_CON, v.TEN
+                        FROM sde.UCBT u    
+                        INNER JOIN sde.UNTRMT T on  t.COD_ID = u.UNI_TR_MT 
+                        inner join [GEO_SIGR_DDAD_M10].sde.tten as v on u.TEN_FORN = v.COD_ID
+                        left join sde.eqme M
+                            on u.COD_ID = m.UC_UG and u.PAC = m.PAC
+                        where u.dist='{self.dist}' and u.sub = '{self.sub}' and u.ctmt = '{ctmt}' and 
+                            u.pn_con != '0'
+                        ;
+                    '''
+
+                """            
+                query = f'''
+                    select * from (      
+                        SELECT  u.COD_ID, ROW_NUMBER() OVER(PARTITION BY u.COD_ID ORDER BY u.objectid DESC) rn
+                            , u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD
+                            , u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06 
+                            , u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12 
+                            , t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, year(t.DATA_BASE) as ANO_BASE
+                            , m.FAS_CON as M_FAS_CON, v.TEN
+                        FROM sde.UCBT u    
+                        INNER JOIN sde.UNTRMT T on  t.COD_ID = u.UNI_TR_MT 
+                        inner join [GEO_SIGR_DDAD_M10].sde.tten as v on u.TEN_FORN = v.COD_ID
+                        left join sde.eqme M
+                            on u.COD_ID = m.UC_UG and u.PAC = m.PAC
+                        where u.dist='{self.dist}' and u.sub = '{self.sub}' and u.ctmt = '{ctmt}' and u.sit_ativ = 'AT' and 
+                            u.pn_con != '0'
+                    ) a
+                    where rn = 1
+                    order by a.cod_id
+                    ;
+                '''
+                """
+        else:
+            if ctmt is None:
+                query = f'''
+                    SELECT distinct u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD, u.RAMAL
+                        , u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06
+                        , u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12
+                        , t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, year(t.DATA_BASE) as ANO_BASE
                         , m.FAS_CON as M_FAS_CON, v.TEN
-                    FROM sde.UCBT u    
+                    FROM sde.UCBT u
                     INNER JOIN sde.UNTRMT T on  t.COD_ID = u.UNI_TR_MT 
-                    inner join [GEO_SIGR_DDAD_M10].sde.tten as v on u.TEN_FORN = v.COD_ID
-                    left join sde.eqme M
-                        on u.COD_ID = m.UC_UG and u.PAC = m.PAC
-                    where u.dist='{self.dist}' and u.sub = '{self.sub}' and u.ctmt = '{ctmt}' and u.sit_ativ = 'AT' and 
+                    inner join [GEO_SIGR_DDAD_M10].sde.tten as v on u.TEN_FORN = v.COD_ID  
+                    left join sde.eqme M on u.COD_ID = m.UC_UG and u.PAC = m.PAC                  
+                    where u.dist='{self.dist}' and u.sub = '{self.sub}' and 
                         u.pn_con != '0'
-                ) a
-                where rn = 1
-                order by a.cod_id
-                ;
-            '''
-            """
+                    order by u.cod_id
+                    ;
+                '''
+            else:
+                query = f'''                    
+                        SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TIP_CC, u.TEN_FORN, u.CEG_GD, u.RAMAL
+                            , u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06 
+                            , u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12 
+                            , t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, year(t.DATA_BASE) as ANO_BASE
+                            , m.FAS_CON as M_FAS_CON, v.TEN
+                        FROM sde.UCBT u 
+                        INNER JOIN sde.UNTRMT T on  t.COD_ID = u.UNI_TR_MT 
+                        inner join [GEO_SIGR_DDAD_M10].sde.tten as v on u.TEN_FORN = v.COD_ID
+                        left join sde.eqme M on u.COD_ID = m.UC_UG and u.PAC = m.PAC               
+                        where u.dist='{self.dist}' and u.sub = '{self.sub}' and u.CTMT = '{ctmt}' and 
+                            u.pn_con != '0'
+                        order by u.cod_id
+                        ;
+                    '''
 
         self.cargas_bt = return_query_as_dataframe(query, engine)
         return True
 
-    def query_cargas_pip(self, ctmt, engine) -> bool:
+    def query_cargas_pip(self, ctmt, engine, conn2trafo=True) -> bool:
         """
          Busca dados das Cargas de Iluminação Pública para a escrever nos arquivos DSS
          As cargas são conectadas no transformador de média Tensão
          :param ctmt:
          :return:
          """
-
-        if ctmt is None:
-            query = f'''
-                SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN, v.TEN, 
-                     p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
-                     p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12, 
-                     t.TIP_TRAFO, t.MRT, t.COD_ID as TR_COD_ID, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, 
-                     year(t.DATA_BASE) as ANO_BASE
-                FROM sde.PIP P  
-                inner join [GEO_SIGR_DDAD_M10].sde.tten as v on p.TEN_FORN = v.COD_ID
-                INNER JOIN sde.UNTRMT T
-                     on t.COD_ID = p.UNI_TR_MT
-                WHERE p.dist='{self.dist}' and p.sub = '{self.sub}' and p.sit_ativ = 'AT' and
-                    p.pn_con != '0'
-                 ;
-             '''
+        if conn2trafo:
+            if ctmt is None:
+                query = f'''
+                    SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN, v.TEN, 
+                         p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
+                         p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12, 
+                         t.TIP_TRAFO, t.MRT, t.COD_ID as TR_COD_ID, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, 
+                         year(t.DATA_BASE) as ANO_BASE
+                    FROM sde.PIP P  
+                    inner join [GEO_SIGR_DDAD_M10].sde.tten as v on p.TEN_FORN = v.COD_ID
+                    INNER JOIN sde.UNTRMT T
+                         on t.COD_ID = p.UNI_TR_MT
+                    WHERE p.dist='{self.dist}' and p.sub = '{self.sub}' and p.sit_ativ = 'AT' and
+                        p.pn_con != '0'
+                     ;
+                 '''
+            else:
+                query = f'''
+                    SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN, v.TEN, 
+                         p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
+                         p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12, 
+                         t.TIP_TRAFO, t.MRT, t.COD_ID as TR_COD_ID, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, 
+                         year(t.DATA_BASE) as ANO_BASE
+                    FROM sde.PIP P  
+                    inner join [GEO_SIGR_DDAD_M10].sde.tten as v on p.TEN_FORN = v.COD_ID
+                    INNER JOIN sde.UNTRMT T
+                         on t.COD_ID = p.UNI_TR_MT
+                    WHERE p.dist='{self.dist}' and p.sub = '{self.sub}' and p.ctmt = '{ctmt}' and p.sit_ativ = 'AT' and
+                        p.pn_con != '0'
+                    ;
+                 '''
         else:
-            query = f'''
-                SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN, v.TEN, 
-                     p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
-                     p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12, 
-                     t.TIP_TRAFO, t.MRT, t.COD_ID as TR_COD_ID, t.TEN_LIN_SE, t.POT_NOM, t.PAC_2, 
-                     year(t.DATA_BASE) as ANO_BASE
-                FROM sde.PIP P  
-                inner join [GEO_SIGR_DDAD_M10].sde.tten as v on p.TEN_FORN = v.COD_ID
-                INNER JOIN sde.UNTRMT T
-                     on t.COD_ID = p.UNI_TR_MT
-                WHERE p.dist='{self.dist}' and p.sub = '{self.sub}' and p.ctmt = '{ctmt}' and p.sit_ativ = 'AT' and
-                    p.pn_con != '0'
-                ;
-             '''
+            if ctmt is None:
+                query = f'''
+                    SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN, v.TEN, 
+                         p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
+                         p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12
+                         , t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, year(t.DATA_BASE) as ANO_BASE
+                    FROM sde.PIP P  
+                    INNER JOIN sde.UNTRMT T on t.COD_ID = p.UNI_TR_MT
+                    inner join [GEO_SIGR_DDAD_M10].sde.tten as v on p.TEN_FORN = v.COD_ID
+                    WHERE p.dist='{self.dist}' and p.sub = '{self.sub}' and p.sit_ativ = 'AT' and
+                        p.pn_con != '0'
+                     ;
+                 '''
+            else:
+                query = f'''
+                    SELECT distinct p.COD_ID, p.CTMT, p.PAC, p.FAS_CON, p.TIP_CC, p.TEN_FORN, v.TEN, 
+                         p.ENE_01, p.ENE_02, p.ENE_03, p.ENE_04, p.ENE_05, p.ENE_06, 
+                         p.ENE_07, p.ENE_08, p.ENE_09, p.ENE_10, p.ENE_11, p.ENE_12
+                         , t.TIP_TRAFO, t.TEN_LIN_SE, t.POT_NOM, year(t.DATA_BASE) as ANO_BASE
+                    FROM sde.PIP P  
+                    INNER JOIN sde.UNTRMT T on t.COD_ID = p.UNI_TR_MT
+                    inner join [GEO_SIGR_DDAD_M10].sde.tten as v on p.TEN_FORN = v.COD_ID
+                    WHERE p.dist='{self.dist}' and p.sub = '{self.sub}' and p.ctmt = '{ctmt}' and p.sit_ativ = 'AT' and
+                        p.pn_con != '0'
+                    ;
+                 '''
         self.cargas_pip = return_query_as_dataframe(query, engine)
         return True
 
@@ -562,46 +701,83 @@ class ElectricDataPort:
             ;
         '''
 
-    def query_generators_bt(self, ctmt, engine) -> bool:
+    def query_generators_bt(self, ctmt, engine,  conn2trafo=True) -> bool:
         """
 
         :param ctmt:
         :return:
         """
-        if ctmt is None:
-            query = f'''
-                SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
-                     u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06,
-                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
-                     t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, 
-                     u.TEN_CON, u.MUN,
-                     t.TIP_TRAFO, t.PAC_2 as PAC_TRAFO, T.FAS_CON_P, T.FAS_CON_S, T.FAS_CON_T,
-                     t.TEN_LIN_SE
-                FROM sde.UGBT u
-                INNER JOIN sde.UNTRMT T
-                     on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.SIT_ATIV='AT' and 
-                     u.UNI_TR_MT = T.COD_ID and t.CTMT = u.ctmt
-                INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
-                     on t1.cod_id = u.TEN_CON
-                ;  
-             '''
+        if conn2trafo:
+            if ctmt is None:
+                query = f'''
+                    SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
+                         u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06,
+                         u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
+                         t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, 
+                         u.TEN_CON, u.MUN,
+                         t.TIP_TRAFO, t.PAC_2 as PAC_TRAFO, T.FAS_CON_P, T.FAS_CON_S, T.FAS_CON_T,
+                         t.TEN_LIN_SE
+                    FROM sde.UGBT u
+                    INNER JOIN sde.UNTRMT T
+                         on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.SIT_ATIV='AT' and 
+                         u.UNI_TR_MT = T.COD_ID and t.CTMT = u.ctmt
+                    INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
+                         on t1.cod_id = u.TEN_CON
+                    ;  
+                 '''
+            else:
+                query = f'''
+                    SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
+                         u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06,
+                         u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
+                         t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, 
+                         u.TEN_CON, u.MUN,
+                         t.TIP_TRAFO, t.PAC_2 as PAC_TRAFO, T.FAS_CON_P, T.FAS_CON_S, T.FAS_CON_T,
+                         t.TEN_LIN_SE
+                    FROM sde.UGBT u
+                    INNER JOIN sde.UNTRMT T
+                         on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.ctmt='{ctmt}' and u.SIT_ATIV='AT' and 
+                         u.UNI_TR_MT = T.COD_ID and t.CTMT = u.ctmt
+                    INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
+                         on t1.cod_id = u.TEN_CON
+                     ;  
+                 '''
         else:
-            query = f'''
-                SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
-                     u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06,
-                     u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
-                     t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, 
-                     u.TEN_CON, u.MUN,
-                     t.TIP_TRAFO, t.PAC_2 as PAC_TRAFO, T.FAS_CON_P, T.FAS_CON_S, T.FAS_CON_T,
-                     t.TEN_LIN_SE
-                FROM sde.UGBT u
-                INNER JOIN sde.UNTRMT T
-                     on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.ctmt='{ctmt}' and u.SIT_ATIV='AT' and 
-                     u.UNI_TR_MT = T.COD_ID and t.CTMT = u.ctmt
-                INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
-                     on t1.cod_id = u.TEN_CON
-                 ;  
-             '''
+            # A informação do Transformador é necessaria por cauda de transformadores em DELTA ABERTO e geradores trifasicos devem ser conectados em delta e não em estrela
+            if ctmt is None:
+                query = f'''
+                    SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
+                         u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06,
+                         u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
+                         t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, 
+                         u.TEN_CON, u.MUN,
+                         t.TIP_TRAFO, T.FAS_CON_P, T.FAS_CON_S, T.FAS_CON_T,
+                         t.TEN_LIN_SE
+                    FROM sde.UGBT u
+                    INNER JOIN sde.UNTRMT T
+                         on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.SIT_ATIV='AT' and 
+                         u.UNI_TR_MT = T.COD_ID and t.CTMT = u.ctmt
+                    INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
+                         on t1.cod_id = u.TEN_CON                  
+                    ;  
+                 '''
+            else:
+                query = f'''
+                    SELECT u.COD_ID, u.CTMT, u.PAC, u.FAS_CON, u.TEN_FORN, u.CEG_GD,
+                         u.ENE_01, u.ENE_02, u.ENE_03, u.ENE_04, u.ENE_05, u.ENE_06,
+                         u.ENE_07, u.ENE_08, u.ENE_09, u.ENE_10, u.ENE_11, u.ENE_12,
+                         t1.TEN/1000 as KV_NOM, year(u.DATA_BASE) as ANO_BASE, 
+                         u.TEN_CON, u.MUN,
+                         t.TIP_TRAFO, T.FAS_CON_P, T.FAS_CON_S, T.FAS_CON_T,
+                         t.TEN_LIN_SE
+                    FROM sde.UGBT u
+                    INNER JOIN sde.UNTRMT T
+                         on u.dist = '{self.dist}' and u.sub='{self.sub}' and u.ctmt='{ctmt}' and u.SIT_ATIV='AT' and 
+                         u.UNI_TR_MT = T.COD_ID and t.CTMT = u.ctmt
+                    INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN t1
+                         on t1.cod_id = u.TEN_CON 
+                    ;  
+                 '''
 
         self.gerador_bt = return_query_as_dataframe(query, engine)
         return True
@@ -904,7 +1080,7 @@ def write_sub_dss(cod_sub, cod_dist, mes, tipo_dia, engine, dss_files_folder):
         print(f'Sem informações de Transformadores de Alta tensão para a SE: {sub}')
 
 
-def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, engine, model_type=1):
+def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, engine, model_type=1, connBT2Trafo=True):
     """
     Procedimento principal de controle dos métodos de extração dos dados da BDGD para todos os elementos
     de rede e cria lista com os modelos para o openDSS e gerência a escrita dos arquivos para o openDSS.
@@ -938,10 +1114,15 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
     nome_arquivo_generators_bt_dss = f'{tipo_dia}_{mes}_GeradoresBT_{dist}_{sub}'
     nome_arquivo_master = f'{tipo_dia}_{mes}_Master_{dist}_{sub}'
 
+    nome_arquivo_seg_bt = f'{tipo_dia}_{mes}_TrechoBT_{dist}_{sub}'
+    nome_arquivo_ramal_bt = f'{tipo_dia}_{mes}_RamalBT_{dist}_{sub}'
+    nome_arquivo_chaves_bt = f'{tipo_dia}_{mes}_ChavesBT_{dist}_{sub}'
+
     list_files_dss = [nome_arquivo_crv, nome_arquivo_sup, nome_arquivo_cnd, nome_arquivo_chv_mt, nome_arquivo_re_mt,
                       nome_arquivo_tr_mt, nome_arquivo_seg_mt, nome_arquivo_crg_mt, nome_arquivo_monitors,
                       nome_arquivo_capacitors, nome_arquivo_crg_bt, nome_arquivo_generators_mt_dss,
-                      nome_arquivo_generators_bt_dss]
+                      nome_arquivo_generators_bt_dss, nome_arquivo_seg_bt, nome_arquivo_ramal_bt,
+                      nome_arquivo_chaves_bt]
 
     linhas_suprimento_dss = []
     linhas_curvas_carga_dss = []
@@ -957,6 +1138,10 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
     linhas_generators_mt_dss = []
     linhas_generators_bt_dss = []
     linhas_master = []
+
+    linhas_trechos_bt = []
+    linhas_ramal_bt = []
+    linhas_chaves_bt = []
 
     multi_ger = []
     multi_ger.append(['GeradorMT-Tipo1',
@@ -1061,11 +1246,28 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
                                        bdgd_read.trafo_mtmt_connected_segments, linhas_capacitors_dss)
         write_to_dss(dist, sub, cod_circuito, linhas_capacitors_dss, nome_arquivo_capacitors, dss_files_folder)
 
+
+        # grava arquivo DSS para o Trechos BT
+        bdgd_read.query_trechos_bt(cod_circuito, engine=engine)
+        dss_adapter.get_lines_trechos_bt(bdgd_read.trechos_bt, linhas_trechos_bt)
+        write_to_dss(dist, sub, cod_circuito, linhas_trechos_bt, nome_arquivo_seg_bt, dss_files_folder)
+
+        #grava arquivo DSS para o Ramal BT
+        bdgd_read.query_ramal_bt(cod_circuito, engine=engine)
+        dss_adapter.get_lines_ramal_bt(bdgd_read.ramal_bt, linhas_ramal_bt)
+        write_to_dss(dist, sub, cod_circuito, linhas_ramal_bt, nome_arquivo_ramal_bt, dss_files_folder)
+
+        # grava arquivo e chaves BT
+        bdgd_read.query_chaves_bt(cod_circuito, engine=engine)
+        dss_adapter.get_lines_chaves_bt(bdgd_read.chaves_bt, linhas_chaves_bt)
+        write_to_dss(dist, sub, cod_circuito, linhas_chaves_bt, nome_arquivo_chaves_bt, dss_files_folder)
+
         # Grava arquivo DSS para cargas BT
-        bdgd_read.query_cargas_bt(cod_circuito, engine=engine)
-        bdgd_read.query_cargas_pip(cod_circuito, engine=engine)
-        dss_adapter.get_lines_cargas_bt(bdgd_read.curvas_cargas, bdgd_read.cargas_bt, bdgd_read.carga_fc,
-                                        bdgd_read.cargas_pip, linhas_cargas_bt_dss, mes, tipo_dia)
+        bdgd_read.query_cargas_bt(cod_circuito, engine=engine, conn2trafo=connBT2Trafo)
+        bdgd_read.query_cargas_pip(cod_circuito, engine=engine, conn2trafo=connBT2Trafo)
+        dss_adapter.get_lines_cargas_bt(bdgd_read.curvas_cargas, bdgd_read.ramal_bt, bdgd_read.trechos_bt,
+                                        bdgd_read.cargas_bt, bdgd_read.carga_fc,
+                                        bdgd_read.cargas_pip, linhas_cargas_bt_dss, ano, mes, tipo_dia)
         write_to_dss(dist, sub, cod_circuito, linhas_cargas_bt_dss, nome_arquivo_crg_bt, dss_files_folder)
 
         # leitura de dados dos Geradores MT conectados nos transformadores
@@ -1079,10 +1281,12 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
                      dss_files_folder)
 
         # Grava arquivo DSS para o Gerador BT
-        bdgd_read.query_generators_bt(cod_circuito, engine=engine)
-        dss_adapter.get_lines_generators_bt(bdgd_read.gerador_bt, multi_ger, linhas_generators_bt_dss, mes, tipo_modelo)
+        bdgd_read.query_generators_bt(cod_circuito, engine=engine, conn2trafo=connBT2Trafo)
+        dss_adapter.get_lines_generators_bt(bdgd_read.gerador_bt, bdgd_read.ramal_bt, multi_ger, linhas_generators_bt_dss, mes, tipo_modelo)
         write_to_dss(dist, sub, cod_circuito, linhas_generators_bt_dss, nome_arquivo_generators_bt_dss,
                      dss_files_folder)
+
+
 
         # Grava arquivo DSS para o master
         voltagebases = bdgd_read.voltage_bases(cod_circuito, bdgd_read.trafos)
@@ -1096,6 +1300,7 @@ def main():
     # controles de execução para apenas um primeiro mes e um primeiro tipo de dia da lista 'tipo_de_dias'
     control_mes = True
     control_tipo_dia = False
+    control_connBT2Trafo = False       # Associa a carga e geração da BT no transformador ou na rede BT
 
     ano = config['data_base'].split('-')[0]
     dist = config['dist']
@@ -1111,7 +1316,7 @@ def main():
 
     mes_ini = 7  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
-    tipo_de_dias = ['DU', 'DO']  # tipo de dia para referência para as curvas típicas de carga e geração
+    tipo_de_dias = ['DU']  # tipo de dia para referência para as curvas típicas de carga e geração
 
     if run_multiprocess:
         """
@@ -1145,7 +1350,8 @@ def main():
         p = Pool(processes=(cpu_count()))
         for sub in list_sub:
             print(sub)
-            print(p.apply_async(run_multi, args=(sub, config, mes_ini, tipo_de_dias, control_mes, control_tipo_dia)))
+            print(p.apply_async(run_multi, args=(sub, config, mes_ini, tipo_de_dias, control_mes, control_tipo_dia,
+                                                 control_connBT2Trafo)))
         p.close()
         p.join()
         print(f"Elapsed time: {time.time() - proc_time_ini}")
@@ -1157,7 +1363,7 @@ def main():
         # list_sub = ['40', '100', '58', '95', '96', '97']
         # list_sub = ['100']
 
-        # EDP_SP = 391
+
         """
         list_sub = ['APA', 'ARA', 'ASP', 'AVP', 'BCU', 'BIR', 'BON', 'CAC', 'CAR', 'CMB', 'COL', 'CPA', 'CRU', 'CSO', 'DBE',
                     'DUT', 'FER', 'GOP', 'GUE', 'GUL', 'GUR', 'INP', 'IPO', 'ITQ', 'JAC', 'JNO', 'JAM', 'JAR', 'JCE', 'JUQ',
@@ -1176,8 +1382,8 @@ def main():
         # list_sub = ['MSU']
 
         # list_sub = ['ACR', 'CCO', 'CRU', 'ICC', 'JPR', 'JSR', 'PLH']
-        list_sub = ['BRR', 'AVP', 'MTQ', 'GER', 'CAC']
-        #list_sub = ['MTQ']
+        list_sub = ['BRR', 'AVP', 'MTQ', 'GER', 'CAC', 'BOI']
+        list_sub = ['GER']
 
 
         print(f'Ajusting CodBNC....')
@@ -1190,7 +1396,7 @@ def main():
                     write_sub_dss(sub, dist, mes, tipo_dia, engine, dss_files_folder)
                     # Gera arquivos do openDSS para cada circuito de uma subestação
                     write_files_dss(sub, dist, ano, mes, tipo_dia, dss_files_folder, model_type=1,
-                                    engine=engine)  # model_type=1 PVSystem else Generator
+                                    engine=engine, connBT2Trafo=control_connBT2Trafo)  # model_type=1 PVSystem else Generator
                 if control_mes:
                     break
             if control_tipo_dia:

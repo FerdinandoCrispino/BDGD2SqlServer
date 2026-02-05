@@ -748,7 +748,7 @@ class DssFilesGenerator:
                 strCodFas) + " model=3" + " kv=" + str(dblTensao_kV) + " kw=" + f"{(dblDemMax_kW / 2):.7f}" +
                                      " pf=0.92" + ' daily="' + strCodCrvCrg + '" status=variable vmaxpu=1.5 vminpu=0.93')
 
-    def get_lines_cargas_bt(self, curvas_carga, cargas_bt, cargas_fc, cargas_pip, linhas_cargas_bt_dss, mes, tipo_dia):
+    def get_lines_cargas_bt(self, curvas_carga, ramal_bt, trecho_bt, cargas_bt,  cargas_fc, cargas_pip, linhas_cargas_bt_dss, ano, mes, tipo_dia):
 
         linhas_cargas_bt_dss.clear()
 
@@ -757,6 +757,7 @@ class DssFilesGenerator:
         cargas_pip['TIP_CC'] = cargas_pip['TIP_CC'].str.upper()
 
         mes = mes
+        ano = ano
         tipo_dia = tipo_dia
         if mes < 10:
             strmes = '0' + str(mes)
@@ -773,49 +774,78 @@ class DssFilesGenerator:
             strCodCrvCrg = cargas_bt.loc[index]['TIP_CC'] + '_' + tipo_dia
             strCodFas = cargas_bt.loc[index]['FAS_CON']
             strCodFas_medidor = cargas_bt.loc[index]['M_FAS_CON']
-            # strBus = cargas_bt.loc[index]['PAC']
-            strBus = cargas_bt.loc[index]['PAC_2']  # ligar as cargas BT no secundario do transformador
             energy_mes = cargas_bt.loc[index]['ENE_' + str(strmes)]
-            dblTenSecu_kV = cargas_bt.loc[index]['TEN_LIN_SE']
-            dblTen_carga = cargas_bt.loc[index]['TEN']  # tensão da carga
+
+            codi_tipo_trafo = cargas_bt.loc[index]['TIP_TRAFO']
+            intTipTrafo = get_tipo_trafo(codi_tipo_trafo)
+
+
+            dblTenSecu_kV = cargas_bt.loc[index]['TEN_LIN_SE']  # Tensão do secundário do transformador MT/BT
+            dblTen_carga = cargas_bt.loc[index]['TEN']          # Tensão da carga
             if dblTen_carga > 100:
                 dblTen_carga = dblTen_carga/1000
-            codi_tipo_trafo = cargas_bt.loc[index]['TIP_TRAFO']
-            dblDemMaxTrafo_kW = cargas_bt.loc[index]['POT_NOM'] * 0.92  # kVA
-            ano_base = cargas_bt.loc[index]['ANO_BASE']
 
+
+            dblDemMaxTrafo_kW = 0
+            strCodFas_ramal = ''
+            if 'PAC_2' in cargas_bt.columns:
+                strBus = cargas_bt.loc[index]['PAC_2']  # ligar as cargas BT no secundário do transformador
+                dblDemMaxTrafo_kW = cargas_bt.loc[index]['POT_NOM'] * 0.92  # kVA
+                ano_base = cargas_bt.loc[index]['ANO_BASE']
+
+                # No OpenDSS cargas monofásicas ligadas em transformador em Delta Aberto dever ser a dois fios
+                # TODO para a BT deve-se alterar também o ramal
+                if codi_tipo_trafo == "DA":
+                    if strCodFas == "AN" or strCodFas == "BN":
+                        strCodFas = "ABN"
+                    if strCodFas == "CN":
+                        strCodFas = "CAN"
+
+                # Acrescentar Neutro a todas as cargas bt.
+                # Todo talvez não seja necessário essa alteração
+                if (strCodFas == 'A' or strCodFas == 'B' or strCodFas == 'C' or
+                        strCodFas == 'AB' or strCodFas == 'BC' or strCodFas == 'CA' or
+                        strCodFas == 'ABC'):
+                    strCodFas += 'N'
+
+            else:
+                strBus = cargas_bt.loc[index]['PAC']    # ligar cargas no ramal BT
+                # verificar as fases da carga com as fases do ramal, do segmento e do transformador
+                ano_base = ano
+                try:
+                    strCodFas_ramal = ramal_bt.loc[ramal_bt['PAC_2'] == strBus, 'FAS_CON'].values[0]
+                except:
+                    try:
+                        strCodFas_ramal = trecho_bt.loc[(trecho_bt['PAC_2'] == strBus | trecho_bt['PAC_1'] == strBus), 'FAS_CON'].values[0]
+                    except:
+                        pass
 
             ceg_gd = ''
             # Caso a carga possua geração alterar a curva típica para a curva com final _GD ?
             # if cargas_bt.loc[index]['CEG_GD'].strip() != '':
             #    ceg_gd = "_GD"
 
-            # No OpenDSS cargas monofásicas ligadas em transformador em Delta Aberto dever ser a dois fios
-            if codi_tipo_trafo == "DA":
-                if strCodFas == "AN" or strCodFas == "BN":
-                    strCodFas = "ABN"
-                if strCodFas == "CN":
-                    strCodFas = "CAN"
 
-            # if ligacao_carga(strCodFas) == 'Delta':
-            # remover neutro da carga (.4)
-            #    strCodFas = strCodFas.replace("N", "")
-
-            # Acrescentar Neutro a todas as cargas bt. Verificar o resultado para outras subestações
-            if (strCodFas == 'A' or strCodFas == 'B' or strCodFas == 'C' or
-                    strCodFas == 'AB' or strCodFas == 'BC' or strCodFas == 'CA' or
-                    strCodFas == 'ABC'):
-                strCodFas += 'N'
-
-            # comparação entre a fase de conecção do medidor e da carga, (melhora o desequilibrio)
+            # comparação entre a fase de conexão do medidor e da carga, (melhora o desequilíbrio)
             # check_meter_phases = True, será adotado as fases declaradas no medidor de energia
-            check_meter_phases = True
+            # desabilitar quando conectar as cargas na rede BT devido a fases do ramal e do segmento que devem ser verificadas
+            check_meter_phases = False
             if check_meter_phases:
                 if strCodFas != strCodFas_medidor and strCodFas_medidor is not None:
                     if len(strCodFas) == len(strCodFas_medidor):  # mesmo numero de fases
                         strCodFas = strCodFas_medidor
 
-            # casos onde a tensão do secundário vem zerada, então utilizar a tensão da carga
+            # Verifica as fases da carga com as fases do ramal
+            if strCodFas_ramal != '':
+                if strCodFas_ramal[-1] != 'N':
+                    strCodFas_ramal += 'N'
+                if len(strCodFas_ramal) >= len(strCodFas):
+                    if not all(fases in strCodFas_ramal for fases in strCodFas):
+                        num_fases = len(strCodFas) -1
+                        strCodFas = strCodFas_ramal[:num_fases] + 'N'
+
+
+            # casos a tensão do secundário do transformador ser zero, utilizar a tensão da carga
             if dblTenSecu_kV == 0:
                 if (strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN') and codi_tipo_trafo != 'MT':
                     dblTenSecu_kV = dblTen_carga * math.sqrt(3)
@@ -825,7 +855,7 @@ class DssFilesGenerator:
                 if (strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN') and codi_tipo_trafo == 'MT':
                     dblTenSecu_kV = dblTen_carga
 
-            intTipTrafo = get_tipo_trafo(codi_tipo_trafo)
+
 
             # num_dias = calendar.monthrange(ano_base, mes)[1]
             # número de dias para o tipo de dia analisado (DU, SA, DO)
@@ -854,10 +884,10 @@ class DssFilesGenerator:
             # print(dblDemMax_kW)
             # print('---------')
 
-            if dblDemMax_kW > dblDemMaxTrafo_kW:
+            dblDemMaxCorrigida_kW = dblDemMax_kW
+            if dblDemMax_kW > dblDemMaxTrafo_kW > 0:
                 dblDemMaxCorrigida_kW = dblDemMaxTrafo_kW
-            else:
-                dblDemMaxCorrigida_kW = dblDemMax_kW
+
 
             srt_comment_dss = ''
             if dblDemMaxCorrigida_kW == 0:
@@ -869,25 +899,27 @@ class DssFilesGenerator:
             " kv=" + f"{dblTenSecu_kV:.3f}" +
             """
 
-            linhas_cargas_bt_dss.append(srt_comment_dss +
-                                        'New "Load.BT_' + strName +
-                                        '_M1" bus1="' + strBus + nos_com_neutro(strCodFas) + '"' +
-                                        " phases=" + numero_fases_carga_dss(strCodFas) +
-                                        " conn=" + ligacao_carga(strCodFas) +
-                                        " model=2" + " kv=" + kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo) +
-                                        " kw=" + f"{(dblDemMaxCorrigida_kW / 2):.5f}" + " pf=0.92" +
-                                        ' daily="' + strCodCrvCrg + ceg_gd +
-                                        '" status=variable vmaxpu=1.5 vminpu=0.92')
+            # Para cargas nonofásicas conectar o neutro no bus 0 caso contrario no bus 4
+            if strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN':
+                nodes = nos(strCodFas)
+            else:
+                nodes = nos_com_neutro(strCodFas)
 
-            linhas_cargas_bt_dss.append(srt_comment_dss +
-                                        'New "Load.BT_' + strName +
-                                        '_M2" bus1="' + strBus + nos_com_neutro(strCodFas) + '"' +
-                                        " phases=" + numero_fases_carga_dss(strCodFas) +
-                                        " conn=" + ligacao_carga(strCodFas) +
-                                        " model=3" + " kv=" + kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo) +
-                                        " kw=" + f"{(dblDemMaxCorrigida_kW / 2):.5f}" + " pf=0.92" +
-                                        ' daily="' + strCodCrvCrg + ceg_gd +
-                                        '" status=variable vmaxpu=1.5 vminpu=0.92')
+
+            # model 2
+            linhas_cargas_bt_dss.append(
+                f'{srt_comment_dss}New "Load.BT_{strName}_M1" bus1="{strBus}{nos_com_neutro(strCodFas)}" '
+                f'phases={numero_fases_carga_dss(strCodFas)} conn={ligacao_carga(strCodFas)} model=2 '
+                f'kv={kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo)} kw={(dblDemMaxCorrigida_kW / 2):.5f} '
+                f'pf=0.92 daily="{strCodCrvCrg}{ceg_gd}" status=variable vmaxpu=1.5 vminpu=0.92'
+            )
+            # model 3
+            linhas_cargas_bt_dss.append(
+                f'{srt_comment_dss}New "Load.BT_{strName}_M2" bus1="{strBus}{nos_com_neutro(strCodFas)}" '
+                f'phases={numero_fases_carga_dss(strCodFas)} conn={ligacao_carga(strCodFas)} model=3 '
+                f'kv={kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo)} kw={(dblDemMaxCorrigida_kW / 2):.5f} '
+                f'pf=0.92 daily="{strCodCrvCrg}{ceg_gd}" status=variable vmaxpu=1.5 vminpu=0.92'
+            )
 
             """# O valor de KV deve ser o seguinte: # Nominal rated (1.0 per unit) voltage, kV, for load. For 2-
             and 3-phase loads, specify phase-phase kV. Otherwise, specify actual kV across each branch of the
@@ -904,27 +936,38 @@ class DssFilesGenerator:
             + ligacao_carga(strCodFas) + " model=3" + " kv=" + kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo) +
             " kw=" + f"{(dblDemMaxCorrigida_kW / 2):.7f}" + " pf=0.92" + ' daily="' + strCodCrvCrg + '"
             status=variable vmaxpu=1.5 vminpu=0.92') """
+
         for index in range(cargas_pip.shape[0]):
             strName = cargas_pip.loc[index]['COD_ID']
             strCodCrvCrg = cargas_pip.loc[index]['TIP_CC'].upper() + '_' + tipo_dia
             strCodFas = cargas_pip.loc[index]['FAS_CON']
-            strBus = cargas_pip.loc[index]['PAC']
-            strBus = cargas_pip.loc[index]['PAC_2']  # ligar as cargas PIP no secundario do transformador
             energy_mes = cargas_pip.loc[index]['ENE_' + str(strmes)]
-            dblTenSecu_kV = cargas_pip.loc[index]['TEN_LIN_SE']
+
             pip_dblTen = cargas_pip.loc[index]['TEN']/1000
+            dblTenSecu_kV = cargas_pip.loc[index]['TEN_LIN_SE']
+
             codi_tipo_trafo = cargas_pip.loc[index]['TIP_TRAFO']
-            trafo_mrt = cargas_pip.loc[index]['MRT']
-            trafo_id = cargas_pip.loc[index]['TR_COD_ID']
-            dblDemMaxTrafo_kW = cargas_pip.loc[index]['POT_NOM'] * 0.92  # kVA
-            ano_base = cargas_pip.loc[index]['ANO_BASE']
+            intTipTrafo = get_tipo_trafo(codi_tipo_trafo)
+
+            dblDemMaxTrafo_kW = 0
+            if 'PAC_2' in cargas_bt.columns:
+                strBus = cargas_pip.loc[index]['PAC_2']  # ligar as cargas PIP no secundário do transformador
+                trafo_mrt = cargas_pip.loc[index]['MRT']
+                trafo_id = cargas_pip.loc[index]['TR_COD_ID']
+                dblDemMaxTrafo_kW = cargas_pip.loc[index]['POT_NOM'] * 0.92  # kVA
+                ano_base = cargas_pip.loc[index]['ANO_BASE']
+
+            else:
+                strBus = cargas_pip.loc[index]['PAC']
+                ano_base = ano
+
 
             # Verificação do tipo de curva de carga associada a carga de iluminação pública
             # verificar o motivo para strName == '124825844'
             # if 'IP-TIPO' not in strCodCrvCrg:
             #    strCodCrvCrg = 'IP-TIPO1' + '_' + tipo_dia
 
-            intTipTrafo = get_tipo_trafo(codi_tipo_trafo)
+
 
             # casos onde a tensão do secundário vem zerada, então utilizar a tensão da carga
             if dblTenSecu_kV == 0:
@@ -951,18 +994,17 @@ class DssFilesGenerator:
                         strCodFas = 'AB'
                     if strCodFas == 'CN':
                         strCodFas = 'CA'
-                    dblTenSecu_kV = pip_dblTen  # TODO possível problema!
+                    dblTenSecu_kV = pip_dblTen  # TODO atenção, possível problema!
 
-            num_dias = calendar.monthrange(ano_base, mes)[1]
+            num_dias = calendar.monthrange(int(ano_base), mes)[1]
 
             fc = cargas_fc.loc[(cargas_fc['COD_ID'] == cargas_pip.loc[index]['TIP_CC']) &
                                (cargas_fc['TIP_DIA'].str.upper() == tipo_dia.upper())]
             dblDemMax_kW = (energy_mes / (num_dias * 24)) / fc.iloc[0]['FC']
 
-            if dblDemMax_kW > dblDemMaxTrafo_kW:
+            dblDemMaxCorrigida_kW = dblDemMax_kW
+            if dblDemMax_kW > dblDemMaxTrafo_kW > 0:
                 dblDemMaxCorrigida_kW = dblDemMaxTrafo_kW
-            else:
-                dblDemMaxCorrigida_kW = dblDemMax_kW
 
             if dblDemMaxCorrigida_kW > 0:
                 linhas_cargas_bt_dss.append(
@@ -971,6 +1013,7 @@ class DssFilesGenerator:
                     " model=2" + " kv=" + kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo) + " kw=" +
                     f"{(dblDemMaxCorrigida_kW / 2):.6f}" + " pf=0.92" + ' daily="' + strCodCrvCrg +
                     '" status=variable vmaxpu=1.5 vminpu=0.92')
+
                 linhas_cargas_bt_dss.append(
                     'New "Load.PIP_' + strName + '_M2" bus1="' + strBus + nos_com_neutro(strCodFas) + '"' +
                     " phases=" + numero_fases_carga_dss(strCodFas) + " conn=" + ligacao_carga(strCodFas) +
@@ -978,7 +1021,7 @@ class DssFilesGenerator:
                     f"{(dblDemMaxCorrigida_kW / 2):.6f}" + " pf=0.92" + ' daily="' + strCodCrvCrg +
                     '" status=variable vmaxpu=1.5 vminpu=0.92')
 
-    def get_lines_generators_bt(self, generators, crv_ger, linha_generators_bt_dss, mes, model_pv_system):
+    def get_lines_generators_bt(self, generators, ramal_bt, crv_ger, linha_generators_bt_dss, mes, model_pv_system):
         """
         Implementa a conversão do modelo de geradores de baixa tensão da BDGD para o
         modelo de gerador do openDSS.
@@ -1007,18 +1050,18 @@ class DssFilesGenerator:
             cod_gd = generators.loc[index]['CEG_GD']
             # strCodCrvCrg = generators.loc[index]['TIP_CC'] + '_' + tipo_dia
             strCodFas = generators.loc[index]['FAS_CON']
-
-            ten_lin_se_trafo = generators.loc[index]['TEN_LIN_SE']
-            strBus = generators.loc[index]['PAC_TRAFO']
             energy_mes = generators.loc[index]['ENE_' + str(strmes)]
             ano_base = generators.loc[index]['ANO_BASE']
+            dblTensao_kV = generators.loc[index]['KV_NOM']  # tensão do gerador
+            strBus = generators.loc[index]['PAC']
+
             codi_tipo_trafo = generators.loc[index]['TIP_TRAFO']
-
             intTipTrafo = get_tipo_trafo(codi_tipo_trafo)
+            if intTipTrafo != 0:
+                dblTensao_kV = kv_carga(strCodFas, dblTensao_kV, intTipTrafo)
 
-            dblTensao_kV = ten_lin_se_trafo
 
-            # Compara fases do gerador e fases do transformador, em caso de discordancia adota as fases do transformador
+            # Compara fases do gerador e fases do transformador, em caso de discordância adota as fases do transformador
             fases_s_trafo = generators.loc[index]['FAS_CON_S']
             fases_t_trafo = generators.loc[index]['FAS_CON_T']
             for fase in strCodFas:
@@ -1033,6 +1076,33 @@ class DssFilesGenerator:
                     strCodFas == 'AB' or strCodFas == 'BC' or strCodFas == 'CA' or
                     strCodFas == 'ABC'):
                 strCodFas += 'N'
+
+
+            # existe será utilizado o ponto de conexão do transformador
+            strCodFas_ramal = ''
+            if 'PAC_TRAFO' in generators.columns:
+                ten_lin_se_trafo = generators.loc[index]['TEN_LIN_SE']
+                strBus = generators.loc[index]['PAC_TRAFO']
+                dblTensao_kV = ten_lin_se_trafo
+                dbconn = ligacao_gerador(strCodFas, codi_tipo_trafo)  # "Wye" ou "Delta"
+            else:
+                # para a baixa tensão os geradores serão sempre conectados em Delta
+                # para a convergência no OpenDSS
+                # TODO Por que isso acontece?
+                if strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN':
+                    dbconn = 'Wye'
+                else:
+                    dbconn = 'Delta'
+                strCodFas_ramal = ramal_bt.loc[ramal_bt['PAC_2'] == strBus, 'FAS_CON'].values[0]
+
+            # Verifica as fases do gerador com as fases do ramal
+            if strCodFas_ramal != '':
+                if strCodFas_ramal[-1] != 'N':
+                    strCodFas_ramal += 'N'
+                if len(strCodFas_ramal) >= len(strCodFas):
+                    if not all(fases in strCodFas_ramal for fases in strCodFas):
+                        num_fases = len(strCodFas) -1
+                        strCodFas = strCodFas_ramal[:num_fases] + 'N'
 
             dbdaily = 'GeradorBT-Tipo1'
             # pv_daily = 'PVIrrad_diaria'     # definido no loadshape
@@ -1051,9 +1121,9 @@ class DssFilesGenerator:
             if dblDemMax_kW == 0:
                 srt_comment_dss = '!'
 
-            dbconn = ligacao_gerador(strCodFas, codi_tipo_trafo)  # "Wye" ou "Delta"
 
-            # considera-se que o valor obtido da BDGD se refere a potencia do inversor
+
+            # considera-se que o valor obtido da BDGD se refere a potência do inversor
             # irrad = 0.7  # deverá ser obtido do maximo valor da curva de irradiação / 1000
             rel_cc_ca = 1.15  # relação potência do painel pmpp e potência do inversor kva
             pf = 1.0
@@ -1087,25 +1157,21 @@ class DssFilesGenerator:
                                                    f'mult={pv_temp_data["crv_g_norm"]}\n')
                     set_pv_system = True
 
-                linha_generators_bt_dss.append(f'{srt_comment_dss}New PVsystem.BT_{strName}_M1 '
-                                               f'phases={numero_fases_transformador(strCodFas)} '
-                                               f'bus1={strBus + nos_com_neutro(strCodFas)} '
-                                               f'conn={dbconn} '
-                                               f'kv={kv_carga(strCodFas, dblTensao_kV, intTipTrafo)} '
-                                               f'pf={pf} '
-                                               f'pmpp={pmpp:.3f} '  # potencia do painel
-                                               f'kva={kva:.3f} '  # potencia do inversor
-                                               f'%pmpp=100 '
-                                               f'irradiance={irrad} temperature=25 %cutin=0.1 %cutout=0.1 '
-                                               f'effcurve=Myeff P-TCurve=MyPvsT Daily=PVIrrad_{circuit} TDaily=MyTemp')
+                linha_generators_bt_dss.append(
+                    f'{srt_comment_dss}New "PVsystem.BT_{strName}_M1" phases={numero_fases_transformador(strCodFas)} '
+                    f'bus1="{strBus + nos_com_neutro(strCodFas)}" conn={dbconn} '
+                    f'kv={dblTensao_kV} '
+                    f'pf={pf} pmpp={pmpp:.3f} '     # potencia do painel
+                    f'kva={kva:.3f} '               # potencia do inversor
+                    f'%pmpp=100 irradiance={irrad} temperature=25 %cutin=0.1 %cutout=0.1 '
+                    f'effcurve=Myeff P-TCurve=MyPvsT Daily=PVIrrad_{circuit} TDaily=MyTemp')
             else:
-                linha_generators_bt_dss.append(srt_comment_dss + 'New Generator.BT_' + strName +
-                                               '_M1 bus1=' + strBus + nos_com_neutro(strCodFas) +
-                                               ' phases=' + numero_fases_transformador(strCodFas) + ' conn=' + dbconn +
-                                               ' kv=' + kv_carga(strCodFas, dblTensao_kV, intTipTrafo) +
-                                               ' model=1 kw=' + f'{dblDemMax_kW:.4f}' +
-                                               ' pf=0.95 daily="' + dbdaily +
-                                               '" status=variable vmaxpu=1.5 vminpu=0.93')
+                linha_generators_bt_dss.append(
+                    f'{srt_comment_dss}New "Generator.BT_{strName}_M1" bus1="{strBus}{nos_com_neutro(strCodFas)}" '
+                    f'phases={numero_fases_transformador(strCodFas)} conn={dbconn} '
+                    f'kv={dblTensao_kV} model=1 kw={dblDemMax_kW:.4f} '
+                    f'pf=0.95 daily="{dbdaily}" status=variable vmaxpu=1.5 vminpu=0.93'
+                )
 
     def get_lines_generators_mt_ssdmt(self, generators, crv_ger, linha_generators_mt_dss, mes, model_pv_system):
         """
@@ -1379,3 +1445,94 @@ class DssFilesGenerator:
         linhas_master.append(f"set stepsize=1h ! duracao de cada step")
         linhas_master.append(f"set number=24 ! cada solve executa 24 steps")
         linhas_master.append(f"solve")
+
+    def get_lines_trechos_bt(self, trechos_bt, linhas_trechos_bt_dss):
+        """
+        Montagem do arquivo DSS para trechos de baixa tensão.
+        :param trechos_bt:
+        :param linhas_trechos_bt_dss:
+        :return:
+        """
+        linhas_trechos_bt_dss.clear()
+        for index in range(trechos_bt.shape[0]):
+            codigo = trechos_bt.loc[index]['COD_ID']
+            bus1 = trechos_bt.loc[index]['PAC_1']
+            bus2 = trechos_bt.loc[index]['PAC_2']
+            strCodFas = trechos_bt.loc[index]['FAS_CON']
+            arranjo = trechos_bt.loc[index]['TIP_CND']
+            compr = trechos_bt.loc[index]['COMP'] / 1000
+
+            # num_fases = numero_fases(strCodFas)
+            num_fases = numero_fases_segmento_neutro(strCodFas)
+
+            # TODO trechos bt com transformadores ramais e cargas com neutro dever ter neutro também
+
+            # phases é substituido pelo nphases do linecode por isso foi removido da linha abaixo
+            linhas_trechos_bt_dss.append(
+                f'New "Line.SBT_{codigo}" '
+                f'bus1="{bus1}{nos_com_neutro(strCodFas)}" '
+                f'bus2="{bus2}{nos_com_neutro(strCodFas)}" '
+                f'linecode="{arranjo}_{num_fases}" '
+                f'length={compr:.8f} units=km'
+            )
+
+    def get_lines_ramal_bt(self, ramais_bt, linhas_ramais_bt_dss):
+        """
+        Montagem do arquivo DSS para ramais de baixa tensão.
+        :param ramais_bt:
+        :param linhas_ramais_bt_dss:
+        :return:
+        """
+        linhas_ramais_bt_dss.clear()
+        for index in range(ramais_bt.shape[0]):
+            codigo = ramais_bt.loc[index]['COD_ID']
+            bus1 = ramais_bt.loc[index]['PAC_1']
+            bus2 = ramais_bt.loc[index]['PAC_2']
+            strCodFas = ramais_bt.loc[index]['FAS_CON']
+            arranjo = ramais_bt.loc[index]['TIP_CND']
+            compr = ramais_bt.loc[index]['COMP'] / 1000
+
+            # num_fases = numero_fases(strCodFas)
+            num_fases = numero_fases_segmento_neutro(strCodFas)
+
+            if bus1 == "":
+                # TODO conectar no secundário do transformador
+                # buscar a carga conectada no pac_2, obter o transformador da carga
+                # na tabela de transformadores obter o pac_2 e conectar o ramal nele
+                bus1 = ramais_bt.loc[index]['PAC_TR']
+
+
+            # phases é substituído pelo nphases do linecode por isso foi removido da linha abaixo
+            linhas_ramais_bt_dss.append(
+                f'New "Line.RBT_{codigo}" '
+                f'bus1="{bus1}{nos_com_neutro(strCodFas)}" '
+                f'bus2="{bus2}{nos_com_neutro(strCodFas)}" '
+                f'linecode="{arranjo}_{num_fases}" '
+                f'length="{compr:.8f}" units=km'
+            )
+
+    def get_lines_chaves_bt(self, chaves_bt, linhas_chaves_bt_dss):
+        """
+        Montagem do arquivo DSS para chaves de baixa tensão.
+        :param chaves_bt:
+        :param linhas_chaves_bt_dss:
+        :return:
+        """
+        linhas_chaves_bt_dss.clear()
+        for index in range(chaves_bt.shape[0]):
+            codigo = chaves_bt.loc[index]['COD_ID']
+            bus1 = chaves_bt.loc[index]['PAC_1']
+            bus2 = chaves_bt.loc[index]['PAC_2']
+            strCodFas = chaves_bt.loc[index]['FAS_CON']
+            arranjo = chaves_bt.loc[index]['TIP_CND']
+            compr = chaves_bt.loc[index]['COMP'] / 1000
+
+            num_fases = numero_fases(strCodFas)
+
+            linhas_chaves_bt_dss.append(
+                f'New "Switch.CBT_{codigo}" phases={num_fases} '
+                f'bus1="{bus1}{nos_com_neutro(strCodFas)}" '
+                f'bus2="{bus2}{nos_com_neutro(strCodFas)}" '
+                f'linecode="{arranjo}_{num_fases}" '
+                f'length="{compr:.8f}" units=km'
+            )

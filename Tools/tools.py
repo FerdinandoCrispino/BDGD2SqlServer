@@ -623,6 +623,7 @@ def ligacao_carga(strCodFas):
         return ""
 
 
+"""
 def nos_com_neutro(strFases) -> str:
     if strFases == "A":
         return ".1"
@@ -638,10 +639,16 @@ def nos_com_neutro(strFases) -> str:
         return ".3.4"
     elif strFases == "AB":
         return ".1.2"
+    elif strFases == "BA":
+        return ".2.1"
     elif strFases == "BC":
         return ".2.3"
+    elif strFases == "CB":
+        return ".3.2"
     elif strFases == "CA":
         return ".3.1"
+    elif strFases == "AC":
+        return ".1.3"
     elif strFases == "ABN":
         return ".1.2.4"
     elif strFases == "BCN":
@@ -653,6 +660,17 @@ def nos_com_neutro(strFases) -> str:
     elif strFases == "ABCN":
         return ".1.2.3.4"
     else:
+        return ""
+"""
+
+
+def nos_com_neutro(strFases: str) -> str:
+    fases = ['A', 'B', 'C', 'N']
+    mapa = {fase: i + 1 for i, fase in enumerate(fases)}
+
+    try:
+        return ''.join(f'.{mapa[f]}' for f in strFases)
+    except KeyError:
         return ""
 
 
@@ -1550,7 +1568,7 @@ def get_coods_by_annel(ceg):
 
 def get_list_ceg(dist, engine):
     query = f'''
-                SELECT CEG FROM SDE.UGAT where dist ='{dist}' order by sub        
+                SELECT CASE when CEG IS NULL THEN CEG_GD ELSE CEG END AS CEG FROM SDE.UGAT where dist ='{dist}' order by sub
                 ;
             '''
     list_sub = return_query_as_dataframe(query, engine)
