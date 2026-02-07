@@ -1404,6 +1404,42 @@ def create_geojson_from_points_trafos(points_trafos):
     geojson = gdf.to_json()
     return geojson
 
+# Função para conectar ao SQL Server e obter coordenadas da tabela SSDBT
+def get_coords_SSDBT_from_db(sub, ctmt):
+    if ctmt == "" or ctmt == 'undefined':
+        query = f'''Select  point_x1 as start_longitude, POINT_y1 as start_latitude, 
+                            point_x2 as end_longitude, POINT_y2 as end_latitude,
+                            ss.CTMT, ss.PAC_1, ss.PAC_2, ss.SUB
+                        from sde.SSDBT ss
+                        where ss.SUB='{sub}' 
+                    ;   
+                    '''
+    else:
+        query = f'''Select  point_x1 as start_longitude, POINT_y1 as start_latitude, 
+                            point_x2 as end_longitude, POINT_y2 as end_latitude,
+                            ss.CTMT, ss.PAC_1, ss.PAC_2, SS.SUB
+                        from sde.SSDBT ss
+                        where ss.SUB='{sub}' and ss.ctmt='{ctmt}'
+                    ;   
+                    '''
+    rows = return_query_as_dataframe(query, engine)
+
+
+    colour = ["green", "purple", "orange", "DarkOliveGreen", "Brown", "DarkCyan", "DarkKhaki",
+              "SlateGray", "teal", "goldenrod", "chocolate", "darkred", "olivedrab", "aqua", "skyblue", "tan", "cyan",
+              "violet", "silver", "indigo", "pink", "black"]
+
+    grupos_unicos = rows['CTMT'].unique()
+    # Truncar a lista se for maior que o número de grupos
+    valores_truncados = colour[:len(grupos_unicos)]
+    # Criar um mapeamento de grupos para valores
+    mapa_grupos = dict(zip(grupos_unicos, valores_truncados))
+    rows['cor'] = rows['CTMT'].map(mapa_grupos)
+    rows["nome"] = "segmentosBT"
+
+    line_segmentsBT = [((row["start_longitude"], row["start_latitude"]), (row["end_longitude"], row["end_latitude"]),
+                        row["PAC_2"], row["CTMT"], rows["cor"][index], rows["nome"] ) for index, row in rows.iterrows()]
+    return line_segmentsBT
 
 # Função para conectar ao SQL Server e obter coordenadas da tabela SSDMT
 def get_coords_SSDMT_from_db(sub, ctmt):
@@ -1814,6 +1850,28 @@ def gerador_at():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+# Função de busca os segmentos de baixa tensão
+@server.route('/api/segmentsBT')
+def segmentsBT():
+    distribuidora = request.args.get('distribuidora', 'defaultDistribuidora')
+    subestacao = request.args.get('subestacao', 'defaultSubestacao')
+    circuito = request.args.get('circuito', 'defaultCircuito').strip()
+    scenario = request.args.get('scenario', 'base')
+    tipo_dia = request.args.get('tipo_dia', 'DU')
+    ano = request.args.get('ano', 'defaultano')
+    mes = request.args.get('mes', 'defaultmes')
+    hora = int(request.args.get('hora', 'defaultmes'))
+
+    if subestacao == '':
+        print(f"Selecione uma subestação!")
+        mens = {'error': 'Select an Utility!'}
+        print(f"{mens}")
+        return mens, 500, {'Content-Type': 'application/json'}
+    line_segments = get_coords_SSDBT_from_db(subestacao, circuito)
+    json_data = read_json_from_result(conf['dist'], subestacao, circuito, scenario, tipo_dia, ano, mes, hora)
+    geojson = create_geojson_from_segments(line_segments, json_data)
+    return geojson, 200, {'Content-Type': 'application/json'}
 
 # Função que busca os segmentos - circuitos
 @server.route('/api/segments')

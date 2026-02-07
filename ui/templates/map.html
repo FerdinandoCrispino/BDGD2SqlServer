@@ -32,6 +32,10 @@
             <input type="checkbox" id="HVC" name="opt[]" value="HVC" />
             <label for="HVC">High Voltage Circuits</label>
         </div>
+        <div>
+            <input type="checkbox" id="LVC" name="opt[]" value="LVC" />
+            <label for="LVC">Low Voltage Circuits</label>
+        </div>
         <hr>
 
         <label for="scenarios">Scenario:</label>
@@ -1076,6 +1080,110 @@
         }
     }
 
+
+    // Função para carregar e animar segmentos de reta no mapa com base nos filtros
+    function loadHeatmapSegments(distribuidora, subestacao, circuito, scenario, tipo_dia, ano, mes) {
+        document.body.style.cursor = 'wait'; // Cursor de espera
+
+        const url = `/api/segments?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}&scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}`;
+        console.log(url);
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (!data) return; // Verifica se os dados não são nulos
+
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para definir o estilo com base na hora
+                function estiloSegmento(feature, hora) {
+                    const color = feature.get(`color_${hora}`) || '#000000'; // Obtém a cor para a hora atual
+                    return new ol.style.Style({
+                        stroke: new ol.style.Stroke({
+                            color: color,
+                            width: 2
+                        })
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    source: vectorSource,
+                    style: function (feature) {
+                        return estiloSegmento(feature, 0); // Inicializa com a hora 0
+                    }
+                });
+
+                map.addLayer(vectorLayer);
+
+                // Animação para alterar as cores com base na hora
+                let horaAtual = 0;
+                setInterval(() => {
+                    horaAtual = (horaAtual + 1) % 24; // Incrementa a hora e reinicia em 0 após 23
+                    vectorLayer.setStyle(function (feature) {
+                        return estiloSegmento(feature, horaAtual);
+                    });
+                }, 1000); // Atualiza a cada 1 segundo
+            })
+            .catch(error => {
+                console.error("Erro ao carregar os segmentos:", error);
+            })
+            .finally(() => {
+                document.body.style.cursor = 'default'; // Cursor normal
+            });
+    }
+
+    function loadSegmentsBT(distribuidora, subestacao, circuito, scenario, tipo_dia, ano, mes, hora) {
+        document.body.style.cursor = 'wait'; // Cursor de espera
+        const url = `/api/segmentsBT?distribuidora=${distribuidora}&subestacao=${subestacao}&circuito=${circuito}&scenario=${scenario}&tipo_dia=${tipo_dia}&ano=${ano}&mes=${mes}&hora=${hora}`
+        console.log(url)
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (!data) return; // Verifica se os dados não são nulos
+
+                var format = new ol.format.GeoJSON();
+                var features = format.readFeatures(data, {
+                    featureProjection: 'EPSG:3857'
+                });
+
+                var vectorSource = new ol.source.Vector({
+                    features: features
+                });
+
+                // Função para definir o estilo com base na hora
+                function estiloSegmento(feature) {
+                    const color = feature.get('color') || '#000000'; // Obtém a cor do atributo 'color'
+                    return new ol.style.Style({
+                        stroke: new ol.style.Stroke({
+                            color: color,
+                            width: 2
+                        })
+                    });
+                }
+
+                var vectorLayer = new ol.layer.Vector({
+                    name: circuito + "BT",
+                    source: vectorSource,
+                    style: estiloSegmento
+                });
+
+                map.addLayer(vectorLayer);
+            })
+            .catch(error => {
+                console.error("Erro ao carregar os segmentos:", error);
+            })
+            .finally(() => {
+                document.body.style.cursor = 'default'; // Cursor normal
+            });
+    }
+
     // Função para carregar segmentos de reta no mapa com base nos filtros
     function loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes, hora) {
 
@@ -1247,6 +1355,11 @@
 
         const hora = document.getElementById("myRange").value;
 
+        const lvc = document.getElementById('LVC').checked;
+        console.log(lvc);
+        if (lvc === true){
+            loadSegmentsBT(distribuidora, subestacao, circuito, scenario, tipo_dia, ano, mes, hora);
+        }
         loadSegments(distribuidora, subestacao, circuito, mapatipo, scenario, tipo_dia, ano, mes, hora);
     });
 
