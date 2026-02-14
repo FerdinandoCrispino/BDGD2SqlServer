@@ -18,10 +18,9 @@ from dataclasses import dataclass
 from typing import List, Dict, Tuple
 from unify_json import All
 
-
 """ 
 O código apresentado tem como objetivo calcular a Capacidade de Hospedagem (Hosting Capacity), pela métrica de sobretensão, para geração distribuída de duas maneiras: 
-    
+
     1. A primeira calcula a Hosting Capacity em cada barra do alimentador, sendo necessário apenas escrever "False" em "buses_selected" no arquivo "config_hc.yml".
     2. A segunda calcula a Hosting Capacity em barras selecionadas pela distância, no qual a distância é definida em "distance_goal" em km e "buses_selected" deve ser True, ambos estão no arquivo "config_hc.yml".
 
@@ -41,11 +40,13 @@ Os parâmetros utilizados estão em um arquivo de configuração nomeado como "c
     buses_selected: Determina o modo de seleção de barras para análise de Hosting Capacity.
 """
 
+
 # ==========================
 # Núcleo do cálculo de HC
 # ==========================
 class HCSteps:
-    def __init__(self, dss: py_dss_interface.DSS(), dss_file, max_kw: float, step_kw: float, ov_threshold: float, loadmult: float, distance_goal:float):
+    def __init__(self, dss: py_dss_interface.DSS(), dss_file, max_kw: float, step_kw: float, ov_threshold: float,
+                 loadmult: float, distance_goal: float):
         self._dss = dss
         self._dss_file = dss_file
         self._max_kw = max_kw
@@ -194,7 +195,8 @@ class HCSteps:
 
                 if violation:
                     if selection_buses:
-                        hosting_capacity_value = hc_value if abs(i_kw - hc_value) < abs(i_kw - hc_previous) else hc_previous
+                        hosting_capacity_value = hc_value if abs(i_kw - hc_value) < abs(
+                            i_kw - hc_previous) else hc_previous
 
                     else:
                         hosting_capacity_value = hc_value
@@ -519,14 +521,14 @@ class HCSteps:
 
         return ".".join(str(n) for n in node)
 
-    def __add_gen(self, gen_bus: dict, gen_kv: dict, gen_phases: dict, gen_node:dict):
+    def __add_gen(self, gen_bus: dict, gen_kv: dict, gen_phases: dict, gen_node: dict):
         """
         Adiciona o gerador na barra escolhida.
         """
         for gen in gen_bus.keys():
             self._dss.text(f"new generator.{gen} "
-                     f"phases={gen_phases[gen]} bus1={gen_bus[gen]}.{gen_node[gen]} kv={gen_kv[gen]} "
-                     f"kw=0.0001 pf=1 Vminpu=0.7 Vmaxpu=1.2")
+                           f"phases={gen_phases[gen]} bus1={gen_bus[gen]}.{gen_node[gen]} kv={gen_kv[gen]} "
+                           f"kw=0.0001 pf=1 Vminpu=0.7 Vmaxpu=1.2")
 
     def __increase_gen(self, gen_kw: dict):
         """
@@ -636,6 +638,7 @@ class HCSteps:
                     feeders.append(entry.name)
         return feeders
 
+
 # ==========================
 # Infra de execução
 # ==========================
@@ -647,6 +650,7 @@ class Task:
     type_day: str
     config: Dict
 
+
 def find_file(filename: str, search_path: str):
     """
     Procura por um arquivo com nome exato a partir de `search_path`.
@@ -656,6 +660,7 @@ def find_file(filename: str, search_path: str):
         if filename in files:
             return pathlib.Path(root) / filename
     return None
+
 
 def make_output_paths(task: Task) -> Tuple[pathlib.Path, pathlib.Path, pathlib.Path]:
     project_root = HCSteps.find_project_root()
@@ -667,6 +672,7 @@ def make_output_paths(task: Task) -> Tuple[pathlib.Path, pathlib.Path, pathlib.P
     csv_path = base_path / f"HC_{task.feeder}_{task.month}_{task.type_day}.csv"
     json_path = base_path / f"{task.feeder}.json"
     return base_path, csv_path, json_path
+
 
 def run_feeder_mode(utility, substation, feeder, year, months, type_days, config):
     # Verifica se já existe resultado
@@ -693,7 +699,7 @@ def run_feeder_mode(utility, substation, feeder, year, months, type_days, config
         step_kw=config["step_kw"],
         ov_threshold=config["ov_threshold"],
         loadmult=config["loadmult"],
-        distance_goal = config["distance_goal"]
+        distance_goal=config["distance_goal"]
     )
 
     print(f"🚀 Processando o Master: {master_filename} | {multiprocessing.current_process().name}")
@@ -720,6 +726,7 @@ def run_feeder_mode(utility, substation, feeder, year, months, type_days, config
         df_errors.to_csv(errors_path, index=False)
 
     print(f"✅ Alimentador {master_filename} processado com sucesso.")
+
 
 def process_task(task: Task):
     utility = task.config.get("utility")
@@ -753,12 +760,14 @@ def process_task(task: Task):
                     config=task.config
                 )
 
+
 def to_list(x):
     if x is None:
         return []
     if isinstance(x, list):
         return x
     return [x]
+
 
 def build_tasks_from_config(config: Dict) -> List[Task]:
     utility = config["utility"]

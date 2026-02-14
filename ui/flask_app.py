@@ -338,8 +338,11 @@ ESTADOS = ['All', 'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'M
            'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO']
 conf = load_config('curtailment')
 engine = create_connection(conf)
-ESTADOS = list_states_curtail(engine=engine)
+ESTADOS = list_states_curtail(engine=engine)  # busca a lista de estados que existem na base de dados de curtailment
 ESTADOS.append('All')
+
+# TODO colocando ALL no inicio, será feita a busca para todos os estados e isso pode demorar. Verificar performance
+
 # ESTADOS.insert(0, 'All')  # primeira posição
 
 ANOS = [2025, 2024]

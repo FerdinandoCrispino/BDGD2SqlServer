@@ -1,6 +1,6 @@
 # arquivo de configurações
 databases:
-    '391':
+    '391-teste':
         server: 'DaimonEng'
         database: 'GEO_SIGR_PERDAS_EDP_SP_2022'
         username: 'usr_GeoPerdas'
@@ -10,7 +10,7 @@ databases:
         gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\EDP_SP_391_2022-12-31_V11_20231030-1400.gdb'
         gdb_file: 'EDP_SP_391_2022-12-31_V11_20231030-1400.gdb'
         data_base: "2022-12-31"
-        cod_BDGD: '1400'
+        cod_BDGD: '4'
         dist: '391'
         dist_name: 'EDP_SP_2022'
         dss_files_folder: '~\dss'
@@ -38,7 +38,7 @@ databases:
         gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\Neoenergia_Cosern_40_2023-12-31_V11_20240614-1651.gdb'
         gdb_file: 'Neoenergia_Cosern_40_2023-12-31_V11_20240614-1651.gdb'
         data_base: "2023-12-31"
-        cod_BDGD: '1651'
+        cod_BDGD: '32'
         dist: '40'
         dist_name: 'Cosern_2023'
         dss_files_folder: '~\dss' # diretório dos arquivos do openDSS (user folder)
@@ -84,6 +84,20 @@ databases:
         dist: '39'
         dist_name: 'ENEL_CE_2022'
         dss_files_folder: '~\dss' # diretório dos arquivos do openDSS (user folder)
+    '391_2024':
+        server: 'localhost'
+        database: 'GEO_SIGR_PERDAS_EDP_SP_2024'
+        username: 'usr_GeoPerdas'
+        password: '123456'
+        schema: 'SDE'
+        dbf_directory: ''
+        gdb_directory: 'C:\pastaD\Doutorado\PD\dados\BDGD\'
+        gdb_file: 'EDP_SP_391_2024-12-31_V11_20250831-1845.gdb'
+        data_base: "2024-12-31"
+        cod_BDGD: '4'
+        dist: '391'
+        dist_name: 'EDP_SP_2024'
+        dss_files_folder: '~\dss\2024' # diretório dos arquivos do openDSS (user folder)
     'Irradiance':
         server: 'localhost'
         database: 'IRRADIANCIA'
@@ -97,4 +111,4 @@ databases:
         username: 'usr_GeoPerdas'
         password: '123456'
         schema: 'DBO'
-        curt_directory: '..\ui\curtailment'
+        curt_directory: '..\\ui\\curtailment'

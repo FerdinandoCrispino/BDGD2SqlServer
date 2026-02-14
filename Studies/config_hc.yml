@@ -1,6 +1,6 @@
 # Arquivo de configurações para o script Hosting_Capacity_antigo.py
 data_HC:
-  utility_path: 'C:/BDGD2SqlServer/dss/'
+  utility_path: 'C:\Users\Daimon\dss\'
   utility: '391'
   substation:
 #    - 'APA'

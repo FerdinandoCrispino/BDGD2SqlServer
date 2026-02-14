@@ -39,6 +39,7 @@ master_folder = os.path.expanduser(config['dss_files_folder'])
 list_sub = get_substations_list(engine)
 
 
+
 def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
     """
     Reune as informações das simulações já realizadas para apresentar um resumo das perdas de energia das subestações.
@@ -52,8 +53,7 @@ def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
     subs_losses = pd.DataFrame()
     file_result = f'{tipo_dia}_{ano}_{mes}_losses.xlsx'
 
-    for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base',
-                                                  str(dist), ano,)):
+    for root, dirs, files in os.walk(os.path.join(os.path.dirname(__file__), '../ui/static/scenarios/base', str(dist))):
         for file in files:
             if file.endswith(file_result) and 'SUB' not in file.upper():
                 print(file)
@@ -224,6 +224,19 @@ class SimuladorOpendss:
         self.dist = config_opendss['master_dist'].replace('\\', '/').split('/')[0]
         self.sub = config_opendss['master_sub']
         # print(self.dss_file)
+
+    def _first_element(self):
+        """ Retorna o primeiro bus do circuito
+            Navega pela topologia da rede de um bus qualquer ate o inicio do circuito
+        """
+        self.dss.topology.first()
+        self.dss.topology.forward_branch()
+        while True:
+            index_branch = self.dss.topology.backward_branch()
+            if index_branch:  # chegou no inicio do alimentador (Vsource)
+                self.dss.topology.forward_branch()  # avançar para obter o primeiro elemento
+                # print(self.dss.topology.branch_name)
+                return self.dss.topology.branch_name
 
     def _save_json(self, json_type, dados):
         """
@@ -596,7 +609,7 @@ class SimuladorOpendss:
             # desequilíbrio na barra com menor tensão
             self.dss.circuit.set_active_bus(min_vol[0].split('.')[0])
 
-            cir_nome = circuit_by_bus(min_vol[0].split('.')[0], self.dist)
+            cir_nome = circuit_by_bus(min_vol[0].split('.')[0], database)
             print(f"Circuito: {cir_nome['CTMT'][0]}")
 
             Vab = round(math.sqrt(self.dss.bus.vll[0] ** 2 + self.dss.bus.vll[1] ** 2), 4)
@@ -702,7 +715,9 @@ if __name__ == '__main__':
                     'UNA', 'URB', 'USS', 'VGA', 'VHE', 'VJS', 'VSL']
         list_sub = ['USS']
         """
-        list_sub = ['BRR', 'AVP', 'MTQ', 'GER', 'CAC']
+        #list_sub = ['BRR', 'AVP', 'MTQ', 'GER', 'CAC']
+        list_sub = ['MTQ']
+
         for nome_sub in list_sub:
             sub = nome_sub
             master_file = f"{master_type_day}_{master_month}_Master_substation_{dist}_{sub}.dss"

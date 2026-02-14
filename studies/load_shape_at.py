@@ -5,12 +5,17 @@ import calendar
 
 """
     Este script tem como objetivo calcular as curvas de carga e geração para um grupo de subestações.
-    considerando que as subestações estão interligadas pela rede de alta tensão da concecionária e que
+    considerando que as subestações estão interligadas pela rede de alta tensão da concessionária e que
     tenha apenas uma subestação de conexão com o sistema de transmissão.
 """
 
 
-def curvas_carga_normal(curvas_carga):
+def curvas_carga_normal(curvas_carga) -> dict:
+    """
+    Converte uma curva de 96 pontos em uma curva de 24 pontos normalizada
+    :param curvas_carga:
+    :return:
+    """
     curvas_carga_dss = {}
     # Transforma 96 pontos da curva de carga em 24 pontos em kW
     for index in range(curvas_carga.shape[0]):
@@ -27,7 +32,13 @@ def curvas_carga_normal(curvas_carga):
     return curvas_carga_dss
 
 
-def query_crvcrg(engine, dist):
+def query_crvcrg(engine, dist) -> pd.DataFrame:
+    """
+    Busca no banco de dados os pontos das curvas de carga da distribuidora
+    :param engine: Conexão com o banco de dados
+    :param dist: Código da distribuidora na BDGD
+    :return: DataFrame
+    """
     try:
         with engine.connect() as con:
             query = f'''SELECT * FROM SDE.CRVCRG WHERE dist='{dist}'
@@ -41,7 +52,12 @@ def query_crvcrg(engine, dist):
         return
 
 
-def query_fator_de_carga(engine):
+def query_fator_de_carga(engine) -> pd.DataFrame:
+    """
+    Determina o Fator de Carga (FC) para cada curva de carga.
+    :param engine:
+    :return:
+    """
     try:
         with engine.connect() as con:
             query = f'''
@@ -82,7 +98,7 @@ def query_fator_de_carga(engine):
         return
 
 
-def get_energy_sub(engine, sub, mes):
+def get_energy_sub(engine, sub, mes) -> pd.DataFrame:
     try:
         with engine.connect() as con:
             query = f'''select 'SUB_TIPO' as TIP_CC, sum(u.ENES_01-u.ENES_01_IN) as ENE_01, 
@@ -102,7 +118,15 @@ def get_energy_sub(engine, sub, mes):
         return
 
 
-def get_municipio_gd(engine, tabela, sub):
+def get_municipio_gd(engine, tabela, sub) -> pd.DataFrame:
+    """
+    Busca o código do municipio de um gerador instalado em uma subestação.
+    retorna o primeiro municipio, considerando assim que todos os geradores estão instalados no mesmo munícipio
+    :param engine:
+    :param tabela: Nome da tabela do gerador (UGMT, UGBT)
+    :param sub:
+    :return:
+    """
     try:
         with engine.connect() as con:
             query = f'''Select top 1 u.MUN From sde.{tabela} u Where sub = '{sub}'
@@ -115,6 +139,13 @@ def get_municipio_gd(engine, tabela, sub):
 
 
 def get_pot_inst_pv(engine, sub, tabela):
+    """
+    Obtêm a potência instalada dos geradores.
+    :param engine:
+    :param sub:
+    :param tabela:
+    :return:
+    """
     try:
         with engine.connect() as con:
             query = f'''Select sum(CASE 
@@ -327,7 +358,9 @@ def insert_graph_excel(writer, sheet_name):
 
 if __name__ == '__main__':
     # Lê configuração do arquivo yml
-    config = load_config('40_2022')
+    database = '6600_2022'   # '40_2022'
+    config = load_config(database)
+
     dist = config['dist']
     ano_base = int(config['data_base'][:4])
     mes = 12
@@ -337,6 +370,8 @@ if __name__ == '__main__':
     # list_subs = ['STU', 'TGA', 'LGD', 'ELS', 'SPG']
     list_subs = ['JCT', 'SMU', 'SMG']
     list_subs = ['ACU', 'IAJ', 'EST', 'PNC', 'MCA', 'GMR']
+
+    list_subs = ['12912334', '12912335', '12912336']
 
     nome_subs = '_'.join(list_subs)
 
@@ -375,7 +410,7 @@ if __name__ == '__main__':
                 cod_mun = get_municipio_gd(engine, 'UGBT', sub)
 
             # obtêm curva de irradiação solar na base de dados de irradiação
-            irradiacao = irrad_by_municipio(cod_mun, mes, dist)
+            irradiacao = irrad_by_municipio(cod_mun, mes, database)
 
             # get BT Generation PV - residencial
             generation_bt_res_class = get_generation(engine, sub, 'UGBT', classe=1)

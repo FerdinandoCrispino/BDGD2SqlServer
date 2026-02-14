@@ -983,14 +983,10 @@ def kv_carga(strCodFas, dblTenSecu_kV, intTipTrafo):
 
 
 def numero_fases_carga_dss(strFases):
-    if strFases == "A" or strFases == "B" or strFases == "C" or strFases == "AN" or strFases == "BN" or \
-            strFases == "CN" or strFases == "AB" or strFases == "BC" or strFases == "CA" or strFases == "ABN" or \
-            strFases == "BCN" or strFases == "CAN":
-        return "1"
-    elif strFases == "ABC" or strFases == "ABCN":
+    if strFases == "ABC" or strFases == "ABCN":
         return "3"
     else:
-        return ""
+        return "1"
 
 
 def ligacao_gerador(strCodFas, tip_trafo=None):
