@@ -198,9 +198,10 @@ class AjustaDemanda:
                             classificacao = "indefinido"
         print(f'Tri:{cnt_tri} Bi:: {cnt_bi}, Mono:{cnt_mono}   ')
 
-    def solve_load_type(self, patamar, loads, tipo):
+    def solve_load_type(self, patamar, tipo):
         correntes_list = []
         correntes_dict = {}
+        loads = self.load_class.loc[load_class['type'] == tipo]
         if tipo == 3:
             load_multi = self.listloadmult
         elif tipo == 2:
@@ -225,16 +226,25 @@ class AjustaDemanda:
                 ori_dmult = self.dss.loadshapes.p_mult
                 # print(ori_dmult)
                 # Create 144 points via interpolation
-                ori_dmult_scale = np.interp(np.linspace(0, 24 - 1, 144), np.arange(24), ori_dmult)
-
+                if len(ori_dmult) == 24:
+                    ori_dmult_scale = np.interp(np.linspace(0, 24 - 1, 144), np.arange(24), ori_dmult).tolist()
+                else:
+                    ori_dmult_scale = ori_dmult
                 # Multiply corresponding elements and create a new list
-                multiplied_list = [a * b for a, b in zip(ori_dmult_scale, load_multi)]
+                # multiplied_list = [a * b for a, b in zip(ori_dmult_scale, load_multi)]
+
+                multiplied_list = ori_dmult_scale
+                multiplied_list[number-1] = ori_dmult_scale[number-1] * load_multi[number-1]
+
+                #data_24 = np.mean(np.array(multiplied_list).reshape(-1, 6), axis=1).tolist()
 
                 name_loadshape = f"TIPO_{tipo}_{index}"
-                row['loadshape'] = name_loadshape
+                # row['loadshape'] = name_loadshape
+                loads.loc[loads['name'] == row['name'], 'loadshape'] = name_loadshape
                 if number == 1:
-                    self.dss.text(f"New 'Loadshape.{name_loadshape}' npts={len(multiplied_list)} interval=1 "
-                                  f"mult=({str(multiplied_list)[1:-1]})")
+                    # self.dss.text(f"New 'Loadshape.{name_loadshape}' npts={len(data_24)} mInterval=10 mult=({str(data_24)[1:-1]})")
+                    self.dss.text(f"New 'Loadshape.{name_loadshape}' npts={len(multiplied_list)} "
+                                  f"mInterval=10 mult=({str(multiplied_list)[1:-1]})")
                 else:
                     # self.dss.loadshapes.npts = 144
                     self.dss.loadshapes.p_mult = multiplied_list
@@ -243,6 +253,24 @@ class AjustaDemanda:
                 x = self.dss.circuit.set_active_element(row['name'])
                 self.dss.loads.daily = name_loadshape
 
+            """
+            # Verifica os valores atualizados das curvas de carga 
+            self.dss.loadshapes.first()
+            for _ in range(self.dss.loadshapes.count):
+                if "tipo_" in self.dss.loadshapes.name:
+                    print(self.dss.loadshapes.name, self.dss.loadshapes.p_mult)
+                self.dss.loadshapes.next()
+            """
+
+            """
+            # verifica a curvas de carga associadas as cargas
+            for index, row in loads.iterrows():
+                self.dss.circuit.set_active_element(row['name'])
+                print(self.dss.loads.daily)
+            """
+            # exporta as cargas
+            self.dss.text("save load loads.dss")
+            self.dss.text("save loadshape loadshapes.dss")
 
             self.dss.solution.solve()
 
@@ -262,6 +290,8 @@ class AjustaDemanda:
                         self.dss_current['C_ang'] = self.dss.monitors.channel(14)
                         self.dss_current['N'] = self.dss.monitors.channel(15)
                         self.dss_current['N_ang'] = self.dss.monitors.channel(16)
+                    # else:
+                    #    print(self.dss.monitors.channel(1))
                     monitor = self.dss.monitors.next()
 
                 correntes_dict['A'] = self.dss_current.get('A')[0]
@@ -292,7 +322,7 @@ class AjustaDemanda:
 
     def __ajust_demanda_by_phases(self):
         total_number = 144
-        tolerancia = 0.05
+        tolerancia = 0.005
         maxiterations = 100
         menor_dif_percent = 1
         loadMult_menor_erro = 0
@@ -312,15 +342,17 @@ class AjustaDemanda:
                     if abs(dif_percent) > tolerancia * 4:
                         passo = dif_percent * 10
                     elif tolerancia * 1.5 < abs(dif_percent) <= tolerancia * 4:
+                        passo = dif_percent * 2
+                    elif tolerancia * 1.1 < abs(dif_percent) <= tolerancia * 1.5:
                         passo = dif_percent
                     else:
-                        passo = dif_percent / 2
+                        passo = dif_percent / 3
 
                     if tp == 3:
                         self.listloadmult[number - 1] = round(self.listloadmult[number - 1] + passo, 5)
                         print(f'LoadMult: {self.listloadmult[number - 1]}')
 
-                        result = simul.solve_load_type(number, load_class.loc[load_class['type'] == 3], tipo=3)
+                        result = simul.solve_load_type(number,  tipo=3)
 
                         if not result:
                             # Para o caso que não convergir alterar o valor do loadmult e verificar se converge
@@ -339,7 +371,7 @@ class AjustaDemanda:
 
                     elif tipo == 2:
                         self.listloadmult_2phi[number - 1] = round(self.listloadmult_2phi[number - 1] + passo, 5)
-                        print(f'LoadMult: {self.listloadmult_2phi[number - 1]}')
+                        print(f'LoadMult_2phi: {self.listloadmult_2phi[number - 1]}')
 
                         result = simul.solve_load_type(number, load_class.loc[
                             (load_class['type'] == 2) & (load_class['phase_mt'] == "['3', '0']")], tipo=2)
