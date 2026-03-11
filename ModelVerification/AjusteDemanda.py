@@ -22,23 +22,25 @@ Ajusta a demanda a partir de valores de medição de correntes
 
 
 class AjustaDemanda:
-    def __init__(self, circuit, ref_phase, dss_file, excel_file):
+    def __init__(self, circuit, ref_phase, dss_file, excel_file, num_pts=144):
+        self.pts = num_pts
+        self.pts_min = 86400/num_pts/60
         self.circuit = circuit
         self.ref_phase = ref_phase
         self.dss_file = dss_file
         self.current_monitor = ''
         self.current_medidor = ''
         self.dss_current = {'A': 0, 'B': 0, 'C': 0, 'N': 0}
-        self.listloadmult = [1] * 144
-        self.listloadmult_2phi = [1] * 144
-        self.listloadmult_1phi = [1] * 144
-        self.list_error = [0] * 144
+        self.listloadmult = [1] * num_pts
+        self.listloadmult_2phi = [1] * num_pts
+        self.listloadmult_1phi = [1] * num_pts
+        self.list_error = [0] * num_pts
         self.dss = self.__read_dss_file()
         self.load_class = pd.DataFrame()
 
         def data_group(file_data) -> pd.DataFrame:
             """
-            Faz a leitura do arquivo excell com as veituras de corrente a cada 10 minutos, faz
+            Faz a leitura do arquivo excell com as leituras de corrente a cada 10 minutos, faz
             a média dis valores por minuto do dia e retorna o dataframe com as mesmas colunas originais.
             :param file_data: path do arquivo xlsx com as medições.
             :return:
@@ -55,6 +57,22 @@ class AjustaDemanda:
                                           as_index=False)['valor'].agg(valor=lambda x: x.replace(0, np.nan).mean())
             data_avg = data_avg.rename(columns={"mean": "valor"})
             data_avg['data'] = pd.to_datetime(data_excel['data'].dt.strftime('%Y-%m-%d %H:%M'))
+            data_avg = data_avg.loc[data_avg['name'].str.endswith(ref_phase)]
+
+            df_new = data_avg.loc[(data_avg['data'].dt.hour == 0) & (data_avg['data'].dt.minute == 0) & (data_avg['data'].dt.second == 0)].copy(deep=True)
+            df_new['data'] = df_new['data'] + pd.Timedelta(seconds=86399)
+            data_avg = pd.concat([data_avg, df_new], ignore_index=True)
+
+            data_avg.set_index('data', inplace=True)
+
+            #data_avg['name'] = data_avg['name'].astype("string")
+            #data_avg['se'] = data_avg['se'].astype("string")
+
+            # Resample to 5-second frequency ('5S') and interpolate
+            data_avg = data_avg.resample('5S').interpolate(method='time')
+            data_avg['name'] = data_avg['name'].ffill()
+            data_avg['se'] = data_avg['se'].ffill()
+            data_avg.reset_index(inplace=True)
             return data_avg
 
         self.excel_file = data_group(excel_file)
@@ -104,7 +122,7 @@ class AjustaDemanda:
 
         return soma_polar
 
-    def __get_table_currents(self, patamar, multi=10):
+    def __get_table_currents(self, patamar, multi=10.0):
         """
         Acessa os dados do arquivo excel com as correntes diarias e
         obtem os valores das correntes para um determinado patamar
@@ -115,17 +133,29 @@ class AjustaDemanda:
         """
 
         c = {'A': 0, 'B': 0, 'C': 0}
-        total_minutos = (patamar - 1) * multi
-        horas, minutos = divmod(total_minutos, 60)
+        total_min = (patamar - 1) * multi
+        # Convert total minutes to total seconds
+        total_seconds = round(total_min * 60, 1)
+
+        # Use divmod to get minutes and remaining seconds
+        minutos, segundos = divmod(total_seconds, 60)
+        # Use divmod to get hours and remaining minutes
+        horas, minutos = divmod(minutos, 60)
+
+
         # Ensure the column is datetime type
-        self.excel_file['data'] = pd.to_datetime(self.excel_file['data'], format='%H:%M')
+        self.excel_file['data'] = pd.to_datetime(self.excel_file['data'], format='%H:%M:$S')
         # Filter rows
         filtered_df = self.excel_file[
-            (self.excel_file['data'].dt.hour == horas) & (self.excel_file['data'].dt.minute == minutos)]
+            (self.excel_file['data'].dt.hour == horas) & (self.excel_file['data'].dt.minute == minutos) &
+            (self.excel_file['data'].dt.second == segundos)]
         filtered_df = filtered_df.sort_values(by='name')
 
         if filtered_df.empty:
-            print(f"Erro no arquivo Excel!")
+            print(f"Erro no arquivo Excel!: {horas}:{minutos}:{segundos}")
+            input("Press Enter to continue...")
+
+        #ori_dmult_scale = np.interp(np.linspace(0, 24 - 1, self.pts), np.arange(24), ori_dmult)
 
         return filtered_df
 
@@ -163,6 +193,75 @@ class AjustaDemanda:
         self.current_medidor = f'{first_elem}_m'
 
         return dss
+
+    def alter_control_elements(self):
+        #"""
+        self.dss.text("New Capacitor.Cap1 Bus1=LoadBus1a Phases=3 Kvar=[4000 4000] kV=22 Conn=wye Numsteps=2 "
+                      "Basefreq=60 states=[0 0]")
+
+        self.dss.text('New CapControl.CAPBank1_Ctrl Capacitor=CAP1 element=line.smt_228418812_b Terminal=1 Type=kvar '
+                      'ONsetting=3000 OFFsetting=2000 Delay=900 DelayOFF=300 Deadtime=300')
+        #"""
+
+        i = self.dss.capcontrols.first()
+        while i > 0:
+            if self.dss.capcontrols.mode != 2:  # mode kvar
+                self.dss.capacitors.first()
+                for _ in range(self.dss.capacitors.count):
+                    if self.dss.capacitors.name == self.dss.capcontrols.controlled_capacitor:
+                        print(f"{self.dss.capacitors.name}")
+                        print(f"{self.dss.capacitors.kvar}")
+                        break
+                    self.dss.capacitors.next()
+
+                print(f'cap_name:{self.dss.capacitors.name}')
+                print(f"ctrl_name:{self.dss.capcontrols.controlled_capacitor}")
+                print(f'kVAr:{self.dss.capacitors.kvar}')
+                print(f"name:{self.dss.capcontrols.name}")
+                print(f'mode:{self.dss.capcontrols.mode}')
+                print(f'delay:{self.dss.capcontrols.delay}')
+                print(f'dead_time:{self.dss.capcontrols.dead_time}')
+                print(f'delay_off:{self.dss.capcontrols.delay_off}')
+                print(f'monitored_object:{self.dss.capcontrols.monitored_object}')
+                print(f'monitored_term:{self.dss.capcontrols.monitored_term}')
+                print(f'monitored_term:{self.dss.capcontrols.controlled_capacitor}')
+                print(f'off_setting:{self.dss.capcontrols.off_setting}')
+                print(f'on_setting:{self.dss.capcontrols.on_setting}')
+                print(f'ct_ratio:{self.dss.capcontrols.ct_ratio}')
+                print(f'pt_ratio:{self.dss.capcontrols.pt_ratio}\n')
+
+            i = self.dss.capcontrols.next()
+
+            """
+            New CapControl.CAPBank1_Ctrl Capacitor=CAP1 element=Line.LINE0 Terminal=1 Type=kvar 
+            ONsetting=5000 OFFsetting=2000 Delay=900 DelayOFF=300 Deadtime=300
+            """
+
+        i = self.dss.regcontrols.first()
+        while i > 0:
+            print(f"ctrl_name:{self.dss.regcontrols.name}")
+            print(f"delay:{self.dss.regcontrols.delay}")
+            print(f"pt_ratio:{self.dss.regcontrols.pt_ratio}")
+            print(f"forward_vreg:{self.dss.regcontrols.forward_vreg}")
+            print(f"reverse_vreg:{self.dss.regcontrols.reverse_vreg}")
+            print(f"is_inverse_time:{self.dss.regcontrols.is_inverse_time}")
+            print(f"is_reversible:{self.dss.regcontrols.is_reversible}")
+            print(f"max_tap_change:{self.dss.regcontrols.max_tap_change}")
+            print(f"monitored_bus:{self.dss.regcontrols.monitored_bus}")
+            print(f"reverse_band:{self.dss.regcontrols.reverse_band}")
+            print(f"forward_band:{self.dss.regcontrols.forward_band}")
+            print(f"tap_delay:{self.dss.regcontrols.tap_delay}")
+            print(f"tap_number:{self.dss.regcontrols.tap_number}")
+            print(f"tap_winding:{self.dss.regcontrols.tap_winding}")
+            print(f"transformer:{self.dss.regcontrols.transformer}")
+            print(f"voltage_limit:{self.dss.regcontrols.voltage_limit}")
+            print(f"winding:{self.dss.regcontrols.winding}\n")
+
+            i = self.dss.regcontrols.next()
+            """
+            New "Regcontrol.CREG_175RT006155719A" transformer="REG_175RT006155719A" 
+            winding=2 vreg=100 band=2 ptratio=79.67 delay=15
+            """
 
     def __first_element(self, dss):
         """ Retorna o primeiro bus do circuito
@@ -301,9 +400,9 @@ class AjustaDemanda:
 
                 ori_dmult = self.dss.loadshapes.p_mult
                 # print(ori_dmult)
-                # Create 144 points via interpolation
+                # Create pts points via interpolation
                 if len(ori_dmult) == 24:
-                    ori_dmult_scale = np.interp(np.linspace(0, 24 - 1, 144), np.arange(24), ori_dmult).tolist()
+                    ori_dmult_scale = np.interp(np.linspace(0, 24 - 1, self.pts), np.arange(24), ori_dmult).tolist()
                 else:
                     ori_dmult_scale = ori_dmult
 
@@ -323,7 +422,9 @@ class AjustaDemanda:
                 self.dss.text(f"New 'Loadshape.{name_loadshape}' npts={len(multiplied_list)} "
                               f"mInterval=10 mult=({str(multiplied_list)[1:-1]})")
                 # else:
-                # self.dss.loadshapes.npts = 144
+
+                self.dss.loadshapes.min_interval = (24 * 60)/self.pts   #10
+                self.dss.loadshapes.npts = self.pts
                 #    self.dss.loadshapes.p_mult = multiplied_list
 
                 # ativa a carga e associa a curva de carga
@@ -382,7 +483,7 @@ class AjustaDemanda:
 
             correntes_list.append(correntes_dict.copy())
 
-            if patamar == 144:
+            if patamar == self.pts:
                 p_adata = pd.DataFrame.from_dict(correntes_list)
                 dirname = os.path.dirname(__file__)
                 plt_path = os.path.abspath(os.path.join(dirname, 'ajusteDemanda'))
@@ -398,7 +499,7 @@ class AjustaDemanda:
         return True
 
     def __ajust_demanda_by_phases(self):
-        total_number = 144
+        total_number = self.pts
         tolerancia = 0.005
         maxiterations = 50
         menor_dif_percent = 1
@@ -409,7 +510,7 @@ class AjustaDemanda:
             for number in range(1, total_number + 1):
                 print(f'number:{number}')
                 # obtem os valores das correntes de referencia no arquivo excel
-                corrente_medida = self.__get_table_currents(patamar=number, multi=10)
+                corrente_medida = self.__get_table_currents(patamar=number, multi=self.pts_min)
                 print(corrente_medida)
 
                 dif_percent = 0
@@ -419,7 +520,7 @@ class AjustaDemanda:
 
                     if tp == 3:
 
-                        if iterations > iterations * 0.7:
+                        if iterations > maxiterations * 0.7:
                             # Indica oscilação de valor e não convergencia. Tentar ajustar para o valor intermediario
                             self.listloadmult[number - 1] = (self.listloadmult[number - 1] + abs(
                                 self.listloadmult[number - 1] * (1 + dif_percent))) / 2
@@ -517,7 +618,8 @@ class AjustaDemanda:
         self.dss = self.__read_dss_file()
 
         # solve ate o patamar definido alterando o loadmult para cada patamar
-        for number in range(1, patamar + 1):
+        #for number in range(1, patamar + 1):
+        for number in range(patamar, patamar + 1):
             self.dss.monitors.reset_all()
             self.dss.solution.load_mult = self.listloadmult[number - 1]
             self.dss.solution.solve()  # a cada solve para o proximo patamar, não é necessario set number!
@@ -570,7 +672,7 @@ class AjustaDemanda:
                 correntes_dict['N_ang'] = self.dss_current.get('N_ang')[0]
             correntes_list.append(correntes_dict.copy())
 
-        if patamar == 144:
+        if patamar == self.pts:
             p_adata = pd.DataFrame.from_dict(correntes_list)
             dirname = os.path.dirname(__file__)
             plt_path = os.path.abspath(os.path.join(dirname, 'ajusteDemanda'))
@@ -586,8 +688,8 @@ class AjustaDemanda:
         return True
 
     def __exec_ajuste_demanda(self):
-        total_number = 144
-        tolerancia = 0.05
+        total_number = self.pts
+        tolerancia = 0.030
         maxiterations = 150
         menor_dif_percent = 1
 
@@ -595,7 +697,7 @@ class AjustaDemanda:
 
             print(f'number:{number}')
             # obtem os valores das correntes de referencia no arquivo excel
-            corrente_medida = self.__get_table_currents(patamar=number, multi=10)
+            corrente_medida = self.__get_table_currents(patamar=number, multi=self.pts_min)
             print(corrente_medida)
             """
             try:
@@ -614,7 +716,7 @@ class AjustaDemanda:
             solve_erro = 0
             loadMult_menor_erro = []
             list_dif_erro = []
-
+            type_converge = 0
             while True:
 
                 if abs(dif_percent) > tolerancia * 3:
@@ -622,17 +724,20 @@ class AjustaDemanda:
                 else:
                     passo = dif_percent / 5
 
-                if self.listloadmult[number - 1] + passo < 0:
-                    if (self.listloadmult[number - 1] + self.listloadmult[number - 1] * (1 + dif_percent) / 2) < 0:
-                        self.listloadmult[number - 1] = self.listloadmult[number - 1] / 2
-                    else:
-                        self.listloadmult[number - 1] = abs((self.listloadmult[number - 1] +
-                                                             self.listloadmult[number - 1] * (1 + dif_percent)) / 2)
+                while (self.listloadmult[number - 1] + passo) < 0:
+                    passo = passo / 2
+                    print(f'passo: {passo}, iteration: {iterations}')
+                    # input(f"Press Enter to continue...{passo:{passo}")
 
-                    print(f'LoadMult mínimo: {self.listloadmult[number - 1]}, iteration: {iterations}')
-                    # input(f"Press Enter to continue...{self.listloadmult[number - 1]} passo:{passo}")
-                else:
-                    self.listloadmult[number - 1] = round(self.listloadmult[number - 1] + passo, 5)
+                self.listloadmult[number - 1] = round(self.listloadmult[number - 1] + passo, 5)
+                if self.listloadmult[number - 1] < 0.0015:
+                    if type_converge == 0:
+                        self.listloadmult[number - 1] = self.listloadmult[number - 2]
+                        type_converge = 1
+
+                    else:  # stop e usa o menor valor registrado
+                        iterations = maxiterations + 1
+
                 print(f'iteration:{iterations} LoadMult: {self.listloadmult[number - 1]}')
 
                 # executa o fluxo de potencia iniciando do patamar 1 'hora 00:00' até o paramar 'number'
@@ -648,7 +753,7 @@ class AjustaDemanda:
                         self.listloadmult[number - 1] = self.listloadmult[number - 1] * 1.05
 
                     print(f"{iterations}, {solve_erro}, Valor alterado para:{self.listloadmult[number - 1]}")
-                    if solve_erro < 5:
+                    if solve_erro < 20:
                         continue
                     else:
                         iterations = maxiterations + 1  # para obter o menor erro obtido e sair
@@ -698,10 +803,11 @@ class AjustaDemanda:
                 if iterations > maxiterations:
                     # Se sair pq atingiu o maximo numero de interação, utilizar o menor valor obtido na simulação
                     # Encontrar o menor valor
-                    menor_valor = min(list_dif_erro)
+                    menor_valor = min(list_dif_erro, key=abs)
                     # Encontrar o índice do menor valor
                     indice_menor = list_dif_erro.index(menor_valor)
                     self.listloadmult[number - 1] = loadMult_menor_erro[indice_menor]
+                    self.list_error[number - 1] = menor_valor
                     break
 
                 # executa o solve novamente, agora com a alteração loadmulti e verifica a tolerancia.
@@ -715,14 +821,18 @@ class AjustaDemanda:
         for _ in range(self.dss.loadshapes.count):
             ori_dmult = self.dss.loadshapes.p_mult
             # print(ori_dmult)
-            # Create 144 points via interpolation
-            ori_dmult_scale = np.interp(np.linspace(0, 24 - 1, 144), np.arange(24), ori_dmult)
-            # print(len(ori_dmult_scale))  # Output: 144
+            # Create pts points via interpolation
+            if len(ori_dmult) == 24:
+                ori_dmult_scale = np.interp(np.linspace(0, 24 - 1, self.pts), np.arange(24), ori_dmult)
+            else:
+                ori_dmult_scale = ori_dmult
+            # print(len(ori_dmult_scale))
 
             # Multiply corresponding elements and create a new list
             multiplied_list = [a * b for a, b in zip(ori_dmult_scale, load_multi)]
 
-            self.dss.loadshapes.npts = 144
+            self.dss.loadshapes.npts = self.pts
+            self.dss.loadshapes.min_interval = (24 * 60) / self.pts #10
             self.dss.loadshapes.p_mult = multiplied_list
 
             self.dss.loadshapes.next()
@@ -733,7 +843,7 @@ class AjustaDemanda:
             print(f'OpenDSS: File {self.dss_file} with update_loadshape not solved!')
         else:
             dirname = os.path.dirname(self.dss_file)
-            path_dir = os.path.abspath(os.path.join(dirname, fr'output'))
+            path_dir = os.path.abspath(os.path.join(dirname, fr'output_{self.pts}'))
             os.makedirs(path_dir, exist_ok=True)
             self.dss.text(f"Save Circuit dir={path_dir}")
 
@@ -757,13 +867,12 @@ class AjustaDemanda:
                            1.97906, 1.89432, 2.43128, 2.3999, 2.32277, 2.22101, 2.22068, 2.13639, 2.03515, 2.44037,
                            2.32913, 2.21541, 2.21483, 2.11088, 2.36005, 2.36005, 2.2366, 2.23655]
         # self.listloadmult = result_loadMult
-        self.__solve(144)
+        self.__solve(self.pts)
 
 
 if __name__ == '__main__':
     excel_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\AVP1303 - Correntes.xlsx'
     dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RAVP1303\DU_7_Master_391_AVP_RAVP1303.dss'
-    dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RAVP1303\DU_7_Master_391_AVP_RAVP1303_3phi.dss'
     circuito = 'RAVP1303'
     ref_phase = 'IB'
 
@@ -775,12 +884,12 @@ if __name__ == '__main__':
     #excel_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBOI1302.csv'
     #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBOI1302\DU_7_Master_391_BOI_RBOI1302.dss'
     #circuito = 'RBOI1302'
-    # ref_phase = 'IB'
+    #ref_phase = 'IB'
 
     excel_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RMTQ1302.csv'
     dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RMTQ1302\DU_7_Master_391_MTQ_RMTQ1302.dss'
     circuito = 'RMTQ1302'
-    ref_phase = 'IB'
+    ref_phase = 'IA'
 
     #excel_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RMTQ1306.csv'
     #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RMTQ1306\DU_7_Master_391_MTQ_RMTQ1306.dss'
@@ -793,8 +902,10 @@ if __name__ == '__main__':
 
     proc_time_ini = time.time()
 
-    simul = AjustaDemanda(circuit=circuito, ref_phase=ref_phase, dss_file=dss_file, excel_file=excel_file)
+    simul = AjustaDemanda(circuit=circuito, ref_phase=ref_phase, dss_file=dss_file, excel_file=excel_file, num_pts=17280)
     # simul.list_loads_type()
+    #simul.alter_control_elements()
+    #exit()
 
     result_loadMult = [2.35556, 2.36302, 2.36302, 2.64637, 2.64637, 2.64637, 2.48368, 2.50969, 2.32647, 2.32647,
                        2.32647, 2.32647, 2.32647, 2.16383, 2.16374, 2.17888, 2.17888, 2.17888, 2.17888, 2.17888,
@@ -837,7 +948,7 @@ if __name__ == '__main__':
     simul.plot_data_result(isblock=True)
 
     print(simul.listloadmult)
-    print(simul.list_error)
+    print(max(simul.list_error, key=abs))
 
     # simul.check_result()
 

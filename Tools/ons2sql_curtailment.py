@@ -58,7 +58,7 @@ class InportDataONS:
                         columns_to_replace = [col for col in chunk.columns if col not in excluded_columns]
                         # Apply replace(np.nan, 0) only to the selected columns
                         chunk[columns_to_replace] = chunk[columns_to_replace].replace(np.nan, 0)
-
+                        chunk.drop(columns=['nom_tipousina'], inplace=True)
                         chunk.to_sql(table_name_sql, self.engine, schema=self.schema, if_exists='append', index=False,
                                      chunksize=1000, method=None)
                         print('Insert 50000 lines...')

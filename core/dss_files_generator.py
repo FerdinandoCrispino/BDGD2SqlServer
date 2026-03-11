@@ -225,6 +225,7 @@ class DssFilesGenerator:
             dblPerdTtl_per = reatores.loc[index]['PER_TOT']
             ctmt = reatores.loc[index]['CTMT']
 
+            delay = 15  # This is used to determine which regulator control will act first. Default is 15.
 
             # obtido da relação do tp e será sempre tensão de fase
             dblkvREG = round(tens_regulador(dblTensaoPrimTrafo_kV), 4)
@@ -283,7 +284,7 @@ class DssFilesGenerator:
             linhas_reguladores_dss.append(
                 'New "Regcontrol.CREG_' + strNome + nome_banco(intCodBnc) + '"' + ' transformer="REG_' +
                 strNome + nome_banco(intCodBnc) + '"' + " winding=2 vreg=" +
-                f"{dblTenRgl_pu * 100:.0f}" + " band=2 ptratio=" + f"{dblkvREG * 10:.2f}")
+                f"{dblTenRgl_pu * 100:.0f} band=2 ptratio={dblkvREG * 10:.2f} delay={delay}")
 
     def get_lines_trafos(self, trafos, linhas_trafos_dss) -> None:
 
@@ -337,6 +338,11 @@ class DssFilesGenerator:
             # Considera-se que tap maiores que 1.5 é um erro de cadastro. Ex.: 1.6 será convertido para 1.06
             if tap > 1.5:
                 tap = ((tap - 1) / 10) + 1
+
+            # Para banco de transformadores os tap dos transformadores devem ser todos iguais e na BDGD
+            # podem aparecer com valores distintos, assim será fixado em 1pu
+            if int(banc) == 1:
+                tap = 1.0
 
             if tipo_trafo == 1 or tipo_trafo == 2:  # monofasico ou MT
                 if round(kv1, 2) == 7.96:
@@ -1396,10 +1402,18 @@ class DssFilesGenerator:
             linha_capacitores_dss.append(
                 f'New "Capacitor.CAP_{str_name}" bus1="{str_pac}{nos(strCodFas)}" kvar={dbl_pot} kv={kv_nom} '
                 f'phases={num_fases} conn={ligacao_trafo(strCodFas)}')
+            
             linha_capacitores_dss.append(
                 f'New "CapControl.C1ctrl_{str_name}" element="Line.SMT_{line_cod}" Capacitor=CAP_{str_name} '
                 f'Type=voltage ptratio={ptratio} ON={c_on} OFF={c_off}')
-
+            """
+            # Implementação de controle por potência. Ativar quando a linha atingir 60% da potência reativa do capacitor
+            ONsetting = kv_nom * 0.6
+            OFFsetting = kv_nom * 0.4
+            linha_capacitores_dss.append(
+                f'New "CapControl.C1ctrl_{str_name}" element="Line.SMT_{line_cod}" Capacitor=CAP_{str_name} '                
+                f'Type=kvar ONsetting={ONsetting} OFFsetting={OFFsetting} Delay=600 DelayOFF=300 Deadtime=300')
+            """
     def get_lines_medidores(self, monitors, linha_medidores_dss):
         """ Função para gerar os Medidores do arquivo MEDIDORES>DSS """
         linha_medidores_dss.clear()
@@ -1465,7 +1479,7 @@ class DssFilesGenerator:
             # num_fases = numero_fases(strCodFas)
             num_fases = numero_fases_segmento_neutro(strCodFas)
 
-            # TODO trechos bt com transformadores ramais e cargas com neutro dever ter neutro também
+            # TODO trechos bt com transformadores ramais e cargas com neutro devem ter neutro também
 
             # phases é substituido pelo nphases do linecode por isso foi removido da linha abaixo
             linhas_trechos_bt_dss.append(
