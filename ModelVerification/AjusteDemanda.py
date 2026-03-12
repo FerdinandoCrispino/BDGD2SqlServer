@@ -65,12 +65,17 @@ class AjustaDemanda:
 
             data_avg.set_index('data', inplace=True)
 
+            drop_name = data_avg.pop('name')
+            drop_se = data_avg.pop('se')
+
             #data_avg['name'] = data_avg['name'].astype("string")
             #data_avg['se'] = data_avg['se'].astype("string")
 
             # Resample to 5-second frequency ('5S') and interpolate
-            data_avg = data_avg.resample('5S').interpolate(method='time')
+            data_avg = data_avg.resample('5s').interpolate(method='time')
+            data_avg['name'] = drop_name
             data_avg['name'] = data_avg['name'].ffill()
+            data_avg['se'] = drop_se
             data_avg['se'] = data_avg['se'].ffill()
             data_avg.reset_index(inplace=True)
             return data_avg
@@ -83,6 +88,14 @@ class AjustaDemanda:
         dados = dados.groupby(['data']).apply(lambda g: pd.Series(g['valor'].values)).rename(
             columns=lambda x: 'I%s' % dados['name'][x][-1:]).reset_index()
 
+        if 'IA' not in dados.columns:
+            dados['IA'] = 0
+        if 'IB' not in dados.columns:
+            dados['IB'] = 0
+        if 'IV' not in dados.columns:
+            dados['IV'] = 0
+        if 'IN' not in dados.columns:
+            dados['IN'] = 0
         #filtered_df = dados.loc[dados['name'].str.endswith('IA')]
 
         dados.plot(kind='line', x='data', y=['IA', 'IB', 'IV', 'IN'])
@@ -177,6 +190,7 @@ class AjustaDemanda:
         for name in dss.meters.names:
             dss.text(f"disable energymeter.{name}")
 
+        dss.text('BatchEdit Load.PIP.* status=fixed')   # não é afetado pelo loadmult
         dss.text("set mode = daily")
         dss.text("set tolerance = 0.0001")
         dss.text("set maxcontroliter = 100")
@@ -618,8 +632,8 @@ class AjustaDemanda:
         self.dss = self.__read_dss_file()
 
         # solve ate o patamar definido alterando o loadmult para cada patamar
-        #for number in range(1, patamar + 1):
-        for number in range(patamar, patamar + 1):
+        for number in range(1, patamar + 1):
+        #for number in range(patamar, patamar + 1):
             self.dss.monitors.reset_all()
             self.dss.solution.load_mult = self.listloadmult[number - 1]
             self.dss.solution.solve()  # a cada solve para o proximo patamar, não é necessario set number!
@@ -762,7 +776,7 @@ class AjustaDemanda:
                 # Todo Analisar como selecionar a fase para o ajuste
                 corrente_ref = corrente_medida.loc[corrente_medida['name'].str.endswith(self.ref_phase), 'valor'].values[0]
                 # calcula a porcentagem de aumento ou diminuição das cargas em relação ao definido no DSS.
-                dif_percent = (corrente_ref - self.dss_current.get('B')[0]) / corrente_ref
+                dif_percent = (corrente_ref - self.dss_current.get(self.ref_phase[-1])[0]) / corrente_ref
                 """
                 # fase de referencia será o valor da corrente trifasico
                 corrente_ref = corrente_3f
@@ -833,7 +847,9 @@ class AjustaDemanda:
 
             self.dss.loadshapes.npts = self.pts
             self.dss.loadshapes.min_interval = (24 * 60) / self.pts #10
-            self.dss.loadshapes.p_mult = multiplied_list
+            # não alterar o loadshape das cargas PIP
+            if 'PIP' not in self.dss.loadshapes.name:
+                self.dss.loadshapes.p_mult = multiplied_list
 
             self.dss.loadshapes.next()
 
@@ -866,7 +882,20 @@ class AjustaDemanda:
                            2.61374, 2.6139, 2.542, 2.45918, 2.02509, 2.0288, 1.88041, 2.05506, 1.98977, 1.98575,
                            1.97906, 1.89432, 2.43128, 2.3999, 2.32277, 2.22101, 2.22068, 2.13639, 2.03515, 2.44037,
                            2.32913, 2.21541, 2.21483, 2.11088, 2.36005, 2.36005, 2.2366, 2.23655]
-        # self.listloadmult = result_loadMult
+
+        result_loadMult = [1.78788, 1.72454, 1.69766, 2.72183, 2.65297, 2.66591, 2.55234, 2.62491, 2.61085, 2.71567, 2.64189, 2.50567,
+         2.55986, 2.46539, 2.44878, 2.49909, 2.51478, 2.49235, 2.43228, 2.50241, 2.21821, 2.15553, 2.19676, 2.12334,
+         2.05039, 2.05596, 2.08139, 0.82967, 0.82532, 0.8737, 0.86024, 0.92613, 0.96254, 0.98436, 0.97704, 0.94835,
+         0.94718, 0.98589, 1.0, 0.60509, 0.59163, 0.57325, 0.56592, 0.53653, 0.43029, 0.44316, 0.46553, 0.44559, 0.3587,
+         0.33312, 0.40145, 0.54739, 0.50933, 0.55407, 0.55121, 0.5024, 0.65174, 0.64601, 0.63046, 0.094, 0.11581,
+         0.15641, 0.5631, 0.78957, 0.76291, 0.7444, 0.74637, 0.74985, 0.85001, 0.85208, 0.79372, 0.86477, 0.77562,
+         0.76075, 0.78629, 0.85611, 0.7892, 0.89077, 0.80371, 0.81194, 0.85499, 1.0, 1.07678, 1.10193, 1.09651, 1.14187,
+         1.18026, 1.17616, 1.15665, 1.13913, 1.17837, 1.19748, 1.10011, 1.05636, 1.03134, 1.03659, 1.0, 1.0, 1.0,
+         0.87883, 0.89647, 0.93598, 0.94636, 0.93645, 0.76164, 0.75421, 0.74658, 0.73958, 0.77437, 0.79348, 0.80705,
+         0.75525, 0.7829, 0.81084, 0.82113, 0.83003, 0.8586, 0.85128, 0.85167, 0.85195, 0.84521, 0.8432, 0.82537,
+         0.85572, 0.85273, 0.83056, 0.83707, 0.84303, 0.80987, 0.81434, 0.82064, 0.81174, 0.80473, 0.80021, 0.7803,
+         0.9449, 0.94596, 0.91822, 0.88338, 0.89162, 2.02978, 1.95083, 1.95283, 1.88188]
+        self.listloadmult = result_loadMult
         self.__solve(self.pts)
 
 
@@ -876,15 +905,15 @@ if __name__ == '__main__':
     circuito = 'RAVP1303'
     ref_phase = 'IB'
 
-    #excel_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\BRR1301 - Correntes.xlsx'
-    #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBRR1301\DU_7_Master_391_BRR_RBRR1301.dss'
-    #circuito = 'BRR1301'
-    #ref_phase = 'IB'
+    excel_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\BRR1301 - Correntes.xlsx'
+    dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBRR1301\DU_7_Master_391_BRR_RBRR1301.dss'
+    circuito = 'BRR1301'
+    ref_phase = 'IB'
 
-    #excel_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBOI1302.csv'
-    #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBOI1302\DU_7_Master_391_BOI_RBOI1302.dss'
-    #circuito = 'RBOI1302'
-    #ref_phase = 'IB'
+    excel_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBOI1302.csv'
+    dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBOI1302\DU_7_Master_391_BOI_RBOI1302.dss'
+    circuito = 'RBOI1302'
+    ref_phase = 'IB'
 
     excel_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RMTQ1302.csv'
     dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RMTQ1302\DU_7_Master_391_MTQ_RMTQ1302.dss'
@@ -902,7 +931,7 @@ if __name__ == '__main__':
 
     proc_time_ini = time.time()
 
-    simul = AjustaDemanda(circuit=circuito, ref_phase=ref_phase, dss_file=dss_file, excel_file=excel_file, num_pts=17280)
+    simul = AjustaDemanda(circuit=circuito, ref_phase=ref_phase, dss_file=dss_file, excel_file=excel_file, num_pts=144)
     # simul.list_loads_type()
     #simul.alter_control_elements()
     #exit()
@@ -937,14 +966,38 @@ if __name__ == '__main__':
                        0.96076, 0.958, 0.95355, 0.93289, 0.93198, 0.90971, 1.02361, 1.0, 1.0, 1.0, 1.0, 1.95041,
                        1.88794, 1.89256, 1.82819]
 
-    # simul.update_loadshape(load_multi=result_loadMult)
+    result_loadMult = [1.78788, 1.72454, 1.69766, 2.72183, 2.65297, 2.66591, 2.55234, 2.62491, 2.61085, 2.71567,
+                       2.64189, 2.50567,
+                       2.55986, 2.46539, 2.44878, 2.49909, 2.51478, 2.49235, 2.43228, 2.50241, 2.21821, 2.15553,
+                       2.19676, 2.12334,
+                       2.05039, 2.05596, 2.08139, 0.82967, 0.82532, 0.8737, 0.86024, 0.92613, 0.96254, 0.98436, 0.97704,
+                       0.94835,
+                       0.94718, 0.98589, 1.0, 0.60509, 0.59163, 0.57325, 0.56592, 0.53653, 0.43029, 0.44316, 0.46553,
+                       0.44559, 0.3587,
+                       0.33312, 0.40145, 0.54739, 0.50933, 0.55407, 0.55121, 0.5024, 0.65174, 0.64601, 0.63046, 0.094,
+                       0.11581,
+                       0.15641, 0.5631, 0.78957, 0.76291, 0.7444, 0.74637, 0.74985, 0.85001, 0.85208, 0.79372, 0.86477,
+                       0.77562,
+                       0.76075, 0.78629, 0.85611, 0.7892, 0.89077, 0.80371, 0.81194, 0.85499, 1.0, 1.07678, 1.10193,
+                       1.09651, 1.14187,
+                       1.18026, 1.17616, 1.15665, 1.13913, 1.17837, 1.19748, 1.10011, 1.05636, 1.03134, 1.03659, 1.0,
+                       1.0, 1.0,
+                       0.87883, 0.89647, 0.93598, 0.94636, 0.93645, 0.76164, 0.75421, 0.74658, 0.73958, 0.77437,
+                       0.79348, 0.80705,
+                       0.75525, 0.7829, 0.81084, 0.82113, 0.83003, 0.8586, 0.85128, 0.85167, 0.85195, 0.84521, 0.8432,
+                       0.82537,
+                       0.85572, 0.85273, 0.83056, 0.83707, 0.84303, 0.80987, 0.81434, 0.82064, 0.81174, 0.80473,
+                       0.80021, 0.7803,
+                       0.9449, 0.94596, 0.91822, 0.88338, 0.89162, 2.02978, 1.95083, 1.95283, 1.88188]
+
+    simul.update_loadshape(load_multi=result_loadMult)
 
     # load_class = simul.transformer_load_phases()
     # simul.run_ajust_demanda_by_phases()
+    simul.plot_data(isblock=True)
 
     simul.run_ajuste()
 
-    simul.plot_data(isblock=False)
     simul.plot_data_result(isblock=True)
 
     print(simul.listloadmult)
