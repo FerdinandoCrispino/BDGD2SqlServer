@@ -57,6 +57,7 @@ class AjustaDemanda:
                                           as_index=False)['valor'].agg(valor=lambda x: x.replace(0, np.nan).mean())
             data_avg = data_avg.rename(columns={"mean": "valor"})
             data_avg['data'] = pd.to_datetime(data_excel['data'].dt.strftime('%Y-%m-%d %H:%M'))
+            # filtra pela corrente de referencia
             data_avg = data_avg.loc[data_avg['name'].str.endswith(ref_phase)]
 
             df_new = data_avg.loc[(data_avg['data'].dt.hour == 0) & (data_avg['data'].dt.minute == 0) & (data_avg['data'].dt.second == 0)].copy(deep=True)
@@ -904,7 +905,7 @@ if __name__ == '__main__':
     dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RAVP1303\DU_7_Master_391_AVP_RAVP1303.dss'
     circuito = 'RAVP1303'
     ref_phase = 'IB'
-
+    """
     excel_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\BRR1301 - Correntes.xlsx'
     dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBRR1301\DU_7_Master_391_BRR_RBRR1301.dss'
     circuito = 'BRR1301'
@@ -924,9 +925,9 @@ if __name__ == '__main__':
     #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RMTQ1306\DU_7_Master_391_MTQ_RMTQ1306.dss'
     #circuito = 'RMTQ1306'
     #ref_phase = 'IB'
+    """
 
-
-    logging.basicConfig(filename=f'{circuito}_AjusteDemandda.log', level=logging.INFO,
+    logging.basicConfig(filename=f'{circuito}_AjusteDemanda.log', level=logging.INFO,
                         format='%(asctime)s - %(levelname)s - %(message)s', datefmt='%Y-%m-%d,%H:%M:%S')
 
     proc_time_ini = time.time()
@@ -990,7 +991,7 @@ if __name__ == '__main__':
                        0.80021, 0.7803,
                        0.9449, 0.94596, 0.91822, 0.88338, 0.89162, 2.02978, 1.95083, 1.95283, 1.88188]
 
-    simul.update_loadshape(load_multi=result_loadMult)
+    #simul.update_loadshape(load_multi=result_loadMult)
 
     # load_class = simul.transformer_load_phases()
     # simul.run_ajust_demanda_by_phases()

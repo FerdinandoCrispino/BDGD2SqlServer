@@ -1004,6 +1004,27 @@ def ligacao_gerador(strCodFas, tip_trafo=None):
         return "Delta"
 
 
+def get_trafo_from_load(load, circuit, type, database):
+    config = load_config(database)
+    engine = create_connection(config)
+
+    query = f''' Select UNI_TR_D FROM sde.{type} where  CTMT = '{circuit}' and COD_ID = '{load}' '''
+    with engine.connect() as conn:
+        tr_load = pd.read_sql_query(query, conn)
+        # kv_base = conn.execute(query)
+        if tr_load.empty:
+            return
+        else:
+            tr_name = tr_load.values[0][0]
+            query = f''' Select MRT, TIP_TRAFO, BANC, TEN_LIN_SE, eq.LIG_FAS_S, eq.LIG_FAS_T 
+                    FROM sde.UNTRMT as tr 
+                    inner join  sde.EQTRMT eq on eq.UNI_TR_MT = tr.cod_id 
+                    Where tr.cod_id = '{tr_name}' '''
+            tr = pd.read_sql_query(query, conn)
+
+        return tr_name, tr
+
+
 def get_coord_load(dist, load):
     config = load_config(dist)
     engine = create_connection(config)

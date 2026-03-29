@@ -956,7 +956,7 @@ class ElectricDataPort:
                 INNER JOIN sde.ctmt C
                     on A.CTMT = C.COD_ID
                 INNER JOIN sde.ssdmt S
-                    on A.PAC_1 = S.PAC_1
+                    on A.PAC_1 in (S.PAC_1, S.PAC_2)
                 INNER JOIN [GEO_SIGR_DDAD_M10].sde.TPOTRTV B
                     ON A.POT_NOM = B.COD_ID
                 INNER JOIN [GEO_SIGR_DDAD_M10].sde.TTEN V
@@ -1314,7 +1314,7 @@ def main():
     # set multiprocessing
     run_multiprocess = False
 
-    mes_ini = 7  # [1 12] mes do ano de referência para os dados de cargas e geração
+    mes_ini = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
     tipo_de_dias = ['DU']  # tipo de dia para referência para as curvas típicas de carga e geração
 
@@ -1383,7 +1383,7 @@ def main():
 
         # list_sub = ['ACR', 'CCO', 'CRU', 'ICC', 'JPR', 'JSR', 'PLH']
         list_sub = ['BRR', 'AVP', 'MTQ', 'GER', 'CAC', 'BOI']
-        list_sub = ['GER']
+        list_sub = ['BOI']
 
 
         print(f'Ajusting CodBNC....')

@@ -53,7 +53,7 @@
         </select><br>
 
         <div class="slidecontainer">
-          <input type="range" min="1" max="24" value="1" class="slider" id="myRange">
+          <input type="range" min="1" max="144" value="1" class="slider" id="myRange">
             <p>Hour: <span id="hour"></span></p>
         </div>
         <div>
@@ -296,7 +296,7 @@
 
             var list_layers = ["segmentos", "SUB", "UNTRMT", "UNSEMT", "UNCRMT", "UNREMT", "UGMT", "UGBT", "UCBT",
                                "UCMT", "SIN-Lines", "SIN-Subs", "SIN-EOL", "SIN-UFV", "SIN-UHE", "SIN-CGH", "SIN-PCH",
-                               "SIN-UTE_FOSSIL", "SIN-UTE_BIOMASS", "AT_SSD", "GERADOR_AT"]
+                               "SIN-UTE_FOSSIL", "SIN-UTE_BIOMASS", "AT_SSD", "GERADOR_AT", "segmentosBT" ]
             if (list_layers.includes(nome_camada)){
                 selected = f;
                 return true;
@@ -312,6 +312,54 @@
                     const h = selected.get("nome");
                     popup1.setInfo('SE ' + h );
                     //console.log('===================' + h)
+                    break;
+                case 'segmentosBT':
+                    let b1 = selected.get("bus1")
+                    if (b1) {
+                        b1 = (selected.get("bus1")).toLocaleString(
+                              undefined, // leave undefined to use the visitor's browser
+                                         // locale or a string like 'en-US' to override it.
+                              { minimumFractionDigits: 5 }
+                            );
+                        };
+                    let b2 = selected.get("bus2")
+                    if (b2) {
+                        b2 = (selected.get("bus2")).toLocaleString(
+                              undefined, // leave undefined to use the visitor's browser
+                                         // locale or a string like 'en-US' to override it.
+                              { minimumFractionDigits: 5 }
+                            );
+                        };
+                    let b3 = selected.get("bus3")
+                    if (b3) {
+                        b3 = (selected.get("bus3")).toLocaleString(
+                              undefined, // leave undefined to use the visitor's browser
+                                         // locale or a string like 'en-US' to override it.
+                              { minimumFractionDigits: 5 }
+                            );
+                        };
+                    let b4 = (selected.get("ctmt")).toLocaleString(
+                          undefined, // leave undefined to use the visitor's browser
+                                     // locale or a string like 'en-US' to override it.
+                          { minimumFractionDigits: 5 }
+                     );
+                    const b5 = selected.get("pac")
+
+                    if (b1 && b2 && 33) {
+                        popup1.setInfo(b4 + '<br>Time: ' + hora + '<br>Pac: '+ b5 + '<br>Va: '+ b1 +' pu <br> Vb: ' + b2 + ' pu <br> Vc: ' + b3 + ' pu' );
+                    } else if (b1 && b2 && !b3) {
+                        popup1.setInfo(b4 + '<br>Time: ' + hora + '<br>Pac: '+ b5 + '<br>Va: '+ b1 +' pu <br> Vb: ' + b2 + ' pu');
+                    } else if (!b1 && b2 && b3) {
+                        popup1.setInfo(b4 + '<br>Time: ' + hora + '<br>Pac: '+ b5 + '<br>Vb: '+ b2 +' pu <br> Vc: ' + b3 + ' pu');
+                    } else if (h1 && !h2 && h3) {
+                        popup1.setInfo(b4 + '<br>Time: ' + hora + '<br>Pac: '+ b5 + '<br>Va: '+ b1 +' pu <br> Vc: ' + b3 + ' pu');
+                    } else if (h1) {
+                        popup1.setInfo(b4 + '<br>Time: ' + hora + '<br>Pac: '+ b5 + '<br>Va: '+ b1 +' pu');
+                    } else if (h2) {
+                        popup1.setInfo(b4 + '<br>Time: ' + hora + '<br>Pac: '+ b5 + '<br>Vb: '+ b2 +' pu');
+                    } else if (h3) {
+                        popup1.setInfo(b4 + '<br>Time: ' + hora + '<br>Pac: '+ b5 + '<br>Vc: '+ b3 +' pu');
+                    }
                     break;
                 case 'segmentos':
                     const h5 = selected.get("pac")
@@ -383,12 +431,13 @@
                                    ' kV <br> V<sub>s</sub>: ' + t2 + ' kV <br> Type: ' + t6 );
                     break;
                 case 'UNSEMT':
+                    const s0 = selected.get("cod_id");
                     const s1 = selected.get("ctmt");
                     const s2 = selected.get("ope");
                     const s3 = selected.get("cor_nom");
                     const s4 = selected.get("cap_elo");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo('CTMT:' + s1 + '<br> Switch: ' + s2 + '<br> Cor_nom: ' + s3 +
+                    popup1.setInfo('COD:' + s0 + '<br> CTMT:' + s1 + '<br> Switch: ' + s2 + '<br> Cor_nom: ' + s3 +
                                    ' A <br> Cap_Elo: ' + s4);
                     break;
                 case 'UGMT':
@@ -1621,7 +1670,7 @@
                         image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
                             color: '#ff8c00',
                             crossOrigin: 'anonymous',
-                            anchor: [1.0, 1.0],
+                            anchor: [-0.5, 0.5],
                             scale: 0.04,
                             src: 'static/icon/cap1.png'
                         }))
@@ -1691,7 +1740,7 @@
                         image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
                             color: '##ff8c00',
                             crossOrigin: 'anonymous',
-                            anchor: [1.0, 1.0],
+                            anchor: [0.5, 0.5],
                             scale: 0.11,
                             src: 'static/icon/regu.svg'
                         }))
