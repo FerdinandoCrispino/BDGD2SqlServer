@@ -1048,7 +1048,7 @@ def create_geojson_from_points_UCMT(points_ucmt):
 
 def get_coords_unremt_from_db(sub, ctmt):
     if ctmt == "":
-        query = f'''Select POINT_X, POINT_Y, CTMT, SUB, BANC, p.DESCR, c.TIP_REGU, FAS_CON, Format(TEN_REG, 'N', 'en-us') as TEN_REG
+        query = f'''Select c.COD_ID, POINT_X, POINT_Y, CTMT, SUB, BANC, p.DESCR, c.TIP_REGU, FAS_CON, Format(TEN_REG, 'N', 'en-us') as TEN_REG
                     from sde.UNREMT c
                     INNER JOIN SDE.EQRE AS e 
                             ON (c.PAC_1 = e.PAC_1 OR c.PAC_2 = e.PAC_2 OR c.PAC_1 = e.PAC_2 OR c.PAC_2 = e.PAC_1)
@@ -1057,7 +1057,7 @@ def get_coords_unremt_from_db(sub, ctmt):
                 ;   
                 '''
     else:
-        query = f'''Select POINT_X, POINT_Y, CTMT, SUB, BANC, p.DESCR, c.TIP_REGU, FAS_CON, Format(TEN_REG, 'N', 'en-us') as TEN_REG
+        query = f'''Select c.COD_ID, POINT_X, POINT_Y, CTMT, SUB, BANC, p.DESCR, c.TIP_REGU, FAS_CON, Format(TEN_REG, 'N', 'en-us') as TEN_REG
                     from sde.UNREMT c
                     INNER JOIN SDE.EQRE AS e 
                             ON (c.PAC_1 = e.PAC_1 OR c.PAC_2 = e.PAC_2 OR c.PAC_1 = e.PAC_2 OR c.PAC_2 = e.PAC_1)
@@ -1067,7 +1067,7 @@ def get_coords_unremt_from_db(sub, ctmt):
                 '''
     rows = return_query_as_dataframe(query, engine)
     rows["nome"] = "UNREMT"
-    points = [((row["POINT_X"], row["POINT_Y"]), rows["CTMT"], rows["nome"], rows["SUB"], rows["BANC"],
+    points = [((row["POINT_X"], row["POINT_Y"]), rows["COD_ID"], rows["CTMT"], rows["nome"], rows["SUB"], rows["BANC"],
                rows["FAS_CON"], rows["DESCR"], rows["TIP_REGU"], rows["TEN_REG"]) for index, row in rows.iterrows()]
 
     return points
@@ -1079,12 +1079,12 @@ def create_geojson_from_points_unremt(points_unremt):
     points = []
     circ = []
 
-    for pt, ctmt, nome, sub, banc, fas_con, descr, tip_reg, ten_reg in points_unremt:
+    for pt, cod_id, ctmt, nome, sub, banc, fas_con, descr, tip_reg, ten_reg in points_unremt:
         points.append(Point([pt]))
         circ.append(ctmt)
 
     # Criar um GeoDataFrame com as geometrias e dados extras
-    gdf = gpd.GeoDataFrame({'geometry': points, 'ctmt': ctmt, 'tipo': nome, 'sub': sub, 'banc': banc,
+    gdf = gpd.GeoDataFrame({'geometry': points, 'cod_id': cod_id, 'ctmt': ctmt, 'tipo': nome, 'sub': sub, 'banc': banc,
                             'fas_con': fas_con, 'tip_regu': descr, 'ten_reg': ten_reg}, crs="EPSG:4326")
     # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
 
@@ -1095,14 +1095,14 @@ def create_geojson_from_points_unremt(points_unremt):
 
 def get_coords_uncrmt_from_db(sub, ctmt):
     if ctmt == "":
-        query = f'''Select POINT_X, POINT_Y, CTMT, SUB, POT_NOM, BANC, p.POT
+        query = f'''Select C.COD_ID, POINT_X, POINT_Y, CTMT, SUB, POT_NOM, BANC, p.POT
                     from sde.UNCRMT c
                     inner join GEO_SIGR_DDAD_M10.SDE.TPOTRTV p on p.COD_ID = c.POT_NOM 
                     where SUB= '{sub}' 
                 ;   
                 '''
     else:
-        query = f'''Select POINT_X, POINT_Y, CTMT, SUB, POT_NOM, BANC, p.POT
+        query = f'''Select C.COD_ID, POINT_X, POINT_Y, CTMT, SUB, POT_NOM, BANC, p.POT
                     from sde.UNCRMT c
                     inner join GEO_SIGR_DDAD_M10.SDE.TPOTRTV p on p.COD_ID = c.POT_NOM 
                     where SUB= '{sub}' and ctmt = '{ctmt}'
@@ -1110,7 +1110,7 @@ def get_coords_uncrmt_from_db(sub, ctmt):
                 '''
     rows = return_query_as_dataframe(query, engine)
     rows["nome"] = "UNCRMT"
-    points = [((row["POINT_X"], row["POINT_Y"]), rows["CTMT"], rows["nome"], rows["SUB"], rows["BANC"],
+    points = [((row["POINT_X"], row["POINT_Y"]), rows["COD_ID"], rows["CTMT"], rows["nome"], rows["SUB"], rows["BANC"],
                rows["POT"]) for index, row in rows.iterrows()]
 
     return points
@@ -1122,12 +1122,12 @@ def create_geojson_from_points_uncrmt(points_uncrmt):
     points = []
     circ = []
 
-    for pt, ctmt, nome, sub, banc, pot in points_uncrmt:
+    for pt, cod_id, ctmt, nome, sub, banc, pot in points_uncrmt:
         points.append(Point([pt]))
         circ.append(ctmt)
 
     # Criar um GeoDataFrame com as geometrias e dados extras
-    gdf = gpd.GeoDataFrame({'geometry': points, 'ctmt': ctmt, 'tipo': nome, 'sub': sub, 'banc': banc,
+    gdf = gpd.GeoDataFrame({'geometry': points, 'cod_id': cod_id, 'ctmt': ctmt, 'tipo': nome, 'sub': sub, 'banc': banc,
                             'pot': pot}, crs="EPSG:4326")
     # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
 

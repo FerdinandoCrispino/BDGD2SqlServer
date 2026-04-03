@@ -10,10 +10,11 @@ matplotlib.use('TKAgg')
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import json
-from Tools.tools import get_trafo_from_load, nome_banco, nos
+from Tools.tools import get_trafo_from_load, get_demand_from_load, nome_banco, nos
 from dataclasses import dataclass, asdict
 from typing import Optional, List
 
+# config yaml - acess to database
 database = '391_2024'
 
 
@@ -24,6 +25,16 @@ class DRP:
     num_leituras: int = 0
     value: float = 0
     bus: Optional[str] = ""
+    drp_l: float = 0.03  # limites para os indicadores individuais DRP
+    tusd: float = 0.45667
+    demanda: float = 0.1
+    drp_comp: float = 0.0
+
+    def __post_init__(self):
+        k = 0
+        if self.value > self.drp_l:
+            k = 3
+        self.drp_comp = ((self.value - self.drp_l) / 100) * k * self.tusd * self.demanda
 
 
 @dataclass
@@ -33,20 +44,31 @@ class DRC:
     num_leituras: int = 0
     value: float = 0
     bus: Optional[str] = ""
+    drc_l: float = 0.005  # limites para os indicadores individuais DRC
+    tusd: float = 0.45667
+    demanda: float = 0.1    # kWh
+    drc_comp: float = 0.0
 
+    def __post_init__(self):
+        k = 0
+        if self.value > self.drc_l:
+            if self.tipo == 'bt':
+                k = 7
+            else:
+                k = 3
+        self.drc_comp = ((self.value - self.drc_l) / 100) * k * self.tusd * self.demanda
 
 @dataclass
 class Indicadores:
     drc: List[DRC]
     drp: List[DRP]
-    data_ref: str  # mês de referencia do indicador
-    nl: int  # total de unidades consumidoras objeto de medição;
-    nc: int = 0  # total de unidades consumidoras com indicador individual DRC diferente de 0 (zero);
-    icc: Optional[float] = 0  # Índice de Unidades Consumidoras com Tensão Crítica
-    drp_e: float = 0  # Duração Relativa da Transgressão de Tensão Precária Equivalente
-    drc_e: float = 0  # Duração Relativa da Transgressão de Tensão Crítica Equivalente
-    drp_l: float = 0.03  # limites para os indicadores individuais DRP
-    drc_l: float = 0.005  # limites para os indicadores individuais DRC
+    data_ref: str               # mês de referencia do indicador
+    circuito: str
+    nl: int                     # total de unidades consumidoras objeto de medição;
+    nc: int = 0                 # total de unidades consumidoras com indicador individual DRC diferente de 0 (zero);
+    icc: Optional[float] = 0    # Índice de Unidades Consumidoras com Tensão Crítica
+    drp_e: float = 0            # Duração Relativa da Transgressão de Tensão Precária Equivalente
+    drc_e: float = 0            # Duração Relativa da Transgressão de Tensão Crítica Equivalente
 
     def __post_init__(self):
         self.nc = len(self.drc)
@@ -139,6 +161,8 @@ class Condition:
         self.mt_overvoltage_prec_2 = pd.DataFrame()
         self.mt_overvoltage_crit_2 = pd.DataFrame()
 
+        self._transformer_kv_map = None
+
         self.dss = self.__read_dss_file()
 
         # Check kv_base
@@ -170,72 +194,79 @@ class Condition:
         :return:
         """
         # identifica a tensão de linha e de fase para cada transformador
-        self.dss.transformers.first()
-        for _ in range(self.dss.transformers.count):
-            self.dss.circuit.set_active_element(f"transformer.{self.dss.transformers.name}")
-            tr_ph = self.dss.cktelement.num_phases
+        dss = self.dss
+        tr_map = {}
+        dss.transformers.first()
+        vln = vll = None
+        for _ in range(dss.transformers.count):
+            dss.circuit.set_active_element(f"transformer.{dss.transformers.name}")
+            tr_ph = dss.cktelement.num_phases
             if tr_ph == 3:
-                self.dss.transformers.wdg = 2
-                vll = self.dss.transformers.kv
-                vln = self.dss.transformers.kv / np.sqrt(3)
+                dss.transformers.wdg = 2
+                vll = dss.transformers.kv
+                vln = dss.transformers.kv / np.sqrt(3)
             elif tr_ph == 1:
-                num_wdg = self.dss.transformers.num_windings
+                num_wdg = dss.transformers.num_windings
                 if num_wdg == 2:
-                    self.dss.transformers.wdg = 2
-                    if self.dss.transformers.is_delta:
-                        vll = self.dss.transformers.kv
+                    dss.transformers.wdg = 2
+                    if dss.transformers.is_delta:
+                        vll = dss.transformers.kv
                         vln = vll / 2
                     else:
-                        vln = self.dss.transformers.kv
+                        vln = dss.transformers.kv
                         vll = vln * 2
                 elif num_wdg == 3:
-                    self.dss.transformers.wdg = 2
-                    vln = self.dss.transformers.kv
+                    dss.transformers.wdg = 2
+                    vln = dss.transformers.kv
                     vll = 2 * vln
 
-            bus_name = self.dss.cktelement.bus_names
-            element_name = self.dss.cktelement.name
-            self.dss.circuit.set_active_bus(bus_name[1])
-            bus_name1 = self.dss.bus.name
-            kv_base = self.dss.bus.kv_base
+            tr_map[dss.transformers.name] = (round(vll, 3), round(vln, 3))
+
+            bus_name = dss.cktelement.bus_names
+            element_name = dss.cktelement.name
+            dss.circuit.set_active_bus(bus_name[1])
+            bus_name1 = dss.bus.name
+            kv_base = dss.bus.kv_base
             # Verifica se ha diferença entre o calculado e o descrito pelo opnDSS
             if round(vln, 3) != round(kv_base, 3):
                 print(f'{element_name}: {bus_name1}: {kv_base}: {vln}')
                 # todo testar para ver se setar a tensão de linha e a tensão de fase fazem diferença !!!!
-                self.dss.text(f'SetkVBase Bus={bus_name1} kVLL={vll}')
-                self.dss.text(f'SetkVBase Bus={bus_name1} kVLN={vln}')
-                print(f'Valor alterado: {self.dss.cktelement.bus_names[1]} - kvbase:{self.dss.bus.kv_base}')
+                dss.text(f'SetkVBase Bus={bus_name1} kVLL={vll}')
+                dss.text(f'SetkVBase Bus={bus_name1} kVLN={vln}')
+                print(f'Valor alterado: {dss.cktelement.bus_names[1]} - kvbase:{dss.bus.kv_base}')
 
                 # Localozar o transformador que foi alterado o valor de kvbase atraves da topologia
-                self.dss.topology.first()
+                dss.topology.first()
                 while True:
-                    indx = self.dss.topology.active_branch
-                    indx_level = self.dss.topology.active_level
-                    branch_name = self.dss.topology.branch_name
+                    indx = dss.topology.active_branch
+                    indx_level = dss.topology.active_level
+                    branch_name = dss.topology.branch_name
                     if branch_name == element_name:
-                        self.dss.circuit.set_active_element(element_name)
-                        self.dss.circuit.set_active_bus(self.dss.cktelement.bus_names[1])
+                        dss.circuit.set_active_element(element_name)
+                        dss.circuit.set_active_bus(dss.cktelement.bus_names[1])
                         # encontrou o transformador que foi alterado com setkvbase
                         break
-                    index_branch = self.dss.topology.forward_branch()
+                    index_branch = dss.topology.forward_branch()
 
                 # busca os ramais conectados neste transformador
                 while True:
-                    index_branch_2 = self.dss.topology.next()
-                    indx_level_2 = self.dss.topology.active_level
-                    branch_name_2 = self.dss.topology.branch_name
-                    if not self.dss.topology.branch_name.startswith(('Line.sbt', 'Line.rbt')):
+                    index_branch_2 = dss.topology.next()
+                    indx_level_2 = dss.topology.active_level
+                    branch_name_2 = dss.topology.branch_name
+                    if not dss.topology.branch_name.startswith(('Line.sbt', 'Line.rbt')):
                         print('\n Proximo transformador !!! \n')
                         break
                     # sekvbase aqui
-                    self.dss.circuit.set_active_element(branch_name_2)
-                    self.dss.circuit.set_active_bus(self.dss.cktelement.bus_names[1])
-                    kv_base_2 = self.dss.bus.kv_base
-                    print(f'{branch_name_2}: {self.dss.cktelement.bus_names}: {kv_base_2}')
-                    self.dss.text(f'SetkVBase Bus={bus_name1} kVLL={vll}')
-                    self.dss.text(f'SetkVBase Bus={bus_name1} kVLN={vln}')
-                    print(f'Valor alterado: {self.dss.cktelement.bus_names[1]} - kvbase:{self.dss.bus.kv_base}')
-            self.dss.transformers.next()
+                    dss.circuit.set_active_element(branch_name_2)
+                    dss.circuit.set_active_bus(dss.cktelement.bus_names[1])
+                    kv_base_2 = dss.bus.kv_base
+                    print(f'{branch_name_2}: {dss.cktelement.bus_names}: {kv_base_2}')
+                    dss.text(f'SetkVBase Bus={bus_name1} kVLL={vll}')
+                    dss.text(f'SetkVBase Bus={bus_name1} kVLN={vln}')
+                    print(f'Valor alterado: {dss.cktelement.bus_names[1]} - kvbase:{dss.bus.kv_base}')
+            dss.transformers.next()
+
+        self._transformer_kv_map = tr_map
 
     def __indic_DRP_DRC(self):
         """
@@ -248,6 +279,12 @@ class Condition:
         nun_leituras = self.total_patamar    # int(1008 / 7)  # amostras 10 min, 7 dias = 168 horas
         drc_list = []
         drp_list = []
+        demand_load_bt = get_demand_from_load(self.circuit, 'UCBT', database)
+        demand_load_bt['cod_id'] = "bt_" + demand_load_bt['cod_id'] + "_m1"
+        demand_load_mt = get_demand_from_load(self.circuit, 'UCMT', database)
+        demand_load_mt['cod_id'] = "mt_" + demand_load_mt['cod_id'] + "_m1"
+
+        #bus_carga.merge(demand_load_bt[['cod_id', 'avg_demand']], left_on='load', right_on='cod_id', how='left')
 
         # load_violation = self.all_load_violation.loc[self.all_load_violation['classe'] != 'adeq'].copy()
         load_violation = self.all_load_violation.loc[
@@ -272,24 +309,27 @@ class Condition:
 
         for (load, tipo), row in agg.groupby(level=[0, 1]):
             row = row.iloc[0]
-
+            demanda = 0
             if tipo == 'bt':
                 nlp = row['bt_undervoltage_prec'] + row['bt_overvoltage_prec']
                 nlc = row['bt_undervoltage_crit'] + row['bt_overvoltage_crit']
+                demanda = demand_load_bt.loc[demand_load_bt['cod_id'] == load, ['avg_demand']].values[0][0]
             else:
                 nlp = row['mt_undervoltage_prec'] + row['mt_overvoltage_prec']
                 nlc = row['mt_undervoltage_crit'] + row['mt_overvoltage_crit']
+                demanda = demand_load_mt.loc[demand_load_mt['cod_id'] == load, ['avg_demand']].values[0][0]
 
             if nlp > 0:
-                drp_list.append(DRP(load=load, tipo=tipo, value=(nlp / nun_leituras) * 100))
+                drp_list.append(DRP(load=load, tipo=tipo, demanda=demanda, num_leituras=nun_leituras, value=(nlp / nun_leituras) * 100))
 
             if nlc > 0:
-                drc_list.append(DRC(load=load, tipo=tipo, value=(nlc / nun_leituras) * 100))
+                drc_list.append(DRC(load=load, tipo=tipo, num_leituras=nun_leituras, value=(nlc / nun_leituras) * 100))
 
         indicadores = Indicadores(
             drc=drc_list,
             drp=drp_list,
             data_ref=indic_data_ref,
+            circuito=self.circuit,
             #nl=agg.index.get_level_values(0).nunique()
             nl=self.all_load_violation['load'].unique().shape[0]
         )
@@ -337,10 +377,10 @@ class Condition:
                 drc = DRC(load=load, tipo="bt", value=((nlc_bt / nun_leituras) * 100))
                 drc_list.append(drc)
             if nlp_mt > 0:
-                drp = DRP(load=load, tipo="mt", value=((nlp_mt / nun_leituras) * 100))
+                drp = DRP(load=load, tipo="mt", num_leituras=nun_leituras, value=((nlp_mt / nun_leituras) * 100))
                 drp_list.append(drp)
             if nlc_mt > 0:
-                drc = DRC(load=load, tipo="mt", value=((nlc_mt / nun_leituras) * 100))
+                drc = DRC(load=load, tipo="mt", num_leituras=nun_leituras, value=((nlc_mt / nun_leituras) * 100))
                 drc_list.append(drc)
 
         indicadores = Indicadores(drc=drc_list, drp=drp_list, data_ref=indic_data_ref, nl=len(loads))
@@ -442,7 +482,7 @@ class Condition:
                     drc = DRC(load=load, tipo="mt", bus=bus_name, value=((nlc / nun_leituras) * 100))
                     drc_list.append(drc)
 
-        indicadores = Indicadores(drc=drc_list, drp=drp_list, data_ref=indic_data_ref, nl=len(bus_carga))
+        indicadores = Indicadores(drc=drc_list, drp=drp_list, data_ref=indic_data_ref, circuito=self.circuit, nl=len(bus_carga))
 
         p_dict = asdict(indicadores)
 
@@ -493,8 +533,6 @@ class Condition:
         self.all_load_violation['classe'] = np.select(conditions, choices, default='adeq')
         self.all_load_violation.to_csv(rf'C:\pastaD\TSEA\Analises\base_case\{circuito}_list_all_load_classe.csv')
 
-
-
     def __first_element(self, dss):
         """ Retorna o primeiro bus do circuito
             Navega pela topologia da rede de um bus qualquer ate o inicio do circuito
@@ -507,6 +545,28 @@ class Condition:
                 dss.topology.forward_branch()  # avançar para obter o primeiro elemento
                 # print(self._dss.topology.branch_name)
                 return dss.topology.branch_name
+
+    def __get_transformer_from_load(self, load):
+        """
+
+        :param load:
+        :return:
+        """
+        table_load = ''
+        vln = vll = 0
+        load_name = load[3:-3]
+        if load.startswith('pip'):
+            load_name = load[4:-3]
+            table_load = 'PIP'
+        elif load.startswith('bt'):
+            load_name = load[3:-3]
+            table_load = 'UCBT'
+        elif load.startswith('mt'):
+            return self.dss.circuit.name
+        else:
+            print("Erro tipo de carga desconhecida!!!")
+        tr_name, tr = get_trafo_from_load(load_name, circuito, table_load, database)
+        return tr_name
 
     def __get_transformer_kv_base(self, load, node):
         """
@@ -609,16 +669,32 @@ class Condition:
         load_bus_list = []
         loads = self.dss.loads.names
         loads_filter = [name for name in loads if not name[:3] == 'pip']
+        loads_filter_m1 = [name for name in loads_filter if name.endswith('m1')]
 
         data = []
         append = data.append
+
+        tr_map = self._transformer_kv_map
+        tr_map[f'trf_{self.dss.circuit.name.lower()}a'] = [self.dss.vsources.base_kv, self.dss.vsources.base_kv/np.sqrt(3)]
+        tr_cache = {}
+
         print(f"Obtendo as tensões das cargas a partir das tensões dos seus transformadores...")
-        for load in loads_filter:
+        for load in loads_filter_m1:
             # self.dss.circuit.set_active_element(f'Load.{load}')
             self.dss.loads.name = load  # ativa diretamente o load
             elem = self.dss.cktelement
-            tr_vll, tr_vln = self.__get_transformer_kv_base(load, elem.node_order)
-            print(f'{load}: Vll:{tr_vll}  vln:{tr_vln}')
+            tr_key = tr_cache.get(load)
+            if tr_key is not None:
+                tr_vll, tr_vln = tr_map(tr_key, (None, None))
+            else:
+                tr_name = self.__get_transformer_from_load(load)
+                tr_name = f'trf_{tr_name}a'
+                if tr_name:
+                    tr_cache[load] = tr_name.lower()
+                    tr_vll, tr_vln = tr_map.get(tr_name.lower(), (None, None))
+
+            #tr_vll, tr_vln = self.__get_transformer_kv_base(load, elem.node_order)
+            #print(f'{load}: Vll:{tr_vll}  vln:{tr_vln}')
             append((
                 elem.bus_names[0].split('.', 1)[0],
                 elem.node_order,
@@ -648,6 +724,7 @@ class Condition:
         #    dss.text(f"disable energymeter.{name}")
 
         dss.text("set mode = daily")
+        dss.text("set controlmode = time")   # Todo avaliar resultado para Static
         dss.text("set tolerance = 0.0001")
         dss.text("set maxcontroliter = 100")
         dss.text("set maxiterations = 100")
@@ -675,6 +752,7 @@ class Condition:
 
         # load and bus
         self.load_bus = self.__get_load_bus()
+
         # Export the DataFrame to an Excel
         self.load_bus.to_excel(rf'C:\pastaD\TSEA\Analises\base_case\{circuito}_load_bus.xlsx')
 
@@ -686,7 +764,7 @@ class Condition:
                 self.total_loads_bt += 1
             if 'mt' in load:
                 self.total_loads_mt += 1
-        print(f'Total loads bt:{self.total_loads_bt} Total loads_mt:{self.total_loads_mt}')
+        print(f'Circuito: {self.circuit} - Total loads bt:{self.total_loads_bt} Total loads_mt:{self.total_loads_mt}')
 
     def __solve_circuit(self):
         total_number = self.total_patamar
@@ -700,8 +778,18 @@ class Condition:
             status = self.dss.solution.converged
             if status == 0:
                 print(f'OpenDSS: File {self.dss_file} not solved to time {number}!')
-                # return False
-                continue
+                # TODO Alterar potencia e tentar a convergencia novamente.
+                # executar o mesmo patamar alterando levemente a potencia
+                self.dss.text(f"set number = {number}")
+                self.dss.text(f"set loadmult=1.01")
+                self.dss.solution.solve()
+                status = self.dss.solution.converged
+                if status == 0:
+                    print(f'OpenDSS: File {self.dss_file} alter loadMult 1.01 and not solved to time {number}!')
+                    # return False
+                    continue
+                else:
+                    print(f'OpenDSS: File {self.dss_file} alter loadMult 1.01 and solved to time {number}!')
 
             all_v_mag = self.dss.circuit.buses_vmag_pu  # Tensões de fase
             all_bus_name = self.dss.circuit.nodes_names
@@ -1128,8 +1216,8 @@ if __name__ == '__main__':
 
     # dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RAVP1303\output\master.dss'
     # dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RAVP1303\DU_7_Master_391_AVP_RAVP1303.dss'
-    dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RAVP1303\DU_7_Master_391_AVP_RAVP1303_144.dss'
-    circuito = 'RAVP1303'
+    #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RAVP1303\DU_7_Master_391_AVP_RAVP1303_144.dss'
+    #circuito = 'RAVP1303'
 
     #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBOI1302\output\master.dss'
     dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBOI1302\DU_7_Master_391_BOI_RBOI1302_144.dss'
@@ -1139,17 +1227,18 @@ if __name__ == '__main__':
 
     # dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBRR1301\output\master.dss'
     # dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBRR1301\DU_7_Master_391_BRR_RBRR1301.dss'
-    # circuito = 'RBRR1301'
+    dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBRR1301\DU_7_Master_391_BRR_RBRR1301_144.dss'
+    circuito = 'RBRR1301'
 
     # dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RMTQ1302\output\master.dss'
-    dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RMTQ1302\DU_7_Master_391_MTQ_RMTQ1302_144.dss'
-    circuito = 'RMTQ1302'
+    #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RMTQ1302\DU_7_Master_391_MTQ_RMTQ1302_144.dss'
+    #circuito = 'RMTQ1302'
 
     # dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RMTQ1306\output\master.dss'
     # circuito = 'RMTQ1306'
 
-    # dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\Ajuste_Modelo_de_carga\RBOI1302\output\Master.dss'
-    # circuito = 'RBOI1302'
+    #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\Ajuste_Modelo_de_carga\RBOI1302\output\Master.dss'
+    #circuito = 'RBOI1302'
 
     # plot_indic(circuito)
     # print('ddd')

@@ -472,21 +472,23 @@
                                    '<br> CRV: ' + cbt3);
                     break;
                 case 'UNCRMT':
+                    const cr0 = selected.get("cod_id");
                     const cr1 = selected.get("ctmt");
                     const cr2 = selected.get("banc");
                     const cr3 = selected.get("pot");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo('CTMT:' + cr1 + '<br> Power: ' + cr3 + ' kVAr <br> Bank: ' + cr2  );
+                    popup1.setInfo('ID: ' + cr0 + '<br> CTMT: ' + cr1 + '<br> Power: ' + cr3 + ' kVAr <br> Bank: ' + cr2);
                     break;
                 case 'UNREMT':
+                    const re0 = selected.get("cod_id");
                     const re1 = selected.get("ctmt");
                     const re2 = selected.get("fas_con");
                     const re3 = selected.get("tip_regu");
                     const re4 = selected.get("banc");
                     const re5 = selected.get("ten_reg");
                     //console.log ('----++++++---------' + selected.length )
-                    popup1.setInfo('CTMT:' + re1 + '<br> Phases: ' + re2 + '<br> Type: ' + re3 + '<br> Bank: ' + re4 +
-                                   '<br> Regul: ' + re5 + ' pu');
+                    popup1.setInfo('ID:' + re0 + '<br> CTMT:' + re1 + '<br> Phases: ' + re2 + '<br> Type: ' + re3 +
+                                    '<br> Bank: ' + re4 + '<br> Regul: ' + re5 + ' pu');
                     break;
                 case 'UCMT':
                     const ucm1 = selected.get("ctmt");

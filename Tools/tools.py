@@ -1004,6 +1004,29 @@ def ligacao_gerador(strCodFas, tip_trafo=None):
         return "Delta"
 
 
+def get_demand_from_load(circuit, type, database):
+    config = load_config(database)
+    engine = create_connection(config)
+    query = f'''  Select  cod_id , (COALESCE(ENE_01, 0) + COALESCE(ENE_02, 0) + COALESCE(ENE_03, 0) + COALESCE(ENE_04, 0) + 
+    COALESCE(ENE_05, 0) + COALESCE(ENE_06, 0) + COALESCE(ENE_07, 0) + COALESCE(ENE_08, 0) + COALESCE(ENE_09, 0) + 
+    COALESCE(ENE_10, 0) + COALESCE(ENE_11, 0) + COALESCE(ENE_12, 0)) / 
+        (CASE WHEN ENE_01 <> 0 THEN 1 ELSE 0 END + CASE WHEN ENE_02 <> 0 THEN 1 ELSE 0 END + 
+         CASE WHEN ENE_03 <> 0 THEN 1 ELSE 0 END + CASE WHEN ENE_04 <> 0 THEN 1 ELSE 0 END + 
+         CASE WHEN ENE_05 <> 0 THEN 1 ELSE 0 END + CASE WHEN ENE_06 <> 0 THEN 1 ELSE 0 END + 
+         CASE WHEN ENE_07 <> 0 THEN 1 ELSE 0 END + CASE WHEN ENE_08 <> 0 THEN 1 ELSE 0 END + 
+         CASE WHEN ENE_09 <> 0 THEN 1 ELSE 0 END + CASE WHEN ENE_10 <> 0 THEN 1 ELSE 0 END + 
+         CASE WHEN ENE_11 <> 0 THEN 1 ELSE 0 END + CASE WHEN ENE_12 <> 0 THEN 1 ELSE 0 END) /
+         30 as avg_demand
+         FROM sde.{type} where  CTMT = '{circuit}'  and
+         (ENE_01 <> 0 OR ENE_02 <> 0 OR ENE_03 <> 0 OR ENE_04 <> 0 OR ENE_05 <> 0 OR ENE_06 <> 0 OR
+          ENE_07 <> 0 OR ENE_08 <> 0 OR ENE_09 <> 0 OR ENE_10 <> 0 OR ENE_11 <> 0 OR ENE_12 <> 0 
+         );  '''
+
+    with engine.connect() as conn:
+        demand = pd.read_sql_query(query, conn)
+    return demand
+
+
 def get_trafo_from_load(load, circuit, type, database):
     config = load_config(database)
     engine = create_connection(config)
