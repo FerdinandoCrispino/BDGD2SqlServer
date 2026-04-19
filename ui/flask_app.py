@@ -1098,14 +1098,14 @@ def get_coords_uncrmt_from_db(sub, ctmt):
         query = f'''Select C.COD_ID, POINT_X, POINT_Y, CTMT, SUB, POT_NOM, BANC, p.POT
                     from sde.UNCRMT c
                     inner join GEO_SIGR_DDAD_M10.SDE.TPOTRTV p on p.COD_ID = c.POT_NOM 
-                    where SUB= '{sub}' 
+                    where SUB= '{sub}' and SIT_ATIV='AT' 
                 ;   
                 '''
     else:
         query = f'''Select C.COD_ID, POINT_X, POINT_Y, CTMT, SUB, POT_NOM, BANC, p.POT
                     from sde.UNCRMT c
                     inner join GEO_SIGR_DDAD_M10.SDE.TPOTRTV p on p.COD_ID = c.POT_NOM 
-                    where SUB= '{sub}' and ctmt = '{ctmt}'
+                    where SUB= '{sub}' and ctmt = '{ctmt}' and SIT_ATIV='AT' 
                 ;   
                 '''
     rows = return_query_as_dataframe(query, engine)

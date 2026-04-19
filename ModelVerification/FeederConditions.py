@@ -5,12 +5,13 @@ import pandas as pd
 import time
 import cmath
 import matplotlib
+import seaborn as sns
 
 matplotlib.use('TKAgg')
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import json
-from Tools.tools import get_trafo_from_load, get_demand_from_load, nome_banco, nos
+from Tools.tools import get_trafo_from_load, get_trafo_from_loads, get_demand_from_load, nome_banco, nos
 from dataclasses import dataclass, asdict
 from typing import Optional, List
 
@@ -26,15 +27,19 @@ class DRP:
     value: float = 0
     bus: Optional[str] = ""
     drp_l: float = 0.03  # limites para os indicadores individuais DRP
-    tusd: float = 0.45667
+    tusd_bt: float = 0.45667  # R$/kWh
+    tusd_mt: float = 4.95
     demanda: float = 0.1
     drp_comp: float = 0.0
 
     def __post_init__(self):
         k = 0
+        tusd = self.tusd_bt
+        if self.tipo == 'mt':
+            tusd = self.tusd_mt
         if self.value > self.drp_l:
             k = 3
-        self.drp_comp = ((self.value - self.drp_l) / 100) * k * self.tusd * self.demanda
+        self.drp_comp = ((self.value - self.drp_l) / 100) * k * tusd * self.demanda
 
 
 @dataclass
@@ -45,18 +50,23 @@ class DRC:
     value: float = 0
     bus: Optional[str] = ""
     drc_l: float = 0.005  # limites para os indicadores individuais DRC
-    tusd: float = 0.45667
+    tusd_bt: float = 0.45667
+    tusd_mt: float = 4.95
     demanda: float = 0.1    # kWh
     drc_comp: float = 0.0
 
     def __post_init__(self):
         k = 0
+        tusd = self.tusd_bt
+        if self.tipo == 'mt':
+            tusd = self.tusd_mt
         if self.value > self.drc_l:
             if self.tipo == 'bt':
                 k = 7
             else:
                 k = 3
-        self.drc_comp = ((self.value - self.drc_l) / 100) * k * self.tusd * self.demanda
+        self.drc_comp = ((self.value - self.drc_l) / 100) * k * tusd * self.demanda
+
 
 @dataclass
 class Indicadores:
@@ -69,12 +79,105 @@ class Indicadores:
     icc: Optional[float] = 0    # Índice de Unidades Consumidoras com Tensão Crítica
     drp_e: float = 0            # Duração Relativa da Transgressão de Tensão Precária Equivalente
     drc_e: float = 0            # Duração Relativa da Transgressão de Tensão Crítica Equivalente
+    comp_total: float = 0       # Somatória das compensões - comp(DRC) + comp(DRP)
 
     def __post_init__(self):
         self.nc = len(self.drc)
         self.icc = round((self.nc / self.nl) * 100, 3)
         self.drp_e = round(sum([x.value / self.nl for x in self.drp]), 3)
         self.drc_e = round(sum([x.value / self.nl for x in self.drc]), 3)
+        self.comp_total = round(sum([x.value for x in self.drp]) + sum([x.value for x in self.drc]),2)
+
+
+def sum_drc_drp_comp(drc_list: List[DRC], drp_list: List[DRP], circuito, json_file=None) -> dict:
+    """
+    Retorna um dicionário com a soma de `drc_comp` e `drp_comp` por load.
+
+    Regras:
+    - Se existir DRC e DRP para o mesmo `load`, soma `drc_comp + drp_comp`.
+    - Se existir apenas DRC, retorna apenas `drc_comp`.
+    - Se existir apenas DRP, retorna apenas `drp_comp`.
+
+    Parâmetros:
+    - drc_list: lista de instâncias DRC
+    - drp_list: lista de instâncias DRP
+
+    Retorno:
+    - dict onde chave é o nome do load e valor é a soma dos comps (float)
+    """
+    if json_file:
+        # Open the file and load its content
+        with open(json_file) as f:
+            data = json.load(f)
+        drp = pd.json_normalize(data, record_path=['drp'])
+        drc = pd.json_normalize(data, record_path=['drc'])
+        drp_list = [DRP(**row) for row in drp.to_dict('records')]
+        drc_list = [DRC(**row) for row in drc.to_dict('records')]
+
+    plt_path_base = os.path.join(rf"C:\pastaD\TSEA\Analises\base_case", circuito)
+    result = {}
+
+    # Somar os valores de drc_comp
+    for drc in drc_list:
+        if not drc or not getattr(drc, 'load', None):
+            continue
+        key = drc.load
+        result[key] = result.get(key, 0.0) + (drc.drc_comp or 0.0)
+
+    # Somar os valores de drp_comp
+    for drp in drp_list:
+        if not drp or not getattr(drp, 'load', None):
+            continue
+        key = drp.load
+        result[key] = result.get(key, 0.0) + (drp.drp_comp or 0.0)
+    dados_comp = pd.DataFrame.from_dict(result, orient='index', columns=['comp'])
+    dados_comp = dados_comp.reset_index(names='load')
+
+    for p in ['bt', 'mt']:
+
+        dados_comp = dados_comp.loc[dados_comp['load'].str.startswith(p)]
+        if dados_comp.empty:
+            print(f"Sem dados de violação de tensão para a rede {p}.")
+            continue
+
+        desc = dados_comp.describe()
+        print(desc)
+        #df = sns.load_dataset("penguins")
+
+        # 2. Criar o histograma com curva de densidade (KDE)
+        plt.figure(figsize=(10, 6))
+        #fig, axes = plt.subplots(1, 2)
+        ax = sns.histplot(data=dados_comp,  x="comp", bins=10)
+
+        #sns.boxplot(data=dados_comp, x="load", y="comp", showmeans=True, ax=axes[1])
+        #plt.show()
+        # 1. Create the boxplot (base)
+        #ax = sns.boxplot(data=dados_comp, y="load", color="white")
+        # 2. Overlay the stripplot
+        #sns.stripplot(data=dados_comp,  y="load", hue="comp", jitter=True, alpha=0.5)
+        #sns.histplot(data=df, x="flipper_length_mm")
+        #sns.kdeplot(data=dados_comp, fill=True, color='red')
+        #sns.displot(data=dados_comp, x="load", col="comp", kde=True)
+
+        plt.title(f'Compensações: {circuito}: {p} - Distribuição Estatística')
+        plt.xlabel('Valores (R$)')
+        plt.ylabel('Frequência')
+
+        plt_path = os.path.join(plt_path_base, f"indicadores_tensao_{p}_histplot.png")
+        plt.savefig(plt_path, dpi=300, bbox_inches='tight', transparent=False)
+        plt.show()
+
+        ax = sns.boxplot(data=dados_comp, x="load", y="comp", showmeans=True)
+        plt.ylabel('Valores (R$)')
+        x_tc = (len(dados_comp['load']) // 15)
+        if x_tc < 5:
+            x_tc = 1
+        ax.xaxis.set_major_locator(ticker.MultipleLocator(x_tc))
+        plt_path = os.path.join(plt_path_base, f"indicadores_tensao_{p}_boxplot.png")
+        plt.savefig(plt_path, dpi=300, bbox_inches='tight', transparent=False)
+        plt.show()
+
+    return result
 
 
 def convert2polar(real, imag):
@@ -90,7 +193,6 @@ def plot_indic(circuit):
     with open(rf'C:\pastaD\TSEA\Analises\base_case\{circuit}indicadores.json', 'r') as f:
         p_dict = json.load(f)
 
-        # Plotting
     drc = p_dict["drc"]
     drp = p_dict["drp"]
 
@@ -180,7 +282,7 @@ class Condition:
         self.__get_load_class()
 
         self.plot_data_result()
-        self.plot_data_result_2()
+        #self.plot_data_result_2()
 
         self.__indic_DRP_DRC()
 
@@ -313,11 +415,17 @@ class Condition:
             if tipo == 'bt':
                 nlp = row['bt_undervoltage_prec'] + row['bt_overvoltage_prec']
                 nlc = row['bt_undervoltage_crit'] + row['bt_overvoltage_crit']
-                demanda = demand_load_bt.loc[demand_load_bt['cod_id'] == load, ['avg_demand']].values[0][0]
+                if not demand_load_bt.empty:
+                    demanda = demand_load_bt.loc[demand_load_bt['cod_id'] == load, ['avg_demand']].values[0][0]
+                else:
+                    print(f"Sem demanada: {load}")
             else:
                 nlp = row['mt_undervoltage_prec'] + row['mt_overvoltage_prec']
                 nlc = row['mt_undervoltage_crit'] + row['mt_overvoltage_crit']
-                demanda = demand_load_mt.loc[demand_load_mt['cod_id'] == load, ['avg_demand']].values[0][0]
+                if not demand_load_mt.empty:
+                    demanda = demand_load_mt.loc[demand_load_mt['cod_id'] == load, ['avg_demand']].values[0][0]
+                else:
+                    print(f"Sem demanada: {load}")
 
             if nlp > 0:
                 drp_list.append(DRP(load=load, tipo=tipo, demanda=demanda, num_leituras=nun_leituras, value=(nlp / nun_leituras) * 100))
@@ -333,58 +441,6 @@ class Condition:
             #nl=agg.index.get_level_values(0).nunique()
             nl=self.all_load_violation['load'].unique().shape[0]
         )
-
-        """
-        loads = load_violation['load'].unique()
-        for load in loads:
-            cond_bt_undervoltage_prec = (load_violation['classe'] == 'bt_undervoltage_prec') & (
-                        load_violation['load'] == load)
-            cond_bt_undervoltage_crit = (load_violation['classe'] == 'bt_undervoltage_crit') & (
-                        load_violation['load'] == load)
-            cond_bt_overvoltage_prec = (load_violation['classe'] == 'bt_overvoltage_prec') & (
-                        load_violation['load'] == load)
-            cond_bt_overvoltage_crit = (load_violation['classe'] == 'bt_overvoltage_crit') & (
-                        load_violation['load'] == load)
-
-            cond_mt_undervoltage_prec = (load_violation['classe'] == 'mt_undervoltage_prec') & (
-                    load_violation['load'] == load)
-            cond_mt_undervoltage_crit = (load_violation['classe'] == 'mt_undervoltage_crit') & (
-                    load_violation['load'] == load)
-            cond_mt_overvoltage_prec = (load_violation['classe'] == 'mt_overvoltage_prec') & (
-                    load_violation['load'] == load)
-            cond_mt_overvoltage_crit = (load_violation['classe'] == 'mt_overvoltage_crit') & (
-                    load_violation['load'] == load)
-
-            nlp_undervoltage_bt = load_violation.loc[cond_bt_undervoltage_prec, 'patamar'].nunique()
-            nlc_undervoltage_bt = load_violation.loc[cond_bt_undervoltage_crit, 'patamar'].nunique()
-            nlp_overvoltage_bt = load_violation.loc[cond_bt_overvoltage_prec, 'patamar'].nunique()
-            nlc_overvoltage_bt = load_violation.loc[cond_bt_overvoltage_crit, 'patamar'].nunique()
-
-            nlp_undervoltage_mt = load_violation.loc[cond_mt_undervoltage_prec, 'patamar'].nunique()
-            nlc_undervoltage_mt = load_violation.loc[cond_mt_undervoltage_crit, 'patamar'].nunique()
-            nlp_overvoltage_mt = load_violation.loc[cond_mt_overvoltage_prec, 'patamar'].nunique()
-            nlc_overvoltage_mt = load_violation.loc[cond_mt_overvoltage_crit, 'patamar'].nunique()
-
-            nlp_bt = np.nansum([nlp_undervoltage_bt, nlp_overvoltage_bt])
-            nlc_bt = np.nansum([nlc_undervoltage_bt, nlc_overvoltage_bt])
-            nlp_mt = np.nansum([nlp_undervoltage_mt, nlp_overvoltage_mt])
-            nlc_mt = np.nansum([nlc_undervoltage_mt, nlc_overvoltage_mt])
-
-            if nlp_bt > 0:
-                drp = DRP(load=load, tipo="bt", value=((nlp_bt / nun_leituras) * 100))
-                drp_list.append(drp)
-            if nlc_bt > 0:
-                drc = DRC(load=load, tipo="bt", value=((nlc_bt / nun_leituras) * 100))
-                drc_list.append(drc)
-            if nlp_mt > 0:
-                drp = DRP(load=load, tipo="mt", num_leituras=nun_leituras, value=((nlp_mt / nun_leituras) * 100))
-                drp_list.append(drp)
-            if nlc_mt > 0:
-                drc = DRC(load=load, tipo="mt", num_leituras=nun_leituras, value=((nlc_mt / nun_leituras) * 100))
-                drc_list.append(drc)
-
-        indicadores = Indicadores(drc=drc_list, drp=drp_list, data_ref=indic_data_ref, nl=len(loads))
-        """
         p_dict = asdict(indicadores)
 
         # write json
@@ -394,6 +450,8 @@ class Condition:
             # Serialize the dictionary to a JSON string
             indi_json = json.dumps(p_dict, indent=4)
             f.write(indi_json)
+
+        sum_drc_drp_comp(drc_list, drp_list, self.circuit)
 
     def __indic_DRP_DRC_old(self):
         """
@@ -498,26 +556,62 @@ class Condition:
 
         bus_stats = (
             self.all_bus_kv
-            .groupby(['bus', 'patamar'])['vln_pu']
+            .groupby(['bus', 'patamar'])['vln']
             .agg(min_pu='min', max_pu='max')
             .reset_index()
         )
 
         bus_carga = self.load_bus.loc[(~self.load_bus['load'].str.startswith('pip'))]
-        self.all_load_violation = bus_carga.merge(bus_stats, on='bus', how='left')
+        #self.all_load_violation = bus_carga.merge(bus_stats, on='bus', how='inner')
 
-        self.all_load_violation['tipo'] = self.all_load_violation['load'].str[:2]
-        is_bt = self.all_load_violation['tipo'] == 'bt'
-        is_mt = self.all_load_violation['tipo'] == 'mt'
+        cols_to_use = bus_carga.columns.difference(bus_stats.columns).tolist()
+        cols_to_use.append('bus')
+
+        self.all_load_violation = pd.merge(bus_carga, bus_stats, left_on='bus_load', right_on='bus')
+        self.all_load_violation.drop(columns=['bus_y'])
+        # Rename specific columns
+        self.all_load_violation.rename(columns={"bus_x": "bus"}, inplace=True)
+
+        #self.all_load_violation['tipo'] = self.all_load_violation['load'].str[:2]
+        self.all_load_violation['tipo'] = np.where(self.all_load_violation['tr_vln'] > 1, 'mt', 'bt')
+
+        # CLASSIFICAÇÃO VETORIZADA (muito mais rápida)
+        bt = self.all_load_violation['tipo'] == 'bt'
+        mt = self.all_load_violation['tipo'] == 'mt'
+        v220 = (self.all_load_violation['tr_vln'] * 1000).fillna(0).astype(int) == 220
+        v127 = (self.all_load_violation['tr_vln'] * 1000).fillna(0).astype(int) == 127
+        v120 = (self.all_load_violation['tr_vln'] * 1000).fillna(0).astype(int) == 120
 
         conditions = [
-            (is_bt & (self.all_load_violation['min_pu'] > 0.2) & (self.all_load_violation['min_pu'] < 0.866)),
-            (is_bt & (self.all_load_violation['min_pu'] >= 0.866) & (self.all_load_violation['min_pu'] < 0.92)),
-            (is_bt & (self.all_load_violation['max_pu'] > 1.05) & (self.all_load_violation['max_pu'] <= 1.063)),
-            (is_bt & (self.all_load_violation['max_pu'] > 1.063)),
-            (is_mt & (self.all_load_violation['min_pu'] >= 0.90) & (self.all_load_violation['min_pu'] < 0.93)),
-            (is_mt & (self.all_load_violation['min_pu'] > 0.2) & (self.all_load_violation['min_pu'] < 0.90)),
-            (is_mt & (self.all_load_violation['max_pu'] > 1.05)),
+            (
+                (bt & v127 & (self.all_load_violation['min_pu'] > 0.2) & (self.all_load_violation['min_pu'] < 110) |
+                 bt & v120 & (self.all_load_violation['min_pu'] > 0.2) & (self.all_load_violation['min_pu'] < 104) |
+                 bt & v220 & (self.all_load_violation['min_pu'] > 0.2) & (self.all_load_violation['min_pu'] < 191)
+                 )
+            ),
+            (
+                (bt & v127 & (self.all_load_violation['min_pu'] >= 110) & (self.all_load_violation['min_pu'] < 117) |
+                 bt & v120 & (self.all_load_violation['min_pu'] >= 104) & (self.all_load_violation['min_pu'] < 110) |
+                 bt & v220 & (self.all_load_violation['min_pu'] >= 191) & (self.all_load_violation['min_pu'] < 202)
+                 )
+            ),
+            (
+                (bt & v127 & (self.all_load_violation['max_pu'] > 133) & (self.all_load_violation['max_pu'] <= 135) |
+                 bt & v120 & (self.all_load_violation['max_pu'] > 126) & (self.all_load_violation['max_pu'] <= 127) |
+                 bt & v220 & (self.all_load_violation['max_pu'] > 231) & (self.all_load_violation['max_pu'] <= 233)
+                 )
+            ),
+            (
+                (bt & v127 & (self.all_load_violation['max_pu'] > 135) |
+                 bt & v120 & (self.all_load_violation['max_pu'] > 127) |
+                 bt & v220 & (self.all_load_violation['max_pu'] > 233)
+                 )
+            ),
+            (mt & ((self.all_load_violation['min_pu'] / self.all_load_violation['tr_vln'] / 1000) >= 0.90) &
+             ((self.all_load_violation['min_pu'] / self.all_load_violation['tr_vln'] / 1000) < 0.93)),
+            (mt & ((self.all_load_violation['min_pu'] / self.all_load_violation['tr_vln'] / 1000) > 0.2) &
+             ((self.all_load_violation['min_pu'] / self.all_load_violation['tr_vln'] / 1000) < 0.90)),
+            (mt & ((self.all_load_violation['max_pu'] / self.all_load_violation['tr_vln'] / 1000) > 1.05)),
         ]
 
         choices = [
@@ -532,6 +626,33 @@ class Condition:
 
         self.all_load_violation['classe'] = np.select(conditions, choices, default='adeq')
         self.all_load_violation.to_csv(rf'C:\pastaD\TSEA\Analises\base_case\{circuito}_list_all_load_classe.csv')
+
+    def __find_transformer_by_load(self):
+        dss = self.dss
+        element_name = dss.cktelement.name
+        bus_names = dss.cktelement.bus_names
+        bus_name = dss.bus.name
+        #dss.transformers.first()
+        #for _ in range(dss.transformers.count):
+        #    dss.topology.branch_name = f'Transformer.{dss.transformers.name}'
+        #    dss.topology.forward_branch()
+
+        dss.topology.first()
+        dss.topology.forward_branch()
+        while True:
+            indx = dss.topology.active_branch
+            indx_level = dss.topology.active_level
+            branch_name = dss.topology.branch_name
+            if set(bus_names).issubset(dss.cktelement.bus_names):
+                # retornar até encontrar o transformador dessa carga
+                while True:
+                    index_branch = dss.topology.backward_branch()
+                    branch_name = dss.topology.branch_name
+                    if 'Transformer' in  branch_name:
+                        # encontrou o transformador
+                        return branch_name
+
+            index_branch = dss.topology.forward_branch()
 
     def __first_element(self, dss):
         """ Retorna o primeiro bus do circuito
@@ -589,6 +710,9 @@ class Condition:
             print("Erro tipo de carga desconhecida!!!")
 
         tr_name, tr = get_trafo_from_load(load_name, circuito, table_load, database)
+
+        if tr_name:
+            print('Transformador da carga não encontrado!')
 
         """
         for i in range(tr.shape[0]): # banco de transformadores
@@ -678,20 +802,27 @@ class Condition:
         tr_map[f'trf_{self.dss.circuit.name.lower()}a'] = [self.dss.vsources.base_kv, self.dss.vsources.base_kv/np.sqrt(3)]
         tr_cache = {}
 
-        print(f"Obtendo as tensões das cargas a partir das tensões dos seus transformadores...")
         for load in loads_filter_m1:
             # self.dss.circuit.set_active_element(f'Load.{load}')
             self.dss.loads.name = load  # ativa diretamente o load
+            bus_name = self.dss.cktelement.bus_names[0].split('.', 1)[0]
             elem = self.dss.cktelement
             tr_key = tr_cache.get(load)
             if tr_key is not None:
                 tr_vll, tr_vln = tr_map(tr_key, (None, None))
             else:
                 tr_name = self.__get_transformer_from_load(load)
-                tr_name = f'trf_{tr_name}a'
+
                 if tr_name:
+                    tr_name = f'trf_{tr_name}a'
                     tr_cache[load] = tr_name.lower()
                     tr_vll, tr_vln = tr_map.get(tr_name.lower(), (None, None))
+                else:
+                    tr_name = self.__find_transformer_by_load()
+                    tr_name = tr_name.split('.', 1)[1]
+                    tr_vll, tr_vln = tr_map.get(tr_name.lower(), (None, None))
+                    if not tr_vln:
+                        tr_vll = tr_vln = 0
 
             #tr_vll, tr_vln = self.__get_transformer_kv_base(load, elem.node_order)
             #print(f'{load}: Vll:{tr_vll}  vln:{tr_vln}')
@@ -699,11 +830,12 @@ class Condition:
                 elem.bus_names[0].split('.', 1)[0],
                 elem.node_order,
                 load,
+                bus_name,
                 tr_vll,
                 tr_vln
             ))
 
-        return pd.DataFrame(data, columns=["bus", "node", "load", "tr_vll", "tr_vln"])
+        return pd.DataFrame(data, columns=["bus", "node", "load", "bus_load", "tr_vll", "tr_vln"])
 
     def __read_dss_file(self) -> DSS:
         """
@@ -745,14 +877,14 @@ class Condition:
     def __get_num_buses(self):
         self.all_num_buses = len(self.dss.circuit.nodes_names)
         self.phases_num_buses = sum(not node.endswith('.4') for node in self.dss.circuit.nodes_names)
-        self.bt_phases_num_buses = sum((not node.endswith('.4')) & (node.startswith('bt'))
-                                       for node in self.dss.circuit.nodes_names)
-        self.mt_phases_num_buses = sum((not node.endswith('.4')) & (node.startswith('mt'))
-                                       for node in self.dss.circuit.nodes_names)
+        #self.bt_phases_num_buses = sum((not node.endswith('.4')) & (node.startswith('bt'))
+        #                               for node in self.dss.circuit.nodes_names)
+        #self.mt_phases_num_buses = sum((not node.endswith('.4')) & (node.startswith('mt'))
+        #                               for node in self.dss.circuit.nodes_names)
 
         # load and bus
+        print(f"Obtendo as tensões das cargas a partir das tensões dos seus transformadores...")
         self.load_bus = self.__get_load_bus()
-
         # Export the DataFrame to an Excel
         self.load_bus.to_excel(rf'C:\pastaD\TSEA\Analises\base_case\{circuito}_load_bus.xlsx')
 
@@ -801,6 +933,7 @@ class Condition:
             for bus_name in self.dss.circuit.nodes_names:
                 active_bus, bus_node = bus_name.split('.', 1)
                 self.dss.circuit.set_active_bus(active_bus)
+                nodes = self.dss.bus.nodes
 
                 # print(bus_name)
                 if bus_node == '4':  # para desconsiderar tensão de neutro
@@ -815,7 +948,8 @@ class Condition:
                     vll_1 = 0
                     vll_pu_1 = 0
                 else:
-                    pos = int(bus_node) - 1
+                    pos = nodes.index(int(bus_node))
+                    #pos = int(bus_node) - 1
                     vll_1 = round(convert2polar(self.dss.bus.vll[pos * 2],
                                                 self.dss.bus.vll[(pos * 2) + 1])[0], 3)
                     vll_pu_1 = round(
@@ -834,7 +968,7 @@ class Condition:
                 if not all_bus_kv.empty:
                     tr_vln = all_bus_kv['tr_vln'].values[0]
 
-                vll_list.append([f"{bus_name.split('.')[0]}", pos + 1, vll_1, vll_pu_1, vln_1, tr_vln, vln_pu_1,
+                vll_list.append([f"{bus_name.split('.')[0]}", bus_node, vll_1, vll_pu_1, vln_1, tr_vln, vln_pu_1,
                                  self.dss.bus.kv_base])
 
             for bus, nodes, vll, vll_pu, vln, tr_vln, vln_pu, kv_base in vll_list:
@@ -850,18 +984,46 @@ class Condition:
 
         # para transformadores fase-fase obert o valor da tensão de linha
         self.all_bus_kv.loc[self.all_bus_kv['vln_pu'] == 0, 'vln_pu'] = self.all_bus_kv['vll']/self.all_bus_kv['kv_base'] / 1000
-        
+        self.all_bus_kv['v_base'] = (self.all_bus_kv['kv_base'] * 1000).astype(int)
+
+        # para casos onde a coluna vln = 0  utilizar o vll
+        #self.all_bus_kv.loc[self.all_bus_kv['vln'] == 0, 'vln'] = self.all_bus_kv['vll']
+
         # print(f"total: {round(time.time() - proc_time_ini, 4)}")
 
         # CLASSIFICAÇÃO VETORIZADA (muito mais rápida)
         bt = self.all_bus_kv['kv_base'] <= 1
         mt = self.all_bus_kv['kv_base'] > 1
         v = self.all_bus_kv['vln_pu']
+        vln = self.all_bus_kv['vln']
+        v220 = self.all_bus_kv['v_base'] == 220
+        v127 = self.all_bus_kv['v_base'] == 127
+        v120 = self.all_bus_kv['v_base'] == 120
 
-        self.bt_undervoltage_crit = self.all_bus_kv[bt & (v < 0.866) & (v > 0.2)]
-        self.bt_undervoltage_prec = self.all_bus_kv[bt & (v < 0.92) & (v >= 0.866)]
-        self.bt_overvoltage_prec = self.all_bus_kv[bt & (v > 1.05) & (v <= 1.063)]
-        self.bt_overvoltage_crit = self.all_bus_kv[bt & (v > 1.063)]
+        self.bt_undervoltage_crit = pd.concat([self.all_bus_kv[bt & v127 & (vln < 110) & (vln > 0.2)],
+                                               self.all_bus_kv[bt & v120 & (vln < 104) & (vln > 0.2)],
+                                               self.all_bus_kv[bt & v220 & (vln < 191) & (vln > 0.2)]
+                                               ])
+
+        self.bt_undervoltage_prec = pd.concat([self.all_bus_kv[bt & v127 & (vln < 117) & (vln >= 110)],
+                                               self.all_bus_kv[bt & v120 & (vln < 110) & (vln >= 104)],
+                                               self.all_bus_kv[bt & v220 & (vln < 202) & (vln >= 191)]
+                                               ])
+
+        self.bt_overvoltage_prec = pd.concat([self.all_bus_kv[bt & v127 & (vln > 133) & (vln <= 135)],
+                                              self.all_bus_kv[bt & v120 & (vln > 126) & (vln <= 127)],
+                                              self.all_bus_kv[bt & v220 & (vln > 231) & (vln <= 233)]
+                                              ])
+
+        self.bt_overvoltage_crit = pd.concat([self.all_bus_kv[bt & v127 & (vln > 135)],
+                                              self.all_bus_kv[bt & v120 & (vln > 127)],
+                                              self.all_bus_kv[bt & v220 & (vln > 233)]
+                                              ])
+
+        #self.bt_undervoltage_crit = self.all_bus_kv[bt & (v < 0.866) & (v > 0.2)]
+        #self.bt_undervoltage_prec = self.all_bus_kv[bt & (v < 0.92) & (v >= 0.866)]
+        #self.bt_overvoltage_prec = self.all_bus_kv[bt & (v > 1.05) & (v <= 1.063)]
+        #self.bt_overvoltage_crit = self.all_bus_kv[bt & (v > 1.063)]
 
         self.mt_undervoltage_prec = self.all_bus_kv[mt & (v < 0.93) & (v >= 0.90)]
         self.mt_undervoltage_crit = self.all_bus_kv[mt & (v < 0.90) & (v > 0.2)]
@@ -888,7 +1050,7 @@ class Condition:
         """
         # Export the DataFrame to an Excel
         self.bt_undervoltage_prec.to_csv(rf'C:\pastaD\TSEA\Analises\base_case\{circuito}_bt_undervoltage_prec.csv')
-        self.bt_undervoltage_crit.to_csv(rf'C:\pastaD\TSEA\Analises\base_case\{circuito}_bt_undervoltage_prec.csv')
+        self.bt_undervoltage_crit.to_csv(rf'C:\pastaD\TSEA\Analises\base_case\{circuito}_bt_undervoltage_crit.csv')
         self.bt_overvoltage_prec.to_csv(rf'C:\pastaD\TSEA\Analises\base_case\{circuito}_bt_overvoltage_prec.csv')
         self.bt_overvoltage_crit.to_csv(rf'C:\pastaD\TSEA\Analises\base_case\{circuito}_bt_overvoltage_crit.csv')
 
@@ -899,7 +1061,7 @@ class Condition:
         """ 
         # ValueError: This sheet is too large! Your sheet size is: 1141402, 10 Max sheet size is: 1048576, 16384
         self.bt_undervoltage_prec.to_excel(rf'C:\pastaD\TSEA\Analises\base_case\{circuito}_bt_undervoltage_prec.xlsx')
-        self.bt_undervoltage_crit.to_excel(rf'C:\pastaD\TSEA\Analises\base_case\{circuito}_bt_undervoltage_prec.xlsx')
+        self.bt_undervoltage_crit.to_excel(rf'C:\pastaD\TSEA\Analises\base_case\{circuito}_bt_undervoltage_crit.xlsx')
         self.bt_overvoltage_prec.to_excel(rf'C:\pastaD\TSEA\Analises\base_case\{circuito}_bt_overvoltage_prec.xlsx')
         self.bt_overvoltage_crit.to_excel(rf'C:\pastaD\TSEA\Analises\base_case\{circuito}_bt_overvoltage_crit.xlsx')
 
@@ -928,28 +1090,41 @@ class Condition:
         self.mt_overvoltage_crit_2 = pd.DataFrame([sum(1 for k, v in d.items() if k.startswith('mt') and v > 1.05)
                                                    for d in voltage_bus_list])
 
+        # totalizando numeros de busses
+        self.bt_phases_num_buses = ((self.all_bus_kv['patamar'] == 1) & (self.all_bus_kv['vln'] < 1000)).sum()
+        self.mt_phases_num_buses = ((self.all_bus_kv['patamar'] == 1) & (self.all_bus_kv['vln'] > 1000)).sum()
+
     def plot_data_result(self, isblock=True):
 
+        all_patamares = pd.Series([0] * 144)
         dirname = os.path.dirname(self.dss_file)
         path_dir = os.path.abspath(os.path.join(dirname, fr'output'))
 
         plt_path_base = os.path.join(rf"C:\pastaD\TSEA\Analises\base_case", self.circuit)
         os.makedirs(plt_path_base, exist_ok=True)
 
-        counts_bt_under_prec = self.bt_undervoltage_prec['patamar'].value_counts()
-        counts_bt_under_crit = self.bt_undervoltage_crit['patamar'].value_counts()
-        counts_bt_over_prec = self.bt_overvoltage_prec['patamar'].value_counts()
-        counts_bt_over_crit = self.bt_overvoltage_crit['patamar'].value_counts()
+        counts_bt_under_prec = all_patamares.copy()
+        counts_bt_under_crit = all_patamares.copy()
+        counts_bt_over_prec = all_patamares.copy()
+        counts_bt_over_crit = all_patamares.copy()
+
+        self.all_load_violation
+        counts_bt_under_prec.update(self.bt_undervoltage_prec['patamar'].value_counts())
+        counts_bt_under_crit.update(self.bt_undervoltage_crit['patamar'].value_counts())
+        counts_bt_over_prec.update(self.bt_overvoltage_prec['patamar'].value_counts())
+        counts_bt_over_crit.update(self.bt_overvoltage_crit['patamar'].value_counts())
+
+
         bt_df = pd.DataFrame({'bt_undervoltage_prec': counts_bt_under_prec,
                               'bt_undervoltage_crit': counts_bt_under_crit,
                               'bt_overvoltage_prec': counts_bt_over_prec,
                               'bt_overvoltage_crit': counts_bt_over_crit})
 
         # num_buses = len(self.dss.circuit.nodes_names)
-        counts_bt_under_prec_perc = counts_bt_under_prec / self.phases_num_buses * 100
-        counts_bt_under_crit_perc = counts_bt_under_crit / self.phases_num_buses * 100
-        counts_bt_over_prec_perc = counts_bt_over_prec / self.phases_num_buses * 100
-        counts_bt_over_crit_perc = counts_bt_over_crit / self.phases_num_buses * 100
+        counts_bt_under_prec_perc = counts_bt_under_prec / self.bt_phases_num_buses * 100
+        counts_bt_under_crit_perc = counts_bt_under_crit / self.bt_phases_num_buses * 100
+        counts_bt_over_prec_perc = counts_bt_over_prec / self.bt_phases_num_buses * 100
+        counts_bt_over_crit_perc = counts_bt_over_crit / self.bt_phases_num_buses * 100
         bt_df_perc = pd.DataFrame({'bt_undervoltage_prec': counts_bt_under_prec_perc,
                                    'bt_undervoltage_crit': counts_bt_under_crit_perc,
                                    'bt_overvoltage_prec': counts_bt_over_prec_perc,
@@ -962,9 +1137,9 @@ class Condition:
                               'mt_undervoltage_crit': counts_mt_under_crit,
                               'mt_overvoltage_crit': counts_mt_over_crit})
 
-        counts_mt_under_prec_perc = counts_mt_under_prec / self.phases_num_buses * 100
-        counts_mt_under_crit_perc = counts_mt_under_crit / self.phases_num_buses * 100
-        counts_mt_over_crit_perc = counts_mt_over_crit / self.phases_num_buses * 100
+        counts_mt_under_prec_perc = counts_mt_under_prec / self.mt_phases_num_buses * 100
+        counts_mt_under_crit_perc = counts_mt_under_crit / self.mt_phases_num_buses * 100
+        counts_mt_over_crit_perc = counts_mt_over_crit / self.mt_phases_num_buses * 100
         mt_df_perc = pd.DataFrame({'mt_undervoltage_prec': counts_mt_under_prec_perc,
                                    'mt_undervoltage_crit': counts_mt_under_crit_perc,
                                    'mt_overvoltage_crit': counts_mt_over_crit_perc})
@@ -992,10 +1167,15 @@ class Condition:
         total_consumidor_over_crit = total_consumidor_over_crit.reindex(index, fill_value=0)
         counts_loads_bt_over_crit_perc = total_consumidor_over_crit['size'] / self.total_loads_bt * 100
 
-        bt_df_loads = pd.DataFrame({'bt_loads_undervoltage_prec': counts_loads_bt_under_prec_perc,
-                                    'bt_loads_undervoltage_crit': counts_loads_bt_under_crit_perc,
-                                    'bt_loads_overvoltage_prec': counts_loads_bt_over_prec_perc,
-                                    'bt_loads_overvoltage_crit': counts_loads_bt_over_crit_perc})
+        bt_df_loads = pd.DataFrame({'bt_loads_undervoltage_prec': total_consumidor_under_prec['size'],
+                                    'bt_loads_undervoltage_crit': total_consumidor_under_crit['size'],
+                                    'bt_loads_overvoltage_prec': total_consumidor_over_prec['size'],
+                                    'bt_loads_overvoltage_crit': total_consumidor_over_crit['size']})
+
+        bt_df_loads_perc = pd.DataFrame({'bt_loads_undervoltage_prec': counts_loads_bt_under_prec_perc,
+                                         'bt_loads_undervoltage_crit': counts_loads_bt_under_crit_perc,
+                                         'bt_loads_overvoltage_prec': counts_loads_bt_over_prec_perc,
+                                         'bt_loads_overvoltage_crit': counts_loads_bt_over_crit_perc})
 
         total_consumidor_mt_under_prec = load_violation.loc[load_violation['classe'] == 'mt_undervoltage_prec']
         total_consumidor_mt_under_prec = total_consumidor_mt_under_prec.set_index('patamar')
@@ -1012,15 +1192,20 @@ class Condition:
         total_consumidor_mt_over_crit = total_consumidor_mt_over_crit.reindex(index, fill_value=0)
         counts_loads_bt_over_crit_perc = total_consumidor_mt_over_crit['size'] / self.total_loads_mt * 100
 
-        mt_df_loads = pd.DataFrame({'mt_loads_undervoltage_prec': counts_loads_mt_under_prec_perc,
-                                    'mt_loads_undervoltage_crit': counts_loads_mt_under_crit_perc,
-                                    'mt_loads_overvoltage_crit': counts_loads_bt_over_crit_perc})
-        
+        mt_df_loads = pd.DataFrame({'mt_loads_undervoltage_prec': total_consumidor_mt_under_prec['size'],
+                                    'mt_loads_undervoltage_crit': total_consumidor_mt_under_crit['size'],
+                                    'mt_loads_overvoltage_crit': total_consumidor_mt_over_crit['size']})
+
+        mt_df_loads_perc = pd.DataFrame({'mt_loads_undervoltage_prec': counts_loads_mt_under_prec_perc,
+                                         'mt_loads_undervoltage_crit': counts_loads_mt_under_crit_perc,
+                                         'mt_loads_overvoltage_crit': counts_loads_bt_over_crit_perc})
+
         if not bt_df.empty:
             ax = bt_df.plot(kind='bar', stacked=True)
             plt.title(f"BUS Violation : {self.circuit}")
             plt.ylabel(f"Number")
             plt.xlabel(f"Time steps")
+            plt.grid(axis='y')
             ax.xaxis.set_major_locator(ticker.MultipleLocator(6))
             plt_path = os.path.join(plt_path_base, "bt_voltages.png")
             plt.savefig(plt_path, dpi=300, bbox_inches='tight', transparent=False)
@@ -1030,6 +1215,7 @@ class Condition:
             plt.title(f"BUS Violation : {self.circuit}")
             plt.ylabel(f"Number (%)")
             plt.xlabel(f"Time steps")
+            plt.grid(axis='y')
             ax.xaxis.set_major_locator(ticker.MultipleLocator(6))
             plt_path = os.path.join(plt_path_base, "bt_voltages_perc.png")
             plt.savefig(plt_path, dpi=300, bbox_inches='tight', transparent=False)
@@ -1062,8 +1248,19 @@ class Condition:
         if not bt_df_loads.empty:
             ax = bt_df_loads.plot(kind='bar', stacked=True)
             plt.title(f"LOADS Violation : {self.circuit}")
+            plt.ylabel(f"Number")
+            plt.xlabel(f"Time steps")
+            plt.grid(axis='y')
+            ax.xaxis.set_major_locator(ticker.MultipleLocator(6))
+            plt_path = os.path.join(plt_path_base, "bt_loads_voltages.png")
+            plt.savefig(plt_path, dpi=300, bbox_inches='tight', transparent=False)
+            plt.show(block=False)
+
+            ax = bt_df_loads_perc.plot(kind='bar', stacked=True)
+            plt.title(f"LOADS Violation : {self.circuit}")
             plt.ylabel(f"Number (%)")
             plt.xlabel(f"Time steps")
+            plt.grid(axis='y')
             ax.xaxis.set_major_locator(ticker.MultipleLocator(6))
             plt_path = os.path.join(plt_path_base, "bt_loads_voltages_perc.png")
             plt.savefig(plt_path, dpi=300, bbox_inches='tight', transparent=False)
@@ -1075,12 +1272,24 @@ class Condition:
         if not mt_df_loads.empty:
             ax = mt_df_loads.plot(kind='bar', stacked=True)
             plt.title(f"LOADS Violation : {self.circuit}")
+            plt.ylabel(f"Number")
+            plt.xlabel(f"Time")
+            plt.grid(axis='y')
+            ax.xaxis.set_major_locator(ticker.MultipleLocator(6))
+            plt_path = os.path.join(plt_path_base, "mt_loads_voltages.png")
+            plt.savefig(plt_path, dpi=300, bbox_inches='tight', transparent=False)
+            plt.show(block=False)
+
+            ax = mt_df_loads_perc.plot(kind='bar', stacked=True)
+            plt.title(f"LOADS Violation : {self.circuit}")
             plt.ylabel(f"Number (%)")
             plt.xlabel(f"Time")
+            plt.grid(axis='y')
             ax.xaxis.set_major_locator(ticker.MultipleLocator(6))
             plt_path = os.path.join(plt_path_base, "mt_loads_voltages_perc.png")
             plt.savefig(plt_path, dpi=300, bbox_inches='tight', transparent=False)
-            plt.show(block=isblock)
+            plt.show(block=True)
+
         else:
             print("Sem violação nas cargas MT.")
 
@@ -1216,13 +1425,13 @@ if __name__ == '__main__':
 
     # dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RAVP1303\output\master.dss'
     # dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RAVP1303\DU_7_Master_391_AVP_RAVP1303.dss'
-    #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RAVP1303\DU_7_Master_391_AVP_RAVP1303_144.dss'
-    #circuito = 'RAVP1303'
+    dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RAVP1303\DU_7_Master_391_AVP_RAVP1303_144.dss'
+    circuito = 'RAVP1303'
 
     #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBOI1302\output\master.dss'
-    dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBOI1302\DU_7_Master_391_BOI_RBOI1302_144.dss'
+    #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBOI1302\DU_7_Master_391_BOI_RBOI1302_144.dss'
     #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBOI1302\DU_7_Master_391_BOI_RBOI1302.dss'
-    circuito = 'RBOI1302'
+    #circuito = 'RBOI1302'
     patamares = 144
 
     # dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBRR1301\output\master.dss'
@@ -1235,11 +1444,21 @@ if __name__ == '__main__':
     #circuito = 'RMTQ1302'
 
     # dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RMTQ1306\output\master.dss'
-    # circuito = 'RMTQ1306'
+    #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RMTQ1306\DU_7_Master_391_MTQ_RMTQ1306_144.dss'
+    #circuito = 'RMTQ1306'
 
-    #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\Ajuste_Modelo_de_carga\RBOI1302\output\Master.dss'
-    #circuito = 'RBOI1302'
+    # Testes caso padrão
+    #dss_file = r'C:\pastaD\TSEA\dss\BDGDBase\Base\BASE1301\DU_7_Master_BDGDBase_Base_BASE1301_144.dss'
+    dss_file = r'C:\pastaD\TSEA\dss\BDGDBase\Base\BASE1301\DU_7_Master_BDGDBase_Base_BASE1301_TRAFO_1_144.dss'
+    #dss_file = r'C:\pastaD\TSEA\dss\BDGDBase\Base\BASE1301\DU_7_Master_BDGDBase_Base_BASE1301_TRAFO_1_2_3_144.dss'
+    circuito = 'BASE1301'
+
+    #dss_file = r'C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RAVP1305\DU_7_Master_391_AVP_AVP1305_144.dss'
+    #circuito = 'AVP1305'
 
     # plot_indic(circuito)
     # print('ddd')
+
+    #sum_drc_drp_comp([], [], circuito=circuito, json_file=fr"C:\pastaD\TSEA\Analises\base_case\{circuito}_indicadores.json")
+
     simul = Condition(circuit=circuito, dss_file=dss_file, total_patamar=patamares)

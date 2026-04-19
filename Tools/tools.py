@@ -10,6 +10,7 @@ import pyodbc
 import fiona
 import yaml
 from sqlalchemy import create_engine
+from sqlalchemy.exc import SQLAlchemyError
 import urllib.request
 import json
 
@@ -1015,8 +1016,7 @@ def get_demand_from_load(circuit, type, database):
          CASE WHEN ENE_05 <> 0 THEN 1 ELSE 0 END + CASE WHEN ENE_06 <> 0 THEN 1 ELSE 0 END + 
          CASE WHEN ENE_07 <> 0 THEN 1 ELSE 0 END + CASE WHEN ENE_08 <> 0 THEN 1 ELSE 0 END + 
          CASE WHEN ENE_09 <> 0 THEN 1 ELSE 0 END + CASE WHEN ENE_10 <> 0 THEN 1 ELSE 0 END + 
-         CASE WHEN ENE_11 <> 0 THEN 1 ELSE 0 END + CASE WHEN ENE_12 <> 0 THEN 1 ELSE 0 END) /
-         30 as avg_demand
+         CASE WHEN ENE_11 <> 0 THEN 1 ELSE 0 END + CASE WHEN ENE_12 <> 0 THEN 1 ELSE 0 END) as avg_demand
          FROM sde.{type} where  CTMT = '{circuit}'  and
          (ENE_01 <> 0 OR ENE_02 <> 0 OR ENE_03 <> 0 OR ENE_04 <> 0 OR ENE_05 <> 0 OR ENE_06 <> 0 OR
           ENE_07 <> 0 OR ENE_08 <> 0 OR ENE_09 <> 0 OR ENE_10 <> 0 OR ENE_11 <> 0 OR ENE_12 <> 0 
@@ -1027,25 +1027,70 @@ def get_demand_from_load(circuit, type, database):
     return demand
 
 
+def get_trafo_from_loads(loads: list, circuit, type, database) -> pd.DataFrame:
+    """Consulta em lote os transformadores associados a uma lista de cargas.
+
+    Retorna um DataFrame com as colunas COD_ID, UNI_TR_D e as colunas do cadastro de transformadores
+    (quando disponíveis). Esta versão evita abrir uma conexão por carga.
+    """
+    if not loads:
+        return pd.DataFrame()
+
+    # prepara lista única de COD_ID (espera-se nomes já sem sufixos/prefixos)
+    unique_loads = list(dict.fromkeys(loads))
+
+    config = load_config(database)
+    engine = create_connection(config)
+
+    # construir cláusula IN com segurança básica (os valores vindo do código, não de usuário)
+    loads_sql = ",".join(f"'{l}'" for l in unique_loads)
+    query = f"""SELECT COD_ID, UNI_TR_D FROM sde.{type} WHERE CTMT = '{circuit}' AND COD_ID IN ({loads_sql})"""
+
+    with engine.connect() as conn:
+        df = pd.read_sql_query(query, conn)
+        if df.empty:
+            return pd.DataFrame()
+
+        # buscar informações dos transformadores únicos retornados
+        unique_tr = df['UNI_TR_D'].dropna().unique().tolist()
+        if len(unique_tr) == 0:
+            return df
+
+        tr_names_sql = ",".join(f"'{t}'" for t in unique_tr)
+        query2 = f''' Select tr.cod_id as TRAFO_COD, tr.MRT, tr.TIP_TRAFO, tr.BANC, tr.TEN_LIN_SE, eq.LIG_FAS_S, eq.LIG_FAS_T
+                        FROM sde.UNTRMT as tr
+                        inner join  sde.EQTRMT eq on eq.UNI_TR_MT = tr.cod_id
+                        Where tr.cod_id IN ({tr_names_sql}) '''
+        tr_df = pd.read_sql_query(query2, conn)
+
+    # mesclar os dois dataframes
+    merged = df.merge(tr_df, left_on='UNI_TR_D', right_on='TRAFO_COD', how='left')
+    return merged
+
+
 def get_trafo_from_load(load, circuit, type, database):
     config = load_config(database)
     engine = create_connection(config)
 
     query = f''' Select UNI_TR_D FROM sde.{type} where  CTMT = '{circuit}' and COD_ID = '{load}' '''
-    with engine.connect() as conn:
-        tr_load = pd.read_sql_query(query, conn)
-        # kv_base = conn.execute(query)
-        if tr_load.empty:
-            return
-        else:
-            tr_name = tr_load.values[0][0]
-            query = f''' Select MRT, TIP_TRAFO, BANC, TEN_LIN_SE, eq.LIG_FAS_S, eq.LIG_FAS_T 
-                    FROM sde.UNTRMT as tr 
-                    inner join  sde.EQTRMT eq on eq.UNI_TR_MT = tr.cod_id 
-                    Where tr.cod_id = '{tr_name}' '''
-            tr = pd.read_sql_query(query, conn)
+    try:
+        with engine.connect() as conn:
+            tr_load = pd.read_sql_query(query, conn)
+            # kv_base = conn.execute(query)
+            if tr_load.empty:
+                return None, None
+            else:
+                tr_name = tr_load.values[0][0]
+                query = f''' Select MRT, TIP_TRAFO, BANC, TEN_LIN_SE, eq.LIG_FAS_S, eq.LIG_FAS_T 
+                        FROM sde.UNTRMT as tr 
+                        inner join  sde.EQTRMT eq on eq.UNI_TR_MT = tr.cod_id 
+                        Where tr.cod_id = '{tr_name}' '''
+                tr = pd.read_sql_query(query, conn)
 
-        return tr_name, tr
+            return tr_name, tr
+    except SQLAlchemyError as e:
+        print(f"An error occurred: {e}")
+        return None, None
 
 
 def get_coord_load(dist, load):
@@ -1626,6 +1671,7 @@ def update_coords_by_aneel(dist, engine) -> dict:
     list_ceg = get_list_ceg(dist, engine)
 
     # ceg = 'UTE.AI.RN.028605-2'
+    ceg = 'GD.SP.000.234.224'
     for ceg in list_ceg:
         coord_aneel_dict = get_coods_by_annel(ceg)
         if coord_aneel_dict is None:
@@ -1655,7 +1701,7 @@ def update_coords_by_aneel(dist, engine) -> dict:
 
 
 if __name__ == "__main__":
-    database = '404'
+    database = '391_2024'
     # database = '6600_2022'
     config = load_config(database)
     dist = config['dist']
