@@ -344,7 +344,7 @@
                           { minimumFractionDigits: 5 }
                      );
                     const b5 = selected.get("pac")
-
+                    console.log(b5);
                     if (b1 && b2 && 33) {
                         popup1.setInfo(b4 + '<br>Time: ' + hora + '<br>Pac: '+ b5 + '<br>Va: '+ b1 +' pu <br> Vb: ' + b2 + ' pu <br> Vc: ' + b3 + ' pu' );
                     } else if (b1 && b2 && !b3) {
@@ -1596,11 +1596,18 @@
                     features: features
                 });
 
+
                 // Função para adicionar estilos baseados na cor de cada feature
                 function estiloUNSEMT(feature) {
+                    //console.log(feature);
+                    if (feature.get('rel') === '32') {    // 32 código para religador automático
+                         mycolor = 'blue'
+                    } else {
+                        mycolor = '#cc3b5b'
+                    }
                     return new ol.style.Style({
                         image: new ol.style.Icon(/** @type {olx.style.IconOptions} */ ({
-                            color: '#cc3b5b',
+                            color: mycolor,
                             crossOrigin: 'anonymous',
                             anchor: [1.0, 1.0],
                             scale: 0.04,

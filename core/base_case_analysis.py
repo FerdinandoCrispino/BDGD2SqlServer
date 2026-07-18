@@ -25,19 +25,26 @@ exec_by_circuit = True
 # set run multiprocess
 run_multiprocess = False
 
-database = "391_2024"
-master_type_day = "DO"
-master_month = "1"
+database = "63_2024"
+master_type_day = "DU"
+master_month = "7"
 
 config = load_config(database)
 dist = config['dist']
-master_data_base = config['data_base'].split('-')[0]   # ano
+master_data_base = config['data_base'].split('-')[0]  # ano
 engine = create_connection(config)
 
 master_folder = os.path.expanduser(config['dss_files_folder'])
 # Lista com os códigos das subestações
 list_sub = get_substations_list(engine)
 
+
+def gerador_positivo_negativo():
+    numero = 1
+    while True:
+        yield numero
+        yield -numero
+        numero += 1
 
 
 def substations_losses(dist, tipo_dia, ano, mes, by_circ=None):
@@ -246,7 +253,7 @@ class SimuladorOpendss:
         :return:
         """
         dirname = os.path.dirname(__file__)
-        json_path = os.path.abspath(os.path.join(dirname, "../ui/static/scenarios/base", self.dist,  self.sub,
+        json_path = os.path.abspath(os.path.join(dirname, "../ui/static/scenarios/base", self.dist, self.sub,
                                                  self.dss.circuit.name.upper(), self.tipo_dia, self.database, self.mes))
         os.makedirs(json_path, exist_ok=True)
 
@@ -453,14 +460,102 @@ class SimuladorOpendss:
             total_losses_df.to_excel(f'{plt_path}/{self.dist}_{self.dss.circuit.name.upper()}_{self.tipo_dia}_'
                                      f'{self.database}_{self.mes}_losses.xlsx')
 
+    def __check_kv_base(self):
+        """
+        Verifica a tensão de base definida pelo openDSS para as todas as barras conectadas
+        no secundario dos transformadores.
+        São obtidas as tensões de fase para a barra do secundario do TR e comparada com a informada pelo openDSS
+        Em caso de diferença são localizadas todas barras conectadas no secundario do transformador e set o kv_base
+        de todas as barras com o valor obtido da avaliação das conecções do transformador.
+        :return:
+        """
+        print(f'Check kV_base dos transformadores...')
+        # identifica a tensão de linha e de fase para cada transformador
+        dss = self.dss
+        tr_map = {}
+        dss.transformers.first()
+        vln = vll = None
+        for _ in range(dss.transformers.count):
+            dss.circuit.set_active_element(f"transformer.{dss.transformers.name}")
+            tr_ph = dss.cktelement.num_phases
+            if tr_ph == 3:
+                dss.transformers.wdg = 2
+                vll = dss.transformers.kv
+                vln = dss.transformers.kv / np.sqrt(3)
+            elif tr_ph == 1:
+                num_wdg = dss.transformers.num_windings
+                if num_wdg == 2:
+                    dss.transformers.wdg = 2
+                    if dss.transformers.is_delta:
+                        vll = dss.transformers.kv
+                        vln = vll / 2
+                    else:
+                        vln = dss.transformers.kv
+                        vll = vln * 2
+                elif num_wdg == 3:
+                    dss.transformers.wdg = 2
+                    vln = dss.transformers.kv
+                    vll = 2 * vln
+
+            tr_map[dss.transformers.name] = (round(vll, 3), round(vln, 3))
+
+            bus_name = dss.cktelement.bus_names
+            element_name = dss.cktelement.name
+            dss.circuit.set_active_bus(bus_name[1])
+            bus_name1 = dss.bus.name
+            kv_base = dss.bus.kv_base
+            # Verifica se ha diferença entre o calculado e o descrito pelo opnDSS
+            if round(vln, 3) != round(kv_base, 3):
+                print(f'{element_name}: {bus_name1}: {kv_base}: {vln}')
+                # todo testar para ver se setar a tensão de linha e a tensão de fase fazem diferença !!!!
+                # dss.text(f'SetkVBase Bus={bus_name1} kVLL={vll}')
+                dss.text(f'SetkVBase Bus={bus_name1} kVLN={vln}')
+                print(f'Valor alterado: {dss.cktelement.bus_names[1]} - kvbase:{dss.bus.kv_base}')
+
+                # Localozar o transformador que foi alterado o valor de kvbase atraves da topologia
+                dss.topology.first()
+                while True:
+                    indx = dss.topology.active_branch
+                    indx_level = dss.topology.active_level
+                    branch_name = dss.topology.branch_name
+                    if branch_name == element_name:
+                        dss.circuit.set_active_element(element_name)
+                        dss.circuit.set_active_bus(dss.cktelement.bus_names[1])
+                        # encontrou o transformador que foi alterado com setkvbase
+                        break
+                    index_branch = dss.topology.forward_branch()
+
+                # busca os ramais conectados neste transformador
+                while True:
+                    index_branch_2 = dss.topology.next()
+                    indx_level_2 = dss.topology.active_level
+                    branch_name_2 = dss.topology.branch_name
+                    if not dss.topology.branch_name.startswith(('Line.sbt', 'Line.rbt')):
+                        print('\n Proximo transformador !!! \n')
+                        break
+                    # sekvbase aqui
+                    dss.circuit.set_active_element(branch_name_2)
+                    dss.circuit.set_active_bus(dss.cktelement.bus_names[1])
+                    bus_line_name = dss.bus.name
+                    kv_base_2 = dss.bus.kv_base
+                    print(f'{branch_name_2}: {dss.cktelement.bus_names}: {kv_base_2}')
+                    # dss.text(f'SetkVBase Bus={bus_name1} kVLL={vll}')
+                    dss.text(f'SetkVBase Bus={bus_line_name} kVLN={vln}')
+                    print(f'Valor alterado: {dss.cktelement.bus_names[1]} - kvbase:{dss.bus.kv_base}')
+
+            dss.transformers.next()
+
     def executa_fluxo_potencia(self) -> None:
         """
         Função para solicitar execução do fluxo de potência no OpenDSS.
         :return: None
         """
+        ini_tentativa = 1  # valor inicial para o loadmult
+        max_tentativa = 6  # numero de tentativas apos não covergência
+
         erros = []
         # self.dss.text("clear")
-        self.dss.dssinterface.allow_forms = False
+        # self.dss.dssinterface.allow_forms = False
         self.dss.dssinterface.clear_all()
         # self.dss.text(f"set datapath = '{os.path.join(config_opendss['master_folder'], config_opendss['master_dist'])}'")
         self.dss.text(f"set Datapath = '{os.path.dirname(self.dss_file)}'")
@@ -472,11 +567,14 @@ class SimuladorOpendss:
                 if 'calcv' in dss_line:
                     break
 
+        # Verifica a correta atribuição das tensões de base para os transformadores não trifásicos
+        self.__check_kv_base()
+
         self.dss.text("set mode = daily")
         self.dss.text("set tolerance = 0.0001")
         self.dss.text("set maxcontroliter = 100")
         self.dss.text("set maxiterations = 100")
-        self.dss.text("Set stepsize = 1h")
+        self.dss.text("Set stepsize = 10m")
         self.dss.text("set number = 1")
         # self.dss.text("solve")
 
@@ -486,7 +584,7 @@ class SimuladorOpendss:
 
         # print(min(self.dss.circuit.buses_vmag_pu))
 
-        total_number = 24
+        total_number = 144
         voltage_bus_dict = dict()
         voltage_bus_dict_1phase = dict()
         vuf_bus_dict = dict()
@@ -497,7 +595,11 @@ class SimuladorOpendss:
         vuf_bus_list = []
         vuf_bus_violation_list = []
 
+        self.loadmult_ini = self.dss.solution.load_mult
+
         for number in range(1, total_number + 1):
+            hour = self.dss.solution.hour
+            sec = self.dss.solution.seconds
             # self.dss.text(f"set number={number}")
             self.dss.monitors.reset_all()
             self.dss.solution.solve()
@@ -510,10 +612,43 @@ class SimuladorOpendss:
                 print(f'OpenDSS: File {self.dss_file} not solved to time {number}!')
                 print(f"{self.dss.solution.event_log}\n")
                 logging.info(
-                    f'OpenDSS: File {self.dss_file} not solved! Set number: {number} - event: {self.dss.solution.event_log}')
+                    f'OpenDSS: File {self.dss_file} not solved! Set number: {number} - '
+                    f'event: {self.dss.solution.event_log}')
+
+                # Instancia o gerador positivo_negativo
+                sequencia = gerador_positivo_negativo()
+                # tentar novamente com loadmult
+                for tentativa in range(ini_tentativa, max_tentativa + ini_tentativa):
+                    # new_load_mult = self.loadmult_ini + tentativa / 100
+                    new_load_mult = self.loadmult_ini + next(sequencia) / 100
+                    self.dss.text(f"set loadmult={new_load_mult}")
+                    self.dss.text(f"set time = ({hour}, {sec})")
+                    print(f"Patamar:{number}, hour: {hour}, seconds: {sec}")
+                    self.dss.solution.solve()
+                    status = self.dss.solution.converged
+                    if status == 0:
+                        print(f'OpenDSS: File {self.dss_file} NOT solved to time {number}!')
+                        print(f"{self.dss.solution.event_log}\n")
+                        logging.info(
+                            f'OpenDSS: File {self.dss_file} NOT solved! Set number: {number} - '
+                            f'event: {self.dss.solution.event_log}')
+                    else:
+                        print(
+                            f'OpenDSS: File {self.dss_file} alter loadMult {new_load_mult} and solved to time {number}!')
+                        logging.info(f'OpenDSS: File {self.dss_file} SOLVED alter loadMult {new_load_mult} '
+                                     f'Set number: {number}, hour: {hour}, seconds: {sec}, event: {self.dss.solution.event_log}')
+
+                        self.dss.text(f"set loadmult={self.loadmult_ini}")
+                        self.__check_kv_base()
+                        break
+
                 # Add null dict. indicates the time at which the program did not converge
-                voltage_bus_list.append(dict.fromkeys(voltage_bus_dict.copy(), None))
-                continue
+                # voltage_bus_list.append(dict.fromkeys(voltage_bus_dict.copy(), None))
+                # continue
+
+            all_v_mag = self.dss.circuit.buses_vmag_pu
+            all_bus_name = self.dss.circuit.nodes_names
+            my_dict = dict(zip(all_bus_name, all_v_mag))
 
             active_bus = ''
             voltage_bus_dict.clear()
@@ -527,8 +662,8 @@ class SimuladorOpendss:
                 # print(bus_name)
                 if bus_name.split('.')[1] == '4':  # para desconsiderar tensão de neutro
                     continue
-                if self.dss.bus.kv_base < 1:  # para desconsiderar a baixa tensão
-                    continue
+                # if self.dss.bus.kv_base < 1:  # para desconsiderar a baixa tensão
+                #    continue
                 vll_pu = []
                 vln_pu = []
                 vll = []
@@ -536,6 +671,7 @@ class SimuladorOpendss:
                 # for i in range(self.dss.bus.num_nodes):
                 num_nodes = int(len(self.dss.bus.vll) / 2)
                 # num_nodes = self.dss.bus.num_nodes
+                # sum('bt4378440636963372bo02' in s for s in self.dss.circuit.nodes_names)
                 # Não existe valores de tensão de linha para barras monofásicas
                 if num_nodes > 1:
                     for i in range(num_nodes):
@@ -596,7 +732,8 @@ class SimuladorOpendss:
                 max_vol = min_vol = 0
             else:
                 max_vol = max(voltage_bus_dict.items(), key=lambda x: x[1])
-                min_vol = min(voltage_bus_dict.items(), key=lambda x: x[1])
+                # min_vol = min(voltage_bus_dict.items(), key=lambda x: x[1])
+                min_vol = min((k, v) for k, v in voltage_bus_dict.items() if v > 0.1)
 
             # os valores de max e min poidem apresentar diferença nos caso onde existem valores iguais
             # max_vol = max(voltage_bus_dict.values())
@@ -610,7 +747,7 @@ class SimuladorOpendss:
             self.dss.circuit.set_active_bus(min_vol[0].split('.')[0])
 
             cir_nome = circuit_by_bus(min_vol[0].split('.')[0], database)
-            print(f"Circuito: {cir_nome['CTMT'][0]}")
+            print(f"Barra: {cir_nome['CTMT'][0]}")
 
             Vab = round(math.sqrt(self.dss.bus.vll[0] ** 2 + self.dss.bus.vll[1] ** 2), 4)
             Vbc = round(math.sqrt(self.dss.bus.vll[2] ** 2 + self.dss.bus.vll[3] ** 2), 4)
@@ -639,11 +776,12 @@ class SimuladorOpendss:
             voltage_bus_dict.update(voltage_bus_dict_1phase)
 
             # create list of dict
-            voltage_bus_list.append(voltage_bus_dict.copy())
+            # voltage_bus_list.append(voltage_bus_dict.copy())
+            voltage_bus_list.append((my_dict.copy()))
 
             # buses com violação de tensão
-            voltage_bus_violation_dict = dict((k, v) for k, v in voltage_bus_dict.items() if (float(v) < 0.95 or
-                                                                                              float(v) > 1.05))
+            voltage_bus_violation_dict = dict((k, v) for k, v in voltage_bus_dict.items() if ((float(v) < 0.95 or
+                                                                                               float(v) > 1.05)))
             voltage_bus_violation_list.append(voltage_bus_violation_dict.copy())
 
             # fator de Desequilíbrio de tensão
@@ -715,8 +853,9 @@ if __name__ == '__main__':
                     'UNA', 'URB', 'USS', 'VGA', 'VHE', 'VJS', 'VSL']
         list_sub = ['USS']
         """
-        #list_sub = ['BRR', 'AVP', 'MTQ', 'GER', 'CAC']
-        list_sub = ['MTQ']
+        # list_sub = ['BRR', 'AVP', 'MTQ', 'GER', 'CAC']
+
+        list_sub = ['ABR']
 
         for nome_sub in list_sub:
             sub = nome_sub
@@ -743,6 +882,8 @@ if __name__ == '__main__':
             if exec_by_circuit:
                 for file_dss in (glob.glob(folder + f"/*/{master_type_day}_{master_month}_Master_*.dss")):
                     if "Master" in file_dss:
+                        # file_dss = rf"C:\pastaD\TSEA\dss\2024\Ajuste_demanda\RBOI1302\output\master.dss"
+
                         simul.list_file_dss.append(file_dss)
                         simul.dss_file = file_dss
                         simul.executa_fluxo_potencia()
@@ -751,7 +892,7 @@ if __name__ == '__main__':
                 simul.executa_fluxo_potencia()
                 simul.plot_data_monitors()
 
-    control_sub_loading = True
+    control_sub_loading = False
     if control_sub_loading:
         substations_losses(dist, 'DO', master_data_base, master_month)
         substations_losses(dist, 'DU', master_data_base, master_month)

@@ -1094,12 +1094,16 @@ class DssFilesGenerator:
             else:
                 # para a baixa tensão os geradores serão sempre conectados em Delta
                 # para a convergência no OpenDSS
-                # TODO Por que isso acontece?
+
                 if strCodFas == 'AN' or strCodFas == 'BN' or strCodFas == 'CN':
                     dbconn = 'Wye'
                 else:
                     dbconn = 'Delta'
-                strCodFas_ramal = ramal_bt.loc[ramal_bt['PAC_2'] == strBus, 'FAS_CON'].values[0]
+
+                try:
+                    strCodFas_ramal = ramal_bt.loc[ramal_bt['PAC_2'] == strBus, 'FAS_CON'].values[0]
+                except:
+                    print('...')  # Todo Se entrar aqui deve ter algum erro de cadatro da BDGD
 
             # Verifica as fases do gerador com as fases do ramal
             if strCodFas_ramal != '':
@@ -1402,7 +1406,7 @@ class DssFilesGenerator:
             linha_capacitores_dss.append(
                 f'New "Capacitor.CAP_{str_name}" bus1="{str_pac}{nos(strCodFas)}" kvar={dbl_pot} kv={kv_nom} '
                 f'phases={num_fases} conn={ligacao_trafo(strCodFas)}')
-            
+
             linha_capacitores_dss.append(
                 f'New "CapControl.C1ctrl_{str_name}" element="Line.SMT_{line_cod}" Capacitor=CAP_{str_name} '
                 f'Type=voltage ptratio={ptratio} ON={c_on} OFF={c_off}')
@@ -1476,6 +1480,8 @@ class DssFilesGenerator:
             arranjo = trechos_bt.loc[index]['TIP_CND']
             compr = trechos_bt.loc[index]['COMP'] / 1000
 
+            if strCodFas == 'N':        # Erro de cadastro da BDGD
+                strCodFas = 'ABCN'
             # num_fases = numero_fases(strCodFas)
             num_fases = numero_fases_segmento_neutro(strCodFas)
 
@@ -1538,15 +1544,19 @@ class DssFilesGenerator:
             bus1 = chaves_bt.loc[index]['PAC_1']
             bus2 = chaves_bt.loc[index]['PAC_2']
             strCodFas = chaves_bt.loc[index]['FAS_CON']
-            arranjo = chaves_bt.loc[index]['TIP_CND']
-            compr = chaves_bt.loc[index]['COMP'] / 1000
+            sw = chaves_bt.loc[index]['P_N_OPE']
+            #arranjo = chaves_bt.loc[index]['TIP_CND']
+            #compr = chaves_bt.loc[index]['COMP'] / 1000
 
             num_fases = numero_fases(strCodFas)
+            switch_coments = ''
+            if sw == 'A':  # chave aberta
+                switch_coments = '!'  # comentar a criação da chave no arquivo OpenDSS quando a chave for aberta.
 
             linhas_chaves_bt_dss.append(
-                f'New "Switch.CBT_{codigo}" phases={num_fases} '
+                f'{switch_coments}'
+                f'New "Line.CBT_{codigo}" phases={num_fases} '
                 f'bus1="{bus1}{nos_com_neutro(strCodFas)}" '
                 f'bus2="{bus2}{nos_com_neutro(strCodFas)}" '
-                f'linecode="{arranjo}_{num_fases}" '
-                f'length="{compr:.8f}" units=km'
+                f"r1=0.001 r0=0.001 x1=0 x0=0 c1=0 c0=0 length=0.001 Switch=y "
             )

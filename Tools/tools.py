@@ -335,6 +335,7 @@ def run_multi_process_gdb_file(table_name, gdb_file, bdgd, schema, data_base, da
 def process_gdb_files(gdb_file, engine, schema, data_base, data_carga, column_renames):
     """Função para processar arquivos GeoDatabase"""
     with engine.connect() as conn, conn.begin():
+        # engine = engine.execution_options(autocommit=False)
         # gdf = gpd.read_file(gdb_file)
         layerlist = fiona.listlayers(gdb_file)
 
@@ -416,8 +417,16 @@ def process_gdb_files(gdb_file, engine, schema, data_base, data_carga, column_re
                         # df['POINT_Y'] = df['geometry'].centroid.y  # lat
                         # df['POINT_X'] = df['geometry'].centroid.x  # lon
                         # CRS SISGRAS 2000
-                        df['POINT_Y'] = df['geometry'].to_crs('EPSG:4674').centroid.to_crs(df.crs).y  # lat
-                        df['POINT_X'] = df['geometry'].to_crs('EPSG:4674').centroid.to_crs(df.crs).x  # lat
+                        # Identifica o CRS original
+                        crs_original = df['geometry'].crs
+                        df_sp = df['geometry'].to_crs(epsg=31983)
+                        # Calcula o centroide na projeção correta e converte de volta para o CRS original
+                        centroides_originais = df_sp.centroid.to_crs(crs_original)
+                        df['POINT_Y'] = centroides_originais.y
+                        df['POINT_X'] = centroides_originais.x
+
+                        # df['POINT_Y'] = df['geometry'].to_crs('EPSG:4674').centroid.to_crs(df.crs).y  # lat
+                        # df['POINT_X'] = df['geometry'].to_crs('EPSG:4674').centroid.to_crs(df.crs).x  # lon
 
                     if df.iloc[0]['geometry'].geom_type == 'MultiLineString':
                         bounds = df.geometry.boundary.explode(index_parts=True).unstack()
@@ -1701,7 +1710,7 @@ def update_coords_by_aneel(dist, engine) -> dict:
 
 
 if __name__ == "__main__":
-    database = '391_2024'
+    database = '63_2024'
     # database = '6600_2022'
     config = load_config(database)
     dist = config['dist']

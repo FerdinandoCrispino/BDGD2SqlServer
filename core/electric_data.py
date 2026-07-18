@@ -292,6 +292,7 @@ class ElectricDataPort:
                             c.COD_ID = e.UN_RE
                         INNER JOIN [GEO_SIGR_DDAD_M10].sde.TPOTAPRT AS p ON p.COD_ID = e.POT_NOM
                         WHERE c.DIST = '{self.dist}' and c.sub='{self.sub}'  AND c.SIT_ATIV = 'AT'
+                            AND c.DESCR not like 'RESERVA TECNICA%' and c.DESCR not like '%SUBESTACAO'
                     ) AS g
                     INNER JOIN sde.CTMT AS cr ON cr.COD_ID = g.CTMT
                     INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN AS t ON t.COD_ID = cr.TEN_NOM
@@ -310,6 +311,7 @@ class ElectricDataPort:
                             c.COD_ID = e.UN_RE
                         INNER JOIN [GEO_SIGR_DDAD_M10].sde.TPOTAPRT AS p ON p.COD_ID = e.POT_NOM
                         WHERE c.DIST = '{self.dist}' and c.sub='{self.sub}' and c.ctmt='{ctmt}' AND c.SIT_ATIV = 'AT'
+                            AND c.DESCR not like 'RESERVA TECNICA%' and c.DESCR not like '%SUBESTACAO'
                     ) AS g
                     INNER JOIN sde.CTMT AS cr ON cr.COD_ID = g.CTMT
                     INNER JOIN  [GEO_SIGR_DDAD_M10].sde.TTEN AS t ON t.COD_ID = cr.TEN_NOM
@@ -1084,6 +1086,7 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
     """
     Procedimento principal de controle dos métodos de extração dos dados da BDGD para todos os elementos
     de rede e cria lista com os modelos para o openDSS e gerência a escrita dos arquivos para o openDSS.
+    de rede e cria lista com os modelos para o openDSS e gerência a escrita dos arquivos para o openDSS.
     :param cod_sub: Código da subestação definido na BDGD
     :param cod_dist: Código da distribuidora definido na BDGD
     :param mes: mês de referência para a associação das curvas de carga.
@@ -1296,7 +1299,7 @@ def write_files_dss(cod_sub, cod_dist, ano, mes, tipo_dia, dss_files_folder, eng
 
 def main():
     proc_time_ini = time.time()
-    config = load_config('391_2024')
+    config = load_config('63_2024')
     # controles de execução para apenas um primeiro mes e um primeiro tipo de dia da lista 'tipo_de_dias'
     control_mes = True
     control_tipo_dia = False
@@ -1314,7 +1317,7 @@ def main():
     # set multiprocessing
     run_multiprocess = False
 
-    mes_ini = 1  # [1 12] mes do ano de referência para os dados de cargas e geração
+    mes_ini = 7  # [1 12] mes do ano de referência para os dados de cargas e geração
     tipo_de_dias = ['DU', 'DO', 'SA']  # tipo de dia para referência para as curvas típicas de carga e geração
     tipo_de_dias = ['DU']  # tipo de dia para referência para as curvas típicas de carga e geração
 
@@ -1383,7 +1386,8 @@ def main():
 
         # list_sub = ['ACR', 'CCO', 'CRU', 'ICC', 'JPR', 'JSR', 'PLH']
         list_sub = ['BRR', 'AVP', 'MTQ', 'GER', 'CAC', 'BOI']
-        list_sub = ['BOI']
+
+        list_sub = ['BES']  # ['ABR', 'AER', 'MBA', 'AGU']
 
 
         print(f'Ajusting CodBNC....')

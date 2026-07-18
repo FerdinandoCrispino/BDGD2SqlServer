@@ -854,7 +854,7 @@ def get_coords_trafos_from_db(sub, ctmt):
 
 def get_coords_unsemt_from_db(sub, ctmt):
     if ctmt == "":
-        query = f'''Select POINT_X, POINT_Y, COD_ID, COR_NOM, CAP_ELO, CTMT, 
+        query = f'''Select POINT_X, POINT_Y, COD_ID, COR_NOM, CAP_ELO, CTMT, TIP_UNID,
                         CASE P_N_OPE 
                             when 'A' then 'OPEN' 
                             when 'F' then 'CLOSE' 
@@ -865,7 +865,7 @@ def get_coords_unsemt_from_db(sub, ctmt):
                 ;   
                 '''
     else:
-        query = f'''Select POINT_X, POINT_Y, COD_ID,COR_NOM, CAP_ELO, CTMT,
+        query = f'''Select POINT_X, POINT_Y, COD_ID, COR_NOM, CAP_ELO, CTMT, TIP_UNID,
                         CASE P_N_OPE 
                             when 'A' then 'OPEN' 
                             when 'F' then 'CLOSE' 
@@ -878,7 +878,7 @@ def get_coords_unsemt_from_db(sub, ctmt):
     rows = return_query_as_dataframe(query, engine)
     rows["TIPO"] = "UNSEMT"
     points = [((row["POINT_X"], row["POINT_Y"]), rows["COD_ID"], rows["P_N_OPE"], rows["COR_NOM"], rows["CAP_ELO"],
-               rows["CTMT"], rows["TIPO"])
+               rows["CTMT"], rows["TIP_UNID"], rows["TIPO"])
               for index, row in rows.iterrows()]
     return points
 
@@ -889,13 +889,13 @@ def create_geojson_from_points_UNSEMT(points_unsemt):
     points = []
     # circ = []
 
-    for pt, COD_ID, P_N_OPE, COR_NOM, CAP_ELO, CTMT, TIPO in points_unsemt:
+    for pt, COD_ID, P_N_OPE, COR_NOM, CAP_ELO, CTMT, REL, TIPO in points_unsemt:
         points.append(Point([pt]))
         # circ.append(ctmt)
 
     # Criar um GeoDataFrame com as geometrias e dados extras
     gdf = gpd.GeoDataFrame({'geometry': points, 'ctmt': CTMT, 'ope': P_N_OPE, 'cor_nom': COR_NOM, 'cap_elo': CAP_ELO,
-                            'tipo': TIPO, 'cod_id': COD_ID}, crs="EPSG:4326")
+                            'rel': REL, 'tipo': TIPO, 'cod_id': COD_ID}, crs="EPSG:4326")
     # gdf = gpd.GeoDataFrame(geometry=lines, crs="EPSG:4674")
 
     # Converter o GeoDataFrame para GeoJSON
